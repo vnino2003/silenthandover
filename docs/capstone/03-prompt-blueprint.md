@@ -98,7 +98,7 @@ the original". It never reaches a reviewer as a draft.
 
 ```text
 report_id: SR-2026-000001
-shift: Demo Line — Outgoing 2026-10-26
+shift: Demo shift — Outgoing 2026-10-26
 <open_issues>
 - ISS-000001 | Forklift FL-02 brake feels soft | open
 </open_issues>

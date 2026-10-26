@@ -4,86 +4,95 @@ import type { Queryable } from '../db/types';
 /**
  * SYNTHETIC DEMONSTRATION DATA. Every person, number and event here is invented.
  * Local test accounts only — never reuse these passwords anywhere else.
+ *
+ * The demo is one warehouse department. More departments can be added later from the
+ * admin portal without code changes; each gets its own supervisor and stays separate.
  */
 export const DEMO_PASSWORD = 'demo-handover-2026';
+export const DEMO_DEPARTMENT = { code: 'WH', name: 'Warehouse Inventory', timezone: 'Asia/Manila' } as const;
 
 export const DEMO_ACCOUNTS = [
   { key: 'admin', email: 'admin@demo.test', full_name: 'Alex Reyes', role: 'admin', dept: null },
-  { key: 'manager', email: 'maria.santos@demo.test', full_name: 'Maria Santos', role: 'manager', dept: 'WHO' },
-  { key: 'juan', email: 'juan.delacruz@demo.test', full_name: 'Juan Dela Cruz', role: 'employee', dept: 'WHO' },
-  { key: 'ana', email: 'ana.lim@demo.test', full_name: 'Ana Lim', role: 'employee', dept: 'WHO' },
-  { key: 'ben', email: 'ben.torres@demo.test', full_name: 'Ben Torres', role: 'employee', dept: 'WHO' },
+  { key: 'manager', email: 'maria.santos@demo.test', full_name: 'Maria Santos', role: 'manager', dept: 'WH' },
+  { key: 'juan', email: 'juan.delacruz@demo.test', full_name: 'Juan Dela Cruz', role: 'employee', dept: 'WH' },
+  { key: 'ana', email: 'ana.lim@demo.test', full_name: 'Ana Lim', role: 'employee', dept: 'WH' },
+  { key: 'ben', email: 'ben.torres@demo.test', full_name: 'Ben Torres', role: 'employee', dept: 'WH' },
+] as const;
+
+/** Only seeded by the tests, to prove departments cannot see each other's data. */
+export const SECOND_DEPARTMENT_ACCOUNTS = [
   { key: 'facmanager', email: 'rico.navarro@demo.test', full_name: 'Rico Navarro', role: 'manager', dept: 'FAC' },
   { key: 'liza', email: 'liza.ramos@demo.test', full_name: 'Liza Ramos', role: 'employee', dept: 'FAC' },
 ] as const;
 
-type Key = (typeof DEMO_ACCOUNTS)[number]['key'];
-
+const DEMO_TEAM = 'Demo';
 const val = async <T>(q: Queryable, sql: string, params: unknown[] = []) => (await q.query<{ v: T }>(sql, params))[0]!.v;
+const today = `(now() at time zone 'Asia/Manila')::date`;
 
 export interface SeedResult {
   accounts: { email: string; role: string; full_name: string }[];
 }
 
-export async function seedDemo(services: Services, opts: { onlyIfEmpty: boolean }): Promise<SeedResult | null> {
+export async function seedDemo(
+  services: Services,
+  opts: { onlyIfEmpty: boolean; includeSecondDepartment?: boolean },
+): Promise<SeedResult | null> {
   const { db, auth } = services;
   const existing = await db.asService((q) => val<number>(q, 'select count(*)::int as v from public.profiles'));
   if (opts.onlyIfEmpty && existing > 0) return null;
 
-  const ids = {} as Record<Key, string>;
-  for (const a of DEMO_ACCOUNTS) ids[a.key] = await auth.createUser(a.email, DEMO_PASSWORD);
+  const accounts = [...DEMO_ACCOUNTS, ...(opts.includeSecondDepartment ? SECOND_DEPARTMENT_ACCOUNTS : [])];
+  const ids: Record<string, string> = {};
+  for (const a of accounts) ids[a.key] = await auth.createUser(a.email, DEMO_PASSWORD);
 
   // Bootstrap the first administrator directly; everything after goes through checked functions.
   await db.asService((q) =>
     q.query(`insert into public.profiles (id, full_name, email, role) values ($1, $2, $3, 'admin')`, [ids.admin, 'Alex Reyes', 'admin@demo.test']),
   );
 
-  const deps = await db.asUser(ids.admin, async (q) => {
-    const who = await val<string>(q, `select app.admin_upsert_department(null, 'WHO', 'Warehouse Operations', 'Asia/Manila') as v`);
-    const fac = await val<string>(q, `select app.admin_upsert_department(null, 'FAC', 'Facilities', 'Asia/Manila') as v`);
-    const demoTeam = await val<string>(q, `select app.admin_upsert_team(null, $1, 'Demo Line') as v`, [who]);
-    for (const a of DEMO_ACCOUNTS) {
-      if (a.role === 'admin') continue;
-      await q.query('select app.admin_create_profile($1, $2, $3, $4, $5, $6, null)', [
-        ids[a.key],
-        a.full_name,
-        a.email,
-        a.role,
-        a.dept === 'WHO' ? who : fac,
-        a.key === 'juan' || a.key === 'ana' || a.key === 'ben' ? demoTeam : null,
-      ]);
+  // Administrator: one-time setup — the department, its people, and the demo team.
+  await db.asUser(ids.admin!, async (q) => {
+    const depts: Record<string, string> = {
+      WH: await val<string>(q, `select app.admin_upsert_department(null, $1, $2, $3) as v`, [
+        DEMO_DEPARTMENT.code,
+        DEMO_DEPARTMENT.name,
+        DEMO_DEPARTMENT.timezone,
+      ]),
+    };
+    if (opts.includeSecondDepartment) {
+      depts.FAC = await val<string>(q, `select app.admin_upsert_department(null, 'FAC', 'Facilities', 'Asia/Manila') as v`);
     }
+    // The demo shifts use their own team so their handover goes to the demo incoming shift,
+    // not to a regular Morning/Afternoon/Night shift that happens to start in between.
+    await q.query(`select app.admin_upsert_team(null, $1, $2)`, [depts.WH, DEMO_TEAM]);
+    for (const a of accounts) {
+      if (a.role === 'admin') continue;
+      await q.query('select app.admin_create_profile($1, $2, $3, $4, $5, null, null)', [ids[a.key], a.full_name, a.email, a.role, depts[a.dept!]]);
+    }
+  });
+
+  // Supervisor: the day-to-day schedule for their own department.
+  await db.asUser(ids.manager!, async (q) => {
     const templates: [string, string, string][] = [
       ['Morning', '06:00', '14:00'],
       ['Afternoon', '14:00', '22:00'],
       ['Night', '22:00', '06:00'],
     ];
     for (const [name, start, end] of templates) {
-      const t = await val<string>(q, `select app.admin_upsert_template(null, $1, null, $2, $3::time, $4::time, 30, 30, true, true) as v`, [who, name, start, end]);
-      await q.query(`select app.admin_generate_shifts($1, (now() at time zone 'Asia/Manila')::date - 1, (now() at time zone 'Asia/Manila')::date + 6, $2)`, [t, ids.manager]);
+      const t = await val<string>(q, `select app.upsert_shift_template(null, null, $1, $2::time, $3::time, 30, 30, true, true) as v`, [name, start, end]);
+      await q.query(`select app.generate_shifts($1, ${today} - 1, ${today} + 6, $2)`, [t, ids.manager]);
     }
-    const facT = await val<string>(q, `select app.admin_upsert_template(null, $1, null, 'Day', '07:00'::time, '19:00'::time, 30, 30, true, true) as v`, [fac]);
-    await q.query(`select app.admin_generate_shifts($1, (now() at time zone 'Asia/Manila')::date - 1, (now() at time zone 'Asia/Manila')::date + 6, $2)`, [facT, ids.facmanager]);
-
     // A regular future shift for Juan so the "upcoming" list is realistic.
     const tomorrowMorning = await val<string>(
       q,
-      `select id as v from public.shifts where department_id = $1 and label = 'Morning' and shift_date = (now() at time zone 'Asia/Manila')::date + 1`,
-      [who],
+      `select id as v from public.shifts where department_id = app.my_department() and label = 'Morning' and shift_date = ${today} + 1`,
     );
-    await q.query('select app.admin_assign_employee($1, $2)', [tomorrowMorning, ids.juan]);
-    const facToday = await val<string>(
-      q,
-      `select id as v from public.shifts where department_id = $1 and shift_date = (now() at time zone 'Asia/Manila')::date`,
-      [fac],
-    );
-    await q.query('select app.admin_assign_employee($1, $2)', [facToday, ids.liza]);
-    return { who, fac, demoTeam };
+    await q.query('select app.assign_to_shift($1, $2)', [tomorrowMorning, ids.juan]);
   });
 
-  await createDemoTimeline(services, ids.admin);
+  await createDemoTimeline(services, ids.manager!);
 
-  await db.asUser(ids.manager, async (q) => {
+  await db.asUser(ids.manager!, async (q) => {
     await q.query(
       `select app.add_operational_record('maintenance', 'MR-2291', 'Conveyor C3 belt tension adjusted', 'Tension set to spec by maintenance tech; belt tracking OK at test run.', now() - interval '3 hours')`,
     );
@@ -98,55 +107,59 @@ export async function seedDemo(services: Services, opts: { onlyIfEmpty: boolean 
     await q.query(`select app.transition_issue($1, 'in_progress', 'Maintenance ticket raised; parts on order.')`, [dock.id]);
     await q.query('select app.assign_issue($1, $2)', [forklift.id, ids.juan]);
   });
-  await db.asUser(ids.facmanager, async (q) => {
-    await q.query(`select app.raise_issue('Roof drain near Bay 2 clogged', 'Visible water pooling after rain.', 'medium', false)`);
-  });
 
-  return { accounts: DEMO_ACCOUNTS.map((a) => ({ email: a.email, role: a.role, full_name: a.full_name })) };
+  if (opts.includeSecondDepartment) {
+    await db.asUser(ids.facmanager!, async (q) => {
+      const t = await val<string>(q, `select app.upsert_shift_template(null, null, 'Day', '07:00'::time, '19:00'::time, 30, 30, true, true) as v`);
+      await q.query(`select app.generate_shifts($1, ${today} - 1, ${today} + 6, $2)`, [t, ids.facmanager]);
+      const facToday = await val<string>(q, `select id as v from public.shifts where department_id = app.my_department() and shift_date = ${today}`);
+      await q.query('select app.assign_to_shift($1, $2)', [facToday, ids.liza]);
+      await q.query(`select app.raise_issue('Roof drain near Bay 2 clogged', 'Visible water pooling after rain.', 'medium', false)`);
+    });
+  }
+
+  return { accounts: accounts.map((a) => ({ email: a.email, role: a.role, full_name: a.full_name })) };
 }
 
 /**
  * Creates an outgoing shift whose reporting window is open right now and the incoming shift
  * that follows it, so the full workflow can be demonstrated at any time of day.
+ * Runs as the department's supervisor, who owns the schedule.
  */
-export async function createDemoTimeline(services: Services, adminId: string): Promise<{ outgoing: string; incoming: string }> {
+export async function createDemoTimeline(services: Services, supervisorId: string): Promise<{ outgoing: string; incoming: string }> {
   const { db } = services;
   // Email is not readable through the user role (column-level privacy), so resolve ids here.
   const people = await db.asService((q) =>
     q.query<{ id: string; email: string }>(`select id, email from public.profiles where email = any($1)`, [
-      ['juan.delacruz@demo.test', 'ana.lim@demo.test', 'ben.torres@demo.test', 'maria.santos@demo.test'],
+      ['juan.delacruz@demo.test', 'ana.lim@demo.test', 'ben.torres@demo.test'],
     ]),
   );
   const byEmail = Object.fromEntries(people.map((p) => [p.email, p.id]));
-  return db.asUser(adminId, async (q) => {
-    const team = await q.query<{ id: string; department_id: string }>(
-      `select t.id, t.department_id from public.teams t join public.departments d on d.id = t.department_id
-        where d.code = 'WHO' and t.name = 'Demo Line'`,
-    );
-    if (!team[0]) throw new Error('Demo team not found — run the full seed first');
-    const { id: teamId, department_id: dept } = team[0];
+  return db.asUser(supervisorId, async (q) => {
+    const [team] = await q.query<{ id: string }>(`select id from public.teams where department_id = app.my_department() and name = $1`, [DEMO_TEAM]);
+    if (!team) throw new Error('Demo team not found — run the full seed first');
     // Earlier demo shifts that would overlap the new pair would otherwise receive its handover.
     const overlapping = await q.query<{ id: string; supervisor_id: string | null }>(
       `select id, supervisor_id from public.shifts
         where team_id = $1 and status = 'scheduled' and starts_at > date_trunc('minute', now()) - interval '7 hours 40 minutes'`,
-      [teamId],
+      [team.id],
     );
-    for (const s of overlapping) await q.query(`select app.admin_update_shift($1, $2, 'cancelled')`, [s.id, s.supervisor_id]);
+    for (const s of overlapping) await q.query(`select app.update_shift($1, $2, 'cancelled')`, [s.id, s.supervisor_id]);
     const outgoing = await val<string>(
       q,
-      `select app.admin_create_shift($1, $2, 'Demo Line — Outgoing', date_trunc('minute', now()) - interval '7 hours 40 minutes',
-              date_trunc('minute', now()) + interval '20 minutes', 30, 90, $3, true) as v`,
-      [dept, teamId, byEmail['maria.santos@demo.test']],
+      `select app.create_shift($1, 'Demo shift — Outgoing', date_trunc('minute', now()) - interval '7 hours 40 minutes',
+              date_trunc('minute', now()) + interval '20 minutes', 30, 90, auth.uid(), true) as v`,
+      [team.id],
     );
     const incoming = await val<string>(
       q,
-      `select app.admin_create_shift($1, $2, 'Demo Line — Incoming', date_trunc('minute', now()) + interval '20 minutes',
-              date_trunc('minute', now()) + interval '8 hours 20 minutes', 30, 90, $3, true) as v`,
-      [dept, teamId, byEmail['maria.santos@demo.test']],
+      `select app.create_shift($1, 'Demo shift — Incoming', date_trunc('minute', now()) + interval '20 minutes',
+              date_trunc('minute', now()) + interval '8 hours 20 minutes', 30, 90, auth.uid(), true) as v`,
+      [team.id],
     );
-    await q.query('select app.admin_assign_employee($1, $2)', [outgoing, byEmail['juan.delacruz@demo.test']]);
-    await q.query('select app.admin_assign_employee($1, $2)', [incoming, byEmail['ana.lim@demo.test']]);
-    await q.query('select app.admin_assign_employee($1, $2)', [incoming, byEmail['ben.torres@demo.test']]);
+    await q.query('select app.assign_to_shift($1, $2)', [outgoing, byEmail['juan.delacruz@demo.test']]);
+    await q.query('select app.assign_to_shift($1, $2)', [incoming, byEmail['ana.lim@demo.test']]);
+    await q.query('select app.assign_to_shift($1, $2)', [incoming, byEmail['ben.torres@demo.test']]);
     return { outgoing, incoming };
   });
 }

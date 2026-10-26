@@ -11,8 +11,8 @@ TESDA AI Automation Capstone — see [`docs/capstone/`](docs/capstone/README.md)
 
 | Part | Status in this repository |
 |---|---|
-| Web app — Employee, Manager, Admin portals | Implemented, verified in the browser |
-| Database schema, RLS, workflow rules (PostgreSQL) | Implemented, 81 automated tests passing |
+| Web app — Worker, Supervisor, Admin portals | Implemented, verified in the browser |
+| Database schema, RLS, workflow rules (PostgreSQL) | Implemented, 82 automated tests passing |
 | PII sanitization, injection detection, schema validation, grounding checks | Implemented, tested |
 | AI drafting | **Development simulator** (labeled in the UI). The n8n + model path is implemented and tested against a simulated n8n; **not yet verified against a live n8n or model** |
 | Email | **Dev outbox** (recorded as "simulated"). Resend (direct or via n8n) implemented, **not yet verified live** |
@@ -38,16 +38,32 @@ Open <http://localhost:5173>. The first start creates a local database and synth
 (about 30 seconds). The sign-in page lists the demo accounts; click one to sign in. All of them use the
 local test password `demo-handover-2026`.
 
-| Account | Role | Use it to |
+The demo is one department, **Warehouse Inventory** (TESDA Track C: Admin & Inventory Operations).
+
+| Account | Role | Does |
 |---|---|---|
-| Juan Dela Cruz | Employee, Warehouse Operations | Submit a report (his "Demo Line — Outgoing" window is open) |
-| Maria Santos | Manager, Warehouse Operations | Review, verify flags, approve |
-| Ana Lim, Ben Torres | Employees on the incoming shift | Read and acknowledge the handover |
-| Alex Reyes | Administrator | Users, shifts, settings, integration health |
-| Rico Navarro, Liza Ramos | Facilities department | Show that departments can't see each other |
+| Juan Dela Cruz | Worker | Submits his end-of-shift report (his "Demo shift — Outgoing" window is open) |
+| Maria Santos | Supervisor | Builds the schedule, **approves every report**, verifies fixed issues |
+| Ana Lim, Ben Torres | Workers on the next shift | Read and acknowledge the approved handover |
+| Alex Reyes | Admin (IT/HR) | One-time setup: accounts, departments, settings, integration health. Cannot read or approve reports |
+
+**Who approves?** Only the department's supervisor — never the admin, never the AI, and never the
+person who wrote the report.
+
+**Adding departments later:** the admin adds a department and its supervisor under *Departments* and
+*Users*; that supervisor then builds their own schedule. Departments never see each other's reports.
 
 The demo shifts are created relative to the time you seed. When the outgoing window has passed, sign
-in as the administrator and click **Integrations → Create demo shift pair**.
+in as Maria and click **Schedule → Create demo shifts**.
+
+### How shifts work
+
+1. **Shift types** — e.g. Morning 6:00 AM–2:00 PM. Reporting opens 30 minutes before the end and
+   closes 30 minutes after (both adjustable).
+2. **Add next 7 days** — creates the actual shifts for each day.
+3. **Who's on duty** — the supervisor adds workers to each shift.
+4. When a report is approved, it goes automatically to the workers on the **next** shift.
+5. Missed the window? The supervisor can allow a late submission from *Today's shifts*; it is marked late.
 
 ### Demo walkthrough
 

@@ -5,6 +5,7 @@ import { reidentifyDeep } from '../automation/sanitize';
 import { ApiError } from '../http/errors';
 import { asUser, idParam, one, parseBody, parseQuery, requireRole, svc, type AppEnv } from '../http/context';
 import { SHIFT_COLUMNS } from './employee';
+import { scheduleRoutes } from './schedule';
 
 export function managerRoutes() {
   const r = new Hono<AppEnv>();
@@ -12,6 +13,7 @@ export function managerRoutes() {
     requireRole(c, 'manager');
     await next();
   });
+  r.route('/', scheduleRoutes());
 
   r.get('/queue', async (c) => {
     const rows = await asUser(c, (q) =>

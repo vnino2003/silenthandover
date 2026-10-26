@@ -86,7 +86,6 @@ const pendingAcks = computed(() => data.value?.incoming.filter((i) => !i.acknowl
               </p>
               <dl class="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-[14px] sm:grid-cols-3">
                 <div><dt class="text-ink-3">Department</dt><dd>{{ current.department_name }}</dd></div>
-                <div v-if="current.team_name"><dt class="text-ink-3">Team</dt><dd>{{ current.team_name }}</dd></div>
                 <div v-if="current.supervisor_name"><dt class="text-ink-3">Supervisor</dt><dd>{{ current.supervisor_name }}</dd></div>
               </dl>
               <div class="mt-5 border-t border-line pt-5">

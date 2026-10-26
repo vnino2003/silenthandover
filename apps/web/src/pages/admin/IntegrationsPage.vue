@@ -49,7 +49,6 @@ const runTick = () =>
     toast.info(Object.entries(r).map(([k, v]) => `${k.replace(/_/g, ' ')}: ${v}`).join(' · '));
   }, 'Scheduled checks ran');
 
-const createDemo = () => act('demo', () => api.post('/admin/demo/timeline'), 'Demo shifts created: the outgoing window is open now');
 const retryEvent = (id: string) => act(id, () => api.post(`/admin/events/${id}/retry`), 'Retry queued');
 const retryDelivery = (id: string) => act(id, () => api.post(`/admin/deliveries/${id}/retry`), 'Retry queued');
 
@@ -66,9 +65,6 @@ const counts = (rows: { status: string; count: number }[]) => rows.reduce<Record
 <template>
   <div class="mx-auto max-w-5xl">
     <PageHeader title="Integrations" description="What is connected, what is simulated, and every automation run. Report content is not shown here.">
-      <UiButton v-if="auth.config?.demo" :loading="busy === 'demo'" @click="createDemo">
-        Create demo shift pair
-      </UiButton>
       <UiButton :loading="busy === 'tick'" @click="runTick">Run scheduled checks</UiButton>
     </PageHeader>
 

@@ -189,8 +189,8 @@ const saveLabel = computed(() => {
     <form class="space-y-6" novalidate @submit.prevent="requestSubmit">
       <UiField
         v-slot="{ id, invalid, describedby }"
-        label="Completed work"
-        hint="What did you finish? Include quantities and reference numbers exactly as recorded."
+        label="Work completed"
+        hint="Deliveries unloaded, orders picked, counts done. Include quantities and PO or reference numbers exactly as recorded."
         :error="errors.completed_work"
       >
         <textarea :id="id" v-model="content.completed_work" class="field-input min-h-28" rows="4" :aria-invalid="invalid" :aria-describedby="describedby" />
@@ -198,8 +198,8 @@ const saveLabel = computed(() => {
 
       <UiField
         v-slot="{ id, invalid, describedby }"
-        label="Unresolved issues"
-        hint="Problems still open at the end of your shift — where, what you saw, and what was done so far."
+        label="Problems still open"
+        hint="Stock that doesn’t match, damaged goods, equipment faults, hazards. Say where, what you saw, and what you did."
         :error="errors.unresolved_issues"
       >
         <textarea
@@ -213,11 +213,11 @@ const saveLabel = computed(() => {
         />
         <label class="mt-2 flex items-center gap-2 text-[14px] text-ink-2">
           <input v-model="content.no_unresolved_issues" type="checkbox" class="size-4 accent-accent" @change="content.no_unresolved_issues && (content.unresolved_issues = '')" />
-          There are no unresolved issues
+          No open problems
         </label>
       </UiField>
 
-      <UiField v-slot="{ id, invalid, describedby }" label="Pending tasks" hint="Work the next shift needs to pick up." :error="errors.pending_tasks">
+      <UiField v-slot="{ id, invalid, describedby }" label="For the next shift" hint="Dispatches, restocking and follow-ups the next shift must pick up." :error="errors.pending_tasks">
         <textarea
           :id="id"
           v-model="content.pending_tasks"
@@ -229,26 +229,26 @@ const saveLabel = computed(() => {
         />
         <label class="mt-2 flex items-center gap-2 text-[14px] text-ink-2">
           <input v-model="content.no_pending_tasks" type="checkbox" class="size-4 accent-accent" @change="content.no_pending_tasks && (content.pending_tasks = '')" />
-          There are no pending tasks
+          Nothing for the next shift
         </label>
       </UiField>
 
       <div class="rounded-lg border border-line">
         <button type="button" class="flex w-full items-center justify-between px-4 py-3 text-left" :aria-expanded="showMore" @click="showMore = !showMore">
           <span>
-            <span class="block text-[14px] font-medium">Concerns, notes and evidence</span>
-            <span class="block text-[13px] text-ink-3">Safety or equipment concerns, notes for the next shift, photo or document references</span>
+            <span class="block text-[14px] font-medium">Equipment, safety and other notes</span>
+            <span class="block text-[13px] text-ink-3">Forklifts, conveyors, spills — plus any notes or photo references</span>
           </span>
           <span class="text-[13px] text-ink-3">{{ showMore ? 'Hide' : 'Add' }}</span>
         </button>
         <div v-if="showMore" class="space-y-5 border-t border-line px-4 py-4">
-          <UiField v-slot="{ id }" label="Operational concerns" hint="Safety, equipment, staffing or supply concerns — even if unconfirmed." optional>
+          <UiField v-slot="{ id }" label="Equipment &amp; safety concerns" hint="Forklifts, conveyors, scanners, spills, blocked exits — even if unconfirmed." optional>
             <textarea :id="id" v-model="content.operational_concerns" class="field-input" rows="3" />
           </UiField>
-          <UiField v-slot="{ id }" label="Handover notes" hint="Anything else the incoming shift should know." optional>
+          <UiField v-slot="{ id }" label="Other notes" hint="Anything else the next shift should know." optional>
             <textarea :id="id" v-model="content.handover_notes" class="field-input" rows="3" />
           </UiField>
-          <UiField v-slot="{ id }" label="Evidence references" hint="Work order numbers, photo references, log entries." optional>
+          <UiField v-slot="{ id }" label="Evidence references" hint="Photo, work order or log references." optional>
             <input :id="id" v-model="content.evidence_refs" class="field-input" />
           </UiField>
         </div>

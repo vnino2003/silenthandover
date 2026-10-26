@@ -30,9 +30,11 @@
 | Colleagues' email / phone | ✖ (column privilege) | ✖ | ✔ via `admin_list_users()` |
 | Automation events, delivery status | ✖ | own dept events | ✔ (no addresses, no content) |
 | Audit log | ✖ | own dept | ✔ |
+| Build the schedule, assign who is on duty | ✖ | ✔ own dept only | ✖ |
+| Approve reports, verify resolutions | ✖ | ✔ own dept only | ✖ |
 | Pseudonym mappings (`internal` schema) | ✖ | ✖ | ✖ — service only |
 
-Administrators configure the system but **cannot read report content**; the admin overview shows counts.
+Administrators set the system up (accounts, departments, settings) but **cannot read report content, approve reports or change the schedule**; the admin overview shows counts.
 
 ## Integrity rules enforced by the database
 

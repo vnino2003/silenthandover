@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { ROLES, type Role } from '@sh/shared';
+import { ROLE_LABELS, ROLES, type Role } from '@sh/shared';
 import PageHeader from '@/components/ui/PageHeader.vue';
 import StateBlock from '@/components/ui/StateBlock.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
@@ -78,8 +78,8 @@ async function save() {
           <tbody class="divide-y divide-line">
             <tr v-for="u in rows" :key="u.id" :class="{ 'text-ink-3': !u.is_active }">
               <td class="px-5 py-2.5"><span class="font-medium">{{ u.full_name }}</span><span class="block text-[12.5px] text-ink-3">{{ u.email }}</span></td>
-              <td class="px-3 py-2.5 capitalize">{{ u.role }}</td>
-              <td class="px-3 py-2.5">{{ u.department_name ?? '—' }}<span v-if="u.team_name" class="block text-[12.5px] text-ink-3">{{ u.team_name }}</span></td>
+              <td class="px-3 py-2.5">{{ ROLE_LABELS[u.role] }}</td>
+              <td class="px-3 py-2.5">{{ u.department_name ?? '—' }}</td>
               <td class="px-3 py-2.5"><StatusBadge :tone="u.is_active ? 'ok' : 'neutral'" :label="u.is_active ? 'Active' : 'Deactivated'" /></td>
               <td class="px-5 py-2.5 text-right"><UiButton size="sm" variant="ghost" @click="openEdit(u)">Edit</UiButton></td>
             </tr>
@@ -104,7 +104,7 @@ async function save() {
         <div class="grid grid-cols-2 gap-3">
           <UiField v-slot="{ id }" label="Role">
             <select :id="id" v-model="editing.role" class="field-input capitalize">
-              <option v-for="r in ROLES" :key="r" :value="r">{{ r }}</option>
+              <option v-for="r in ROLES" :key="r" :value="r">{{ ROLE_LABELS[r] }}</option>
             </select>
           </UiField>
           <UiField v-if="editing.role !== 'admin'" v-slot="{ id }" label="Department" :error="errors.department_id">
@@ -123,7 +123,8 @@ async function save() {
           <input :id="id" v-model="editing.phone" type="tel" class="field-input" />
         </UiField>
         <label v-if="editing.id" class="flex items-center gap-2 text-[14px]"><input v-model="editing.is_active" type="checkbox" class="size-4 accent-accent" /> Account active</label>
-        <p v-if="editing.role === 'admin'" class="text-[12.5px] text-ink-3">Administrators manage configuration. They cannot read report content or AI drafts.</p>
+        <p v-if="editing.role === 'admin'" class="text-[12.5px] text-ink-3">Admins set up accounts, departments and settings. They cannot read reports or AI drafts, and they do not approve.</p>
+        <p v-else-if="editing.role === 'manager'" class="text-[12.5px] text-ink-3">Supervisors build the schedule and approve every report from their department.</p>
       </form>
       <template #footer>
         <UiButton variant="ghost" @click="editing = null">Cancel</UiButton>

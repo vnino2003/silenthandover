@@ -1,5 +1,11 @@
 # 1. Three-Criterion Automation Audit
 
+**Track:** C — Admin & Inventory Operations.
+**Scope:** one department, *Warehouse Inventory*, where unresolved stock, dispatch, equipment and
+safety issues are most often lost at shift change. The system is built to scale: an administrator can
+add departments (e.g. Receiving, Dispatch, Maintenance) without code changes, and each department gets
+its own supervisor, schedule and private data.
+
 **Task audited:** turning each employee's end-of-shift notes into a verified handover for the next
 shift, and keeping unresolved issues visible until someone authorized confirms they are fixed.
 

@@ -3,6 +3,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 import { useAuth } from '@/stores/auth';
 import { useNotifications } from '@/stores/notifications';
+import { ROLE_LABELS } from '@sh/shared';
 
 const auth = useAuth();
 const notes = useNotifications();
@@ -19,7 +20,8 @@ const NAV = {
   ],
   manager: [
     { to: '/manager', label: 'Review queue', exact: true },
-    { to: '/manager/shifts', label: 'Shift board' },
+    { to: '/manager/shifts', label: 'Today’s shifts' },
+    { to: '/manager/schedule', label: 'Schedule' },
     { to: '/manager/issues', label: 'Issues' },
     { to: '/manager/reports', label: 'Report history', exact: true },
     { to: '/manager/records', label: 'Source records' },
@@ -29,7 +31,6 @@ const NAV = {
     { to: '/admin', label: 'Integrations', exact: true },
     { to: '/admin/users', label: 'Users' },
     { to: '/admin/departments', label: 'Departments' },
-    { to: '/admin/shifts', label: 'Shifts' },
     { to: '/admin/settings', label: 'Settings' },
     { to: '/admin/audit', label: 'Audit log' },
   ],
@@ -99,7 +100,7 @@ async function signOut() {
       <aside class="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-line px-4 py-6 lg:flex">
         <RouterLink :to="auth.homePath" class="px-2 text-[15px] font-semibold tracking-[-0.01em]">Silent Handover</RouterLink>
         <p class="mt-0.5 px-2 text-[12.5px] text-ink-3">
-          {{ auth.profile?.department_name ?? 'Administration' }}<template v-if="auth.profile?.team_name"> · {{ auth.profile.team_name }}</template>
+          {{ auth.profile?.department_name ?? 'System setup' }}
         </p>
         <nav class="mt-8 space-y-0.5" aria-label="Main">
           <RouterLink
@@ -126,7 +127,7 @@ async function signOut() {
         <div class="mt-auto space-y-3 px-2">
           <div>
             <p class="truncate text-[14px] font-medium">{{ auth.profile?.full_name }}</p>
-            <p class="text-[12.5px] text-ink-3 capitalize">{{ auth.role }}</p>
+            <p class="text-[12.5px] text-ink-3">{{ auth.role ? ROLE_LABELS[auth.role] : '' }}</p>
           </div>
           <div class="flex gap-3 text-[13px]">
             <RouterLink to="/profile" class="text-ink-2 hover:text-ink">Profile</RouterLink>

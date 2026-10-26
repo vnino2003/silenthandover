@@ -37,24 +37,24 @@ export const ReportSubmission = ReportDraftContent.superRefine((v, ctx) => {
     ctx.addIssue({
       code: 'custom',
       path: ['unresolved_issues'],
-      message: 'Describe unresolved issues, or confirm there are none',
+      message: 'Describe the problems still open, or tick “No open problems”',
     });
   }
   if (v.no_unresolved_issues && v.unresolved_issues.length > 0) {
     ctx.addIssue({
       code: 'custom',
       path: ['unresolved_issues'],
-      message: 'You confirmed there are no unresolved issues — clear this field or untick the box',
+      message: 'You ticked “No open problems” — clear this field or untick the box',
     });
   }
   if (!v.no_pending_tasks && v.pending_tasks.length < 3) {
-    ctx.addIssue({ code: 'custom', path: ['pending_tasks'], message: 'List pending tasks, or confirm there are none' });
+    ctx.addIssue({ code: 'custom', path: ['pending_tasks'], message: 'List what the next shift must do, or tick “Nothing for the next shift”' });
   }
   if (v.no_pending_tasks && v.pending_tasks.length > 0) {
     ctx.addIssue({
       code: 'custom',
       path: ['pending_tasks'],
-      message: 'You confirmed there are no pending tasks — clear this field or untick the box',
+      message: 'You ticked “Nothing for the next shift” — clear this field or untick the box',
     });
   }
   for (const [i, u] of v.issue_updates.entries()) {
@@ -67,27 +67,27 @@ export const ReportSubmission = ReportDraftContent.superRefine((v, ctx) => {
 export const REPORT_SECTIONS = [
   {
     key: 'completed_work',
-    label: 'Completed work',
-    hint: 'What did you finish? Include quantities and reference numbers exactly as recorded.',
+    label: 'Work completed',
+    hint: 'Deliveries unloaded, orders picked, counts done. Include quantities and PO or reference numbers exactly as recorded.',
   },
   {
     key: 'unresolved_issues',
-    label: 'Unresolved issues',
-    hint: 'Problems still open at the end of your shift. Say where, what you saw, and what was done so far.',
+    label: 'Problems still open',
+    hint: 'Stock that doesn’t match, damaged goods, equipment faults, hazards. Say where, what you saw, and what you did.',
   },
   {
     key: 'pending_tasks',
-    label: 'Pending tasks',
-    hint: 'Work the next shift needs to pick up.',
+    label: 'For the next shift',
+    hint: 'Dispatches, restocking and follow-ups the next shift must pick up.',
   },
   {
     key: 'operational_concerns',
-    label: 'Operational concerns',
-    hint: 'Safety, equipment, staffing or supply concerns — even if unconfirmed.',
+    label: 'Equipment & safety concerns',
+    hint: 'Forklifts, conveyors, scanners, spills, blocked exits — even if unconfirmed.',
   },
   {
     key: 'handover_notes',
-    label: 'Handover notes',
-    hint: 'Anything else the incoming shift should know.',
+    label: 'Other notes',
+    hint: 'Anything else the next shift should know.',
   },
 ] as const;

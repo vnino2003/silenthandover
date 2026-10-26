@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { ROLE_LABELS, type Role } from '@sh/shared';
 import UiButton from '@/components/ui/UiButton.vue';
 import UiField from '@/components/ui/UiField.vue';
 import { errorMessage } from '@/lib/api';
@@ -76,7 +77,7 @@ function useAccount(a: { email: string }) {
                   <span class="block truncate text-[14px] font-medium">{{ a.full_name }}</span>
                   <span class="block truncate text-[12.5px] text-ink-3">{{ a.email }}</span>
                 </span>
-                <span class="shrink-0 text-[12.5px] text-ink-2 capitalize">{{ a.role }}<template v-if="a.department"> · {{ a.department }}</template></span>
+                <span class="shrink-0 text-[12.5px] text-ink-2">{{ ROLE_LABELS[a.role as Role] }}</span>
               </button>
             </li>
           </ul>

@@ -51,6 +51,20 @@ The brief allows either. A Node.js API (Hono) was chosen because:
   Admins manage configuration and see operational metadata, but **RLS does not give admins report
   content, AI drafts or PII mappings**.
 
+## 4b. Who does what
+
+| | Worker (`employee`) | Supervisor (`manager`) | Admin (`admin`) |
+|---|---|---|---|
+| Submit end-of-shift report | ✔ | | |
+| Read and acknowledge incoming handover | ✔ | | |
+| Build shift types and the schedule, assign who is on duty | | ✔ own department | |
+| **Approve / reject / request revision** | | ✔ own department, not own report | |
+| Verify an issue as resolved | | ✔ own department | |
+| Accounts, departments, settings, integration health | | | ✔ |
+
+The demo uses one department (Warehouse Inventory). More can be added by the admin without code
+changes; each gets its own supervisor, schedule and data boundary.
+
 ## 5. Shift reporting lifecycle
 
 ```

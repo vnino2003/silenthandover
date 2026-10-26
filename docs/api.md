@@ -69,6 +69,10 @@ Errors: `{ "error": { "code", "message", "fields"?, "request_id" } }`.
 | GET | `/manager/shift-board?date=YYYY-MM-DD` | Shifts, assignees, report status, missing reports, acknowledgments |
 | POST | `/manager/shifts/:id/override` | `{ employee_id, minutes, reason }` |
 | GET/POST | `/manager/records` | Source records (`maintenance`, `inventory`, `dispatch`, `policy`) |
+| GET/POST | `/manager/templates` · PATCH `/:id` · POST `/:id/generate` | Shift types; generate `{ from, to, supervisor_id }` |
+| GET/POST | `/manager/schedule?from&to` · PATCH `/:id` | Shifts in your department; one-off shifts; cancel |
+| POST/DELETE | `/manager/schedule/:id/assignments[/:employeeId]` | Who is on duty. Assigning also delivers waiting handovers |
+| POST | `/manager/demo/timeline` | Local demo mode only |
 
 ## Admin
 
@@ -76,13 +80,9 @@ Errors: `{ "error": { "code", "message", "fields"?, "request_id" } }`.
 |---|---|---|
 | GET/POST | `/admin/users` · PATCH `/admin/users/:id` | Create = sign-in identity + profile |
 | GET/POST | `/admin/departments` · PATCH `/:id` · POST `/:id/teams` | |
-| GET/POST | `/admin/templates` · PATCH `/:id` · POST `/:id/generate` | `{ from, to, supervisor_id }` |
-| GET/POST | `/admin/shifts?department_id&from&to` · PATCH `/:id` | One-off shifts, supervisor, cancel |
-| POST/DELETE | `/admin/shifts/:id/assignments[/:employeeId]` | Assigning also delivers waiting handovers |
 | GET/PUT | `/admin/settings[/:key]` · `/admin/notification-templates[/:key]` | |
 | GET | `/admin/integrations` | Adapter status, events, deliveries, dev outbox (masked) |
 | POST | `/admin/events/:id/retry` · `/admin/deliveries/:id/retry` · `/admin/tick` | |
-| POST | `/admin/demo/timeline` | Local demo mode only |
 
 ## n8n callbacks (`Authorization: Bearer N8N_CALLBACK_SECRET`)
 

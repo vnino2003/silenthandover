@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { DEMO_SAMPLE_REPORT, type AiHandoverDraft } from '@sh/shared';
-import { CALLBACK_SECRET, demoOutgoingShift, setup, WEBHOOK_SECRET, type FetchCall, type Harness } from './helpers';
+import { adhocShift, CALLBACK_SECRET, demoOutgoingShift, setup, WEBHOOK_SECRET, type FetchCall, type Harness } from './helpers';
 
 const N8N_ENV = {
   AI_ADAPTER: 'n8n',
@@ -305,15 +305,7 @@ describe('scheduled continuity checks', () => {
     const h = await setup();
     try {
       await h.sql(`update public.operational_issues set last_activity_at = now() - interval '13 hours'`);
-      const shift = await h.services.db.asUser(h.ids.admin!, async (q) => {
-        const [d] = await q.query<{ id: string }>(`select id from public.departments where code = 'WHO'`);
-        const [s] = await q.query<{ id: string }>(
-          `select app.admin_create_shift($1, null, 'Missed', now() - interval '10 hours', now() - interval '2 hours', 30, 30, null, true) as id`,
-          [d!.id],
-        );
-        await q.query('select app.admin_assign_employee($1, $2)', [s!.id, h.ids.ben]);
-        return s!.id;
-      });
+      const shift = await adhocShift(h, { startsSql: `now() - interval '10 hours'`, endsSql: `now() - interval '2 hours'`, employee: 'ben', label: 'Missed' });
       const first = await h.call('admin', 'POST', '/api/admin/tick');
       expect(first.body.escalated_issues).toBe(3);
       expect(first.body.missing_report_alerts).toBe(1);

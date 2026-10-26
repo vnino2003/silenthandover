@@ -58,7 +58,7 @@ async function grant() {
 
 <template>
   <div class="mx-auto max-w-5xl">
-    <PageHeader title="Shift board" description="Who is on each shift, whether they reported, and whether the incoming shift acknowledged its handover.">
+    <PageHeader title="Today’s shifts" description="Who is on duty, whether they reported, and whether the next shift read its handover. Change who is on duty in Schedule.">
       <input v-model="date" type="date" class="field-input h-9 w-44 py-0 text-[14px]" aria-label="Date" />
     </PageHeader>
     <StateBlock :loading="loading" :error="error" :empty="!data?.shifts.length" empty-title="No shifts on this day" @retry="reload()">
@@ -67,7 +67,7 @@ async function grant() {
         <article v-for="s in data.shifts" :key="s.id" class="card">
           <header class="flex flex-wrap items-baseline justify-between gap-2 border-b border-line px-5 py-3">
             <div>
-              <h2 class="text-[15px] font-semibold">{{ s.label }}<span v-if="s.team_name" class="font-normal text-ink-3"> · {{ s.team_name }}</span></h2>
+              <h2 class="text-[15px] font-semibold">{{ s.label }}</h2>
               <p class="text-[13px] text-ink-3 tnum">{{ day(s.starts_at, s.timezone) }} · {{ shiftRange(s) }} · window {{ time(s.window_opens_at, s.timezone) }}–{{ time(s.window_closes_at, s.timezone) }}</p>
             </div>
             <StatusBadge :tone="s.phase === 'reporting' ? 'accent' : s.phase === 'active' ? 'info' : 'neutral'" :label="PHASE[s.phase]" />

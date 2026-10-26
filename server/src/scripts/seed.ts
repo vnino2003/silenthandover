@@ -4,6 +4,7 @@ import { existsSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { createServices, DEFAULT_LOCAL_DIR, log } from '../bootstrap';
 import { loadConfig } from '../config';
+import { ROLE_LABELS, type Role } from '@sh/shared';
 import { DEMO_PASSWORD, seedDemo } from '../seed/demo';
 
 // Reads server/.env when present (Node 20.12+). Real environment variables take precedence.
@@ -20,7 +21,7 @@ const services = await createServices(config);
 const result = await seedDemo(services, { onlyIfEmpty: true });
 if (result) {
   console.log('\nSynthetic demo accounts (local test passwords — do not reuse):');
-  for (const a of result.accounts) console.log(`  ${a.role.padEnd(9)} ${a.email.padEnd(28)} ${a.full_name}`);
+  for (const a of result.accounts) console.log(`  ${ROLE_LABELS[a.role as Role].padEnd(11)} ${a.email.padEnd(28)} ${a.full_name}`);
   console.log(`  password: ${DEMO_PASSWORD}\n`);
 } else {
   log('database already has users; nothing seeded (use --reset in local mode)');

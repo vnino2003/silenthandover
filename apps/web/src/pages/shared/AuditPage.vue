@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
+import { ROLE_LABELS, type Role } from '@sh/shared';
 import PageHeader from '@/components/ui/PageHeader.vue';
 import StateBlock from '@/components/ui/StateBlock.vue';
 import { api } from '@/lib/api';
@@ -59,7 +60,7 @@ function describe(details: Record<string, unknown>) {
           <tbody class="divide-y divide-line">
             <tr v-for="e in data" :key="e.id" class="align-top">
               <td class="px-4 py-2.5 whitespace-nowrap text-ink-3 tnum">{{ dateTime(e.created_at) }}</td>
-              <td class="px-3 py-2.5">{{ e.actor_name ?? 'System' }}<span class="block text-[12px] text-ink-3 capitalize">{{ e.actor_role }}</span></td>
+              <td class="px-3 py-2.5">{{ e.actor_name ?? 'System' }}<span class="block text-[12px] text-ink-3">{{ ROLE_LABELS[e.actor_role as Role] ?? 'System' }}</span></td>
               <td class="px-3 py-2.5 font-medium">{{ e.action }}<span class="block text-[12px] font-normal text-ink-3">{{ e.entity_type }}<template v-if="e.department_name"> · {{ e.department_name }}</template></span></td>
               <td class="px-4 py-2.5 text-ink-2">{{ describe(e.details) || '—' }}</td>
             </tr>

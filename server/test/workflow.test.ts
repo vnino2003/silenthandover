@@ -27,7 +27,7 @@ describe('shift report → AI draft → human approval → delivery → continui
   it('logs an employee in and returns their profile', async () => {
     const res = await h.call('juan', 'GET', '/api/me');
     expect(res.status).toBe(200);
-    expect(res.body).toMatchObject({ role: 'employee', full_name: 'Juan Dela Cruz', department_name: 'Warehouse Operations' });
+    expect(res.body).toMatchObject({ role: 'employee', full_name: 'Juan Dela Cruz', department_name: 'Warehouse Inventory' });
   });
 
   it('requires a session', async () => {
@@ -43,7 +43,7 @@ describe('shift report → AI draft → human approval → delivery → continui
   it('shows the assigned shift with an open reporting window', async () => {
     const res = await h.call('juan', 'GET', '/api/employee/dashboard');
     expect(res.status).toBe(200);
-    expect(res.body.current_shift).toMatchObject({ id: shiftId, window_state: 'open', department_name: 'Warehouse Operations' });
+    expect(res.body.current_shift).toMatchObject({ id: shiftId, window_state: 'open', department_name: 'Warehouse Inventory' });
   });
 
   it('creates one draft per employee and shift', async () => {
@@ -371,9 +371,33 @@ describe('reporting windows', () => {
 
   it('refuses a reassigned employee', async () => {
     const shift = await adhocShift(h, { startsSql: `now() - interval '8 hours'`, endsSql: `now() + interval '10 minutes'`, employee: 'ben' });
-    await h.call('admin', 'DELETE', `/api/admin/shifts/${shift}/assignments/${h.ids.ben}`);
+    const removed = await h.call('manager', 'DELETE', `/api/manager/schedule/${shift}/assignments/${h.ids.ben}`);
+    expect(removed.status).toBe(200);
     const res = await h.call('ben', 'POST', `/api/shifts/${shift}/report`);
     expect(res.body.error.code).toBe('not_assigned');
+  });
+
+  it('lets the supervisor, and only the supervisor, manage the schedule', async () => {
+    const shift = {
+      label: 'Cover shift',
+      starts_at: new Date(Date.now() + 3600e3).toISOString(),
+      ends_at: new Date(Date.now() + 9 * 3600e3).toISOString(),
+    };
+    expect((await h.call('admin', 'POST', '/api/manager/schedule', shift)).status).toBe(403);
+    expect((await h.call('juan', 'POST', '/api/manager/schedule', shift)).status).toBe(403);
+    const created = await h.call('manager', 'POST', '/api/manager/schedule', shift);
+    expect(created.status).toBe(201);
+    // A supervisor of another department cannot staff or change this department's shifts.
+    expect((await h.call('facmanager', 'POST', `/api/manager/schedule/${created.body.id}/assignments`, { employee_id: h.ids.liza })).status).toBe(403);
+    expect((await h.call('facmanager', 'PATCH', `/api/manager/schedule/${created.body.id}`, { supervisor_id: null, status: 'cancelled' })).status).toBe(403);
+    await expect(
+      h.sqlAs('admin', `select app.assign_to_shift($1, $2)`, [created.body.id, h.ids.ben]),
+    ).rejects.toThrow(/SH:forbidden/);
+    // Only workers of this department can be put on its shifts.
+    expect((await h.call('manager', 'POST', `/api/manager/schedule/${created.body.id}/assignments`, { employee_id: h.ids.liza })).status).toBe(422);
+    expect((await h.call('manager', 'POST', `/api/manager/schedule/${created.body.id}/assignments`, { employee_id: h.ids.ben })).status).toBe(201);
+    const list = await h.call('facmanager', 'GET', `/api/manager/schedule?from=2026-01-01&to=2030-01-01`);
+    expect(list.body.some((s: { id: string }) => s.id === created.body.id)).toBe(false);
   });
 
   it('generates overnight shifts that end the next local day', async () => {
@@ -391,12 +415,19 @@ describe('reporting windows', () => {
   });
 
   it('handles daylight-saving time zones', async () => {
+    // The administrator sets up the department and its supervisor; the supervisor builds the schedule.
     const dept = await h.call('admin', 'POST', '/api/admin/departments', { code: 'NYC', name: 'New York Depot', timezone: 'America/New_York' });
     expect(dept.status).toBe(201);
-    const tpl = await h.call('admin', 'POST', '/api/admin/templates', {
-      department_id: dept.body.id, team_id: null, name: 'Night', start_time: '22:00', end_time: '06:00', window_open_minutes: 30, grace_minutes: 30,
+    const user = await h.call('admin', 'POST', '/api/admin/users', {
+      full_name: 'Nora York', email: 'nora.york@demo.test', password: 'test-password-123', role: 'manager', department_id: dept.body.id,
     });
-    const gen = await h.call('admin', 'POST', `/api/admin/templates/${tpl.body.id}/generate`, { from: '2026-03-07', to: '2026-03-08', supervisor_id: null });
+    expect(user.status).toBe(201);
+    await h.loginAs('nyc', 'nora.york@demo.test', 'test-password-123');
+    const tpl = await h.call('nyc', 'POST', '/api/manager/templates', {
+      team_id: null, name: 'Night', start_time: '22:00', end_time: '06:00', window_open_minutes: 30, grace_minutes: 30,
+    });
+    expect(tpl.status).toBe(201);
+    const gen = await h.call('nyc', 'POST', `/api/manager/templates/${tpl.body.id}/generate`, { from: '2026-03-07', to: '2026-03-08', supervisor_id: null });
     expect(gen.body.created).toBe(2);
     const rows = await h.sql<{ d: string; hours: number }>(
       `select shift_date::text as d, extract(epoch from ends_at - starts_at) / 3600 as hours from public.shifts where template_id = $1 order by shift_date`,

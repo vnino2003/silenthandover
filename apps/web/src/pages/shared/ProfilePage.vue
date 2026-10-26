@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
+import { ROLE_LABELS } from '@sh/shared';
 import PageHeader from '@/components/ui/PageHeader.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import UiField from '@/components/ui/UiField.vue';
@@ -38,10 +39,10 @@ async function save() {
       <dl class="grid gap-4 text-[14px] sm:grid-cols-2">
         <div><dt class="text-ink-3">Name</dt><dd class="font-medium">{{ p.full_name }}</dd></div>
         <div><dt class="text-ink-3">Email</dt><dd>{{ p.email }}</dd></div>
-        <div><dt class="text-ink-3">Role</dt><dd class="capitalize">{{ p.role }}</dd></div>
+        <div><dt class="text-ink-3">Role</dt><dd>{{ ROLE_LABELS[p.role] }}</dd></div>
         <div>
           <dt class="text-ink-3">Department</dt>
-          <dd>{{ p.department_name ?? '—' }}<template v-if="p.team_name"> · {{ p.team_name }}</template></dd>
+          <dd>{{ p.department_name ?? '—' }}</dd>
         </div>
         <div v-if="p.department_timezone"><dt class="text-ink-3">Time zone</dt><dd>{{ p.department_timezone }} ({{ tzLabel(p.department_timezone) }})</dd></div>
         <div>

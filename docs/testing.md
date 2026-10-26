@@ -6,7 +6,7 @@ Run everything with:
 npm test
 ```
 
-**Last recorded run: 26 Oct 2026 — 81 automated tests, 81 passed** (server 73, shared 8), plus
+**Last recorded run: 26 Oct 2026 — 82 automated tests, 82 passed** (server 74, shared 8), plus
 TypeScript checks (`npm run typecheck`) and production builds (`npm run build`) passing.
 
 ## How the tests work
@@ -30,7 +30,7 @@ Status key: **Pass** = automated test passing · **Browser** = also verified by 
 |---|---|---|
 | Employee login | workflow › logs an employee in; rejects a wrong password with a generic message | Pass, Browser |
 | Unauthorized role access | workflow › blocks employees from manager and admin endpoints; requires a session; keeps managers out of other departments | Pass |
-| Correct shift assignment | workflow › shows the assigned shift with an open reporting window; refuses employees who are not assigned; refuses a reassigned employee | Pass, Browser |
+| Correct shift assignment | workflow › shows the assigned shift with an open reporting window; refuses employees who are not assigned; refuses a reassigned employee; lets the supervisor, and only the supervisor, manage the schedule | Pass, Browser |
 | Reporting window not yet open | windows › refuses to open a report before the shift starts; allows an early draft but not an early final submission | Pass |
 | Reporting window active | workflow › accepts the final submission | Pass, Browser |
 | Reporting window expired | windows › closes the window after the grace period; a supervisor override allows a late submission (marked late) | Pass |

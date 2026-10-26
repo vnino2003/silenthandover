@@ -1,7 +1,10 @@
 import { createApp } from '../src/app';
 import { createServices } from '../src/bootstrap';
 import { loadConfig } from '../src/config';
-import { DEMO_ACCOUNTS, DEMO_PASSWORD, seedDemo } from '../src/seed/demo';
+import { DEMO_ACCOUNTS, DEMO_PASSWORD, SECOND_DEPARTMENT_ACCOUNTS, seedDemo } from '../src/seed/demo';
+
+// Tests also seed a second department to prove departments cannot see each other.
+const ACCOUNTS = [...DEMO_ACCOUNTS, ...SECOND_DEPARTMENT_ACCOUNTS];
 
 export const CALLBACK_SECRET = 'test-callback-secret-0123456789abcdef';
 export const WEBHOOK_SECRET = 'test-webhook-secret-0123456789abcdef';
@@ -19,18 +22,29 @@ export async function setup(env: Record<string, string> = {}, fetchImpl?: typeof
     ...env,
   });
   const services = await createServices(config, { memory: true, quiet: true, manualKick: true, fetchImpl });
-  await seedDemo(services, { onlyIfEmpty: false });
+  await seedDemo(services, { onlyIfEmpty: false, includeSecondDepartment: true });
   const app = createApp(services);
   const ids: Record<string, string> = {};
   for (const row of await services.db.asService((q) => q.query<{ id: string; email: string }>('select id, email from public.profiles'))) {
-    const account = DEMO_ACCOUNTS.find((a) => a.email === row.email);
+    const account = ACCOUNTS.find((a) => a.email === row.email);
     if (account) ids[account.key] = row.id;
   }
 
   const tokens: Record<string, string> = {};
+  /** Signs in an account created during a test and makes it callable by key. */
+  async function loginAs(key: string, email: string, password: string) {
+    const res = await app.request('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    if (res.status !== 200) throw new Error(`login failed for ${key}: ${res.status}`);
+    tokens[key] = ((await res.json()) as { token: string }).token;
+  }
+
   async function token(key: string) {
     if (tokens[key]) return tokens[key]!;
-    const email = DEMO_ACCOUNTS.find((a) => a.key === key)!.email;
+    const email = ACCOUNTS.find((a) => a.key === key)!.email;
     const res = await app.request('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -68,7 +82,7 @@ export async function setup(env: Record<string, string> = {}, fetchImpl?: typeof
   const sql = <T = any>(text: string, params?: unknown[]) => services.db.asService((q) => q.query<T>(text, params));
   const sqlAs = <T = any>(key: string, text: string, params?: unknown[]) => services.db.asUser(ids[key]!, (q) => q.query<T>(text, params));
 
-  return { services, app, ids, token, call, drain, sql, sqlAs, close: () => services.stop() };
+  return { services, app, ids, token, loginAs, call, drain, sql, sqlAs, close: () => services.stop() };
 }
 
 export type Harness = Awaited<ReturnType<typeof setup>>;
@@ -76,23 +90,20 @@ export type Harness = Awaited<ReturnType<typeof setup>>;
 export async function demoOutgoingShift(h: Harness): Promise<string> {
   const [row] = await h.sql<{ id: string }>(
     `select s.id from public.shifts s join public.shift_assignments a on a.shift_id = s.id
-      where s.label = 'Demo Line — Outgoing' and s.status = 'scheduled' and a.employee_id = $1 order by s.created_at desc limit 1`,
+      where s.label = 'Demo shift — Outgoing' and s.status = 'scheduled' and a.employee_id = $1 order by s.created_at desc limit 1`,
     [h.ids.juan],
   );
   return row!.id;
 }
 
-/** Creates a shift as the admin and assigns an employee to it. */
-export async function adhocShift(h: Harness, opts: { startsSql: string; endsSql: string; employee: string; label?: string; grace?: number; team?: boolean }) {
-  return h.services.db.asUser(h.ids.admin!, async (q) => {
-    const [dept] = await q.query<{ id: string; team: string }>(
-      `select d.id, (select id from public.teams where department_id = d.id and name = 'Demo Line') as team from public.departments d where code = 'WHO'`,
-    );
+/** Creates a shift as the warehouse supervisor (who owns the schedule) and assigns a worker to it. */
+export async function adhocShift(h: Harness, opts: { startsSql: string; endsSql: string; employee: string; label?: string; grace?: number }) {
+  return h.services.db.asUser(h.ids.manager!, async (q) => {
     const [s] = await q.query<{ id: string }>(
-      `select app.admin_create_shift($1, $2, $3, ${opts.startsSql}, ${opts.endsSql}, 30, $4, null, true) as id`,
-      [dept!.id, opts.team ? dept!.team : null, opts.label ?? 'Ad hoc', opts.grace ?? 30],
+      `select app.create_shift(null, $1, ${opts.startsSql}, ${opts.endsSql}, 30, $2, null, true) as id`,
+      [opts.label ?? 'Ad hoc', opts.grace ?? 30],
     );
-    await q.query('select app.admin_assign_employee($1, $2)', [s!.id, h.ids[opts.employee]]);
+    await q.query('select app.assign_to_shift($1, $2)', [s!.id, h.ids[opts.employee]]);
     return s!.id;
   });
 }

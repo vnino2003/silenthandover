@@ -1,6 +1,13 @@
 export const ROLES = ['employee', 'manager', 'admin'] as const;
 export type Role = (typeof ROLES)[number];
 
+/** What people see. Stored values stay employee / manager / admin. */
+export const ROLE_LABELS: Record<Role, string> = {
+  employee: 'Worker',
+  manager: 'Supervisor',
+  admin: 'Admin',
+};
+
 export const REPORT_STATUSES = [
   'draft',
   'submitted',
