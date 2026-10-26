@@ -12,7 +12,8 @@ import type {
 export interface AppConfig {
   mode: 'local' | 'supabase';
   auth: { provider: 'local' } | { provider: 'supabase'; supabase_url: string; supabase_anon_key: string };
-  demo: { password: string; accounts: { email: string; role: string; full_name: string; department: string | null }[] } | null;
+  /** Local demo tools are available (never in Supabase mode). */
+  demo: { enabled: true } | null;
   integrations: {
     ai: { adapter: 'dev' | 'n8n'; simulated: boolean; prompt_version: string };
     email: { transport: 'dev' | 'resend' | 'n8n'; simulated: boolean };

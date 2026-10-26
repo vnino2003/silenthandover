@@ -17,7 +17,7 @@ Errors: `{ "error": { "code", "message", "fields"?, "request_id" } }`.
 | Method | Path | Notes |
 |---|---|---|
 | GET | `/health` | Database reachable |
-| GET | `/config` | Mode, sign-in provider, truthful integration status; demo accounts in local demo mode only |
+| GET | `/config` | Mode, sign-in provider, truthful integration status; whether local demo tools are on (no account details are sent) |
 | POST | `/auth/login` | Local mode only. `{ email, password }` → `{ token, expires_at }` |
 
 ## Everyone signed in

@@ -35,17 +35,17 @@ npm run dev
 ```
 
 Open <http://localhost:5173>. The first start creates a local database and synthetic demo data
-(about 30 seconds). The sign-in page lists the demo accounts; click one to sign in. All of them use the
-local test password `demo-handover-2026`.
+(about 30 seconds). Sign in with one of the demo accounts below. All of them use the local test
+password `demo-handover-2026` (synthetic data, local only — the sign-in page does not list them).
 
 The demo is one department, **Warehouse Inventory** (TESDA Track C: Admin & Inventory Operations).
 
-| Account | Role | Does |
-|---|---|---|
-| Juan Dela Cruz | Worker | Submits his end-of-shift report (his "Demo shift — Outgoing" window is open) |
-| Maria Santos | Supervisor | Builds the schedule, **approves every report**, verifies fixed issues |
-| Ana Lim, Ben Torres | Workers on the next shift | Read and acknowledge the approved handover |
-| Alex Reyes | Admin (IT/HR) | One-time setup: accounts, departments, settings, integration health. Cannot read or approve reports |
+| Account | Email | Role | Does |
+|---|---|---|---|
+| Juan Dela Cruz | juan.delacruz@demo.test | Worker | Submits his end-of-shift report (his "Morning (demo)" window is open) |
+| Maria Santos | maria.santos@demo.test | Supervisor | Sets the shifts, builds the schedule, **approves every report**, verifies fixed issues |
+| Ana Lim, Ben Torres | ana.lim@demo.test, ben.torres@demo.test | Workers on the next shift | Read the approved handover and take over its checklist |
+| Alex Reyes | admin@demo.test | Admin (IT/HR) | One-time setup: accounts, departments, settings, integration health. Cannot read or approve reports |
 
 **Who approves?** Only the department's supervisor — never the admin, never the AI, and never the
 person who wrote the report.

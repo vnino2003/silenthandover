@@ -12,7 +12,6 @@ import { integrationRoutes } from './routes/integrations';
 import { issueRoutes } from './routes/issues';
 import { managerRoutes } from './routes/manager';
 import { meRoutes } from './routes/me';
-import { DEMO_ACCOUNTS, DEMO_PASSWORD } from './seed/demo';
 
 export function createApp(services: Services) {
   const app = new Hono<AppEnv>();
@@ -52,11 +51,9 @@ export function createApp(services: Services) {
         auth.mode === 'supabase'
           ? { provider: 'supabase', supabase_url: config.SUPABASE_URL, supabase_anon_key: config.SUPABASE_ANON_KEY }
           : { provider: 'local' },
-      // Synthetic local test accounts only. Never enabled in Supabase mode.
-      demo:
-        config.APP_MODE === 'local' && config.DEMO_MODE
-          ? { password: DEMO_PASSWORD, accounts: DEMO_ACCOUNTS.map((a) => ({ email: a.email, role: a.role, full_name: a.full_name, department: a.dept })) }
-          : null,
+      // Local demo tools (demo shifts, clearing demo data). Never enabled in Supabase mode.
+      // Account details are not sent: the sign-in page shows no account list.
+      demo: config.APP_MODE === 'local' && config.DEMO_MODE ? { enabled: true } : null,
       integrations: {
         ai: { adapter: analysis.adapterName, simulated: analysis.adapterName === 'dev', prompt_version: config.PROMPT_VERSION },
         email: { transport: notifications.transportName, simulated: notifications.transportName === 'dev' },
