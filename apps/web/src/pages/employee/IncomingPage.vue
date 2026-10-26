@@ -72,7 +72,8 @@ interface Board {
 const auth = useAuth();
 const toast = useToast();
 const notes = useNotifications();
-const { data, loading, error, reload } = useAsync(() => api.get<Board>('/handovers/board'));
+// Handovers and who took what change during the shift; keep the board current.
+const { data, loading, error, reload } = useAsync(() => api.get<Board>('/handovers/board'), [], { refreshMs: 30_000 });
 const ackNote = ref<Record<string, string>>({});
 const busy = ref<string | null>(null);
 const marking = ref<Item | null>(null);

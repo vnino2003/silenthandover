@@ -76,12 +76,12 @@ async function save() {
             <tr><th class="px-5 py-2.5 font-medium">Name</th><th class="px-3 py-2.5 font-medium">Role</th><th class="px-3 py-2.5 font-medium">Department</th><th class="px-3 py-2.5 font-medium">Status</th><th class="px-5 py-2.5" /></tr>
           </thead>
           <tbody class="divide-y divide-line">
-            <tr v-for="u in rows" :key="u.id" :class="{ 'text-ink-3': !u.is_active }">
+            <tr v-for="u in rows" :key="u.id" class="cursor-pointer transition-colors hover:bg-canvas" :class="{ 'text-ink-3': !u.is_active }" @click="openEdit(u)">
               <td class="px-5 py-2.5"><span class="font-medium">{{ u.full_name }}</span><span class="block text-[12.5px] text-ink-3">{{ u.email }}</span></td>
               <td class="px-3 py-2.5">{{ ROLE_LABELS[u.role] }}</td>
               <td class="px-3 py-2.5">{{ u.department_name ?? '—' }}</td>
               <td class="px-3 py-2.5"><StatusBadge :tone="u.is_active ? 'ok' : 'neutral'" :label="u.is_active ? 'Active' : 'Deactivated'" /></td>
-              <td class="px-5 py-2.5 text-right"><UiButton size="sm" variant="ghost" @click="openEdit(u)">Edit</UiButton></td>
+              <td class="px-5 py-2.5 text-right"><UiButton size="sm" variant="ghost" @click.stop="openEdit(u)">Edit</UiButton></td>
             </tr>
           </tbody>
         </table>

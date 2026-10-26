@@ -3,6 +3,8 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 import BrandMark from '@/components/BrandMark.vue';
 import UserAvatar from '@/components/UserAvatar.vue';
+import { api } from '@/lib/api';
+import { useAsync } from '@/lib/useAsync';
 import { useAuth } from '@/stores/auth';
 import { useNotifications } from '@/stores/notifications';
 import { ROLE_LABELS } from '@sh/shared';
@@ -20,14 +22,15 @@ const NAV = {
     { to: '/tasks', label: 'Open issues' },
     { to: '/reports', label: 'My reports' },
   ],
+  // Supervisors have the most screens: daily work first, look-ups after.
   manager: [
-    { to: '/manager/shifts', label: 'Today' },
-    { to: '/manager', label: 'Review queue', exact: true },
-    { to: '/manager/schedule', label: 'Schedule' },
-    { to: '/manager/issues', label: 'Issues' },
-    { to: '/manager/reports', label: 'Report history', exact: true },
-    { to: '/manager/records', label: 'Source records' },
-    { to: '/manager/audit', label: 'Audit log' },
+    { to: '/manager/shifts', label: 'Today', group: 'Daily work' },
+    { to: '/manager', label: 'Review queue', exact: true, group: 'Daily work', count: 'review' },
+    { to: '/manager/schedule', label: 'Schedule', group: 'Daily work' },
+    { to: '/manager/issues', label: 'Issues', group: 'Daily work' },
+    { to: '/manager/reports', label: 'Report history', exact: true, group: 'Records' },
+    { to: '/manager/records', label: 'Source records', group: 'Records' },
+    { to: '/manager/audit', label: 'Audit log', group: 'Records' },
   ],
   admin: [
     { to: '/admin', label: 'Integrations', exact: true },
@@ -38,7 +41,27 @@ const NAV = {
   ],
 } as const;
 
-const nav = computed(() => (auth.role ? NAV[auth.role] : []));
+type NavItem = { to: string; label: string; exact?: boolean; group?: string; count?: 'review' };
+const nav = computed<readonly NavItem[]>(() => (auth.role ? NAV[auth.role] : []));
+/** The menu in its sections (a single unnamed section for roles without groups). */
+const navGroups = computed(() => {
+  const groups: { name: string | null; items: NavItem[] }[] = [];
+  for (const item of nav.value) {
+    const name = item.group ?? null;
+    const last = groups.at(-1);
+    if (last && last.name === name) last.items.push(item);
+    else groups.push({ name, items: [item] });
+  }
+  return groups;
+});
+
+// Reports waiting for this supervisor, shown on the Review queue link. Refreshes quietly.
+const summary = useAsync(
+  () => (auth.role === 'manager' ? api.get<{ pending_review: number }>('/manager/summary') : Promise.resolve(null)),
+  [],
+  { refreshMs: 30_000 },
+);
+const counts = computed(() => ({ review: summary.data.value?.pending_review ?? 0 }));
 const employeeMobileNav = [
   { to: '/', label: 'Today', exact: true },
   { to: '/handover', label: 'Takeover' },
@@ -51,7 +74,16 @@ const isActive = (item: { to: string; exact?: boolean }) => {
   return item.exact ? route.path === item.to : route.path === item.to || route.path.startsWith(`${item.to}/`);
 };
 
-watch(() => route.fullPath, () => (menuOpen.value = false));
+watch(
+  () => route.fullPath,
+  () => {
+    menuOpen.value = false;
+    if (auth.role === 'manager') void summary.reload(true);
+  },
+);
+const onKey = (e: KeyboardEvent) => e.key === 'Escape' && (menuOpen.value = false);
+onMounted(() => document.addEventListener('keydown', onKey));
+onUnmounted(() => document.removeEventListener('keydown', onKey));
 onMounted(() => notes.start());
 onUnmounted(() => notes.stop());
 
@@ -74,16 +106,32 @@ async function signOut() {
         <button class="rounded-md px-2.5 py-1.5 text-[14px] text-ink-2 hover:bg-sunken" :aria-expanded="menuOpen" @click="menuOpen = !menuOpen">Menu</button>
       </div>
     </div>
-    <nav v-if="menuOpen" class="border-b border-line bg-surface px-2 py-2 lg:hidden" aria-label="Main">
-      <RouterLink
-        v-for="item in nav"
-        :key="item.to"
-        :to="item.to"
-        class="block rounded-md px-3 py-2.5 text-[15px]"
-        :class="isActive(item) ? 'bg-accent-soft font-medium text-accent-ink' : 'text-ink-2'"
-      >
-        {{ item.label }}
-      </RouterLink>
+    <Transition name="fade">
+      <div v-if="menuOpen" class="fixed inset-0 top-14 z-20 bg-ink/20 lg:hidden" aria-hidden="true" @click="menuOpen = false" />
+    </Transition>
+    <Transition name="drop">
+    <nav
+      v-if="menuOpen"
+      class="fixed inset-x-0 top-14 z-30 max-h-[calc(100dvh-3.5rem)] overflow-y-auto border-b border-line bg-surface px-2 py-2 shadow-pop lg:hidden"
+      aria-label="Main"
+    >
+      <template v-for="g in navGroups" :key="g.name ?? 'main'">
+        <p v-if="g.name" class="px-3 pt-2 pb-1 text-[11.5px] font-semibold tracking-[0.06em] text-ink-3 uppercase">{{ g.name }}</p>
+        <RouterLink
+          v-for="item in g.items"
+          :key="item.to"
+          :to="item.to"
+          class="flex items-center justify-between rounded-md px-3 py-2.5 text-[15px]"
+          :class="isActive(item) ? 'bg-accent-soft font-medium text-accent-ink' : 'text-ink-2'"
+        >
+          {{ item.label }}
+          <span
+            v-if="item.count && counts[item.count]"
+            class="rounded-full bg-warn px-1.5 text-[11px] leading-[18px] font-semibold text-white tnum"
+            :aria-label="`${counts[item.count]} waiting`"
+          >{{ counts[item.count] }}</span>
+        </RouterLink>
+      </template>
       <div class="mt-2 border-t border-line pt-2">
         <RouterLink to="/profile" class="flex items-center gap-2.5 rounded-md px-3 py-2.5 text-[15px] text-ink-2">
           <UserAvatar v-if="auth.profile" :id="auth.profile.id" :name="auth.profile.full_name" :version="auth.profile.photo_version" :size="28" />
@@ -92,6 +140,7 @@ async function signOut() {
         <button class="block w-full rounded-md px-3 py-2.5 text-left text-[15px] text-ink-2" @click="signOut">Sign out</button>
       </div>
     </nav>
+    </Transition>
 
     <div class="mx-auto flex max-w-[1320px]">
       <!-- Desktop sidebar -->
@@ -100,17 +149,25 @@ async function signOut() {
         <p class="mt-0.5 px-2 text-[12.5px] text-ink-3">
           {{ auth.profile?.department_name ?? 'System setup' }}
         </p>
-        <nav class="mt-8 space-y-0.5" aria-label="Main">
-          <RouterLink
-            v-for="item in nav"
-            :key="item.to"
-            :to="item.to"
-            class="block rounded-md px-2.5 py-1.5 text-[14px] transition-colors"
-            :class="isActive(item) ? 'bg-accent-soft font-medium text-accent-ink' : 'text-ink-2 hover:bg-sunken hover:text-ink'"
-            :aria-current="isActive(item) ? 'page' : undefined"
-          >
-            {{ item.label }}
-          </RouterLink>
+        <nav class="mt-8" aria-label="Main">
+          <div v-for="(g, gi) in navGroups" :key="g.name ?? 'main'" class="space-y-0.5" :class="{ 'mt-5': gi > 0 }">
+            <p v-if="g.name" class="px-2.5 pb-1 text-[11px] font-semibold tracking-[0.06em] text-ink-3 uppercase">{{ g.name }}</p>
+            <RouterLink
+              v-for="item in g.items"
+              :key="item.to"
+              :to="item.to"
+              class="flex items-center justify-between rounded-md px-2.5 py-1.5 text-[14px]"
+              :class="isActive(item) ? 'bg-accent-soft font-medium text-accent-ink' : 'text-ink-2 hover:bg-sunken hover:text-ink'"
+              :aria-current="isActive(item) ? 'page' : undefined"
+            >
+              {{ item.label }}
+              <span
+            v-if="item.count && counts[item.count]"
+            class="rounded-full bg-warn px-1.5 text-[11px] leading-[18px] font-semibold text-white tnum"
+            :aria-label="`${counts[item.count]} waiting`"
+          >{{ counts[item.count] }}</span>
+            </RouterLink>
+          </div>
         </nav>
         <div class="mt-6 border-t border-line pt-4">
           <RouterLink
@@ -138,7 +195,11 @@ async function signOut() {
       </aside>
 
       <main class="min-w-0 flex-1 px-4 pt-6 sm:px-6 lg:px-10 lg:py-8" :class="auth.role === 'employee' ? 'pb-24' : 'pb-8'">
-        <RouterView />
+        <!-- Each new page fades in with a CSS animation. Unlike a Vue transition it never waits on
+             the browser, so navigation can't stall in a background tab. -->
+        <RouterView v-slot="{ Component, route: r }">
+          <component :is="Component" :key="r.path" class="page-enter" />
+        </RouterView>
       </main>
     </div>
 

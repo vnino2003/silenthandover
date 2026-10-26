@@ -32,7 +32,14 @@ watch(
       document.addEventListener('keydown', onKey);
       document.body.style.overflow = 'hidden';
       await nextTick();
-      panel.value?.querySelector<HTMLElement>('[autofocus], input, textarea, select, button')?.focus();
+      // Focus the first field or action, not the close button in the header.
+      const body = panel.value?.querySelector<HTMLElement>('.dialog-body');
+      (
+        body?.querySelector<HTMLElement>('[autofocus], input:not([type=hidden]):not(.sr-only), textarea, select') ??
+        // No field: focus the first footer button (usually Cancel), never a destructive action.
+        panel.value?.querySelector<HTMLElement>('.dialog-footer button:first-child') ??
+        panel.value?.querySelector<HTMLElement>('button')
+      )?.focus();
     } else {
       document.removeEventListener('keydown', onKey);
       document.body.style.overflow = '';
@@ -48,22 +55,34 @@ onBeforeUnmount(() => {
 
 <template>
   <Teleport to="body">
-    <Transition name="fade">
-      <div v-if="open" class="fixed inset-0 z-50 flex items-end justify-center bg-ink/30 p-0 sm:items-center sm:p-6" @mousedown.self="emit('close')">
+    <Transition name="dialog">
+      <div v-if="open" class="fixed inset-0 z-50 flex items-end justify-center bg-ink/30 p-0 backdrop-blur-[1px] sm:items-center sm:p-6" @mousedown.self="emit('close')">
         <div
           ref="panel"
           role="dialog"
           aria-modal="true"
           :aria-label="title"
-          class="max-h-[92vh] w-full overflow-y-auto rounded-t-xl bg-surface shadow-pop sm:rounded-lg"
+          class="dialog-panel max-h-[92vh] w-full overflow-y-auto rounded-t-xl bg-surface shadow-pop sm:rounded-lg"
           :class="wide ? 'sm:max-w-2xl' : 'sm:max-w-md'"
         >
-          <div class="border-b border-line px-5 py-4">
-            <h2 class="text-[16px] font-semibold">{{ title }}</h2>
-            <p v-if="description" class="mt-1 text-[14px] text-ink-2">{{ description }}</p>
+          <!-- On phones the dialog is a bottom sheet; the handle shows it can be dismissed. -->
+          <div class="flex justify-center pt-2 sm:hidden" aria-hidden="true"><span class="h-1 w-9 rounded-full bg-line-strong" /></div>
+          <div class="flex items-start gap-3 border-b border-line px-5 pt-3 pb-4 sm:pt-4">
+            <div class="min-w-0 flex-1">
+              <h2 class="text-[16px] font-semibold">{{ title }}</h2>
+              <p v-if="description" class="mt-1 text-[14px] text-ink-2">{{ description }}</p>
+            </div>
+            <button
+              type="button"
+              class="-mt-1 -mr-2 grid size-8 shrink-0 place-items-center rounded-md text-ink-3 hover:bg-sunken hover:text-ink"
+              aria-label="Close"
+              @click="emit('close')"
+            >
+              <svg viewBox="0 0 16 16" class="size-4" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><path d="M4 4l8 8M12 4l-8 8" /></svg>
+            </button>
           </div>
-          <div class="px-5 py-4"><slot /></div>
-          <div v-if="$slots.footer" class="flex flex-col-reverse gap-2 border-t border-line bg-canvas/60 px-5 py-3 sm:flex-row sm:justify-end">
+          <div v-if="$slots.default" class="dialog-body px-5 py-4"><slot /></div>
+          <div v-if="$slots.footer" class="dialog-footer flex flex-col-reverse gap-2 border-t border-line bg-canvas/60 px-5 py-3 sm:flex-row sm:justify-end">
             <slot name="footer" />
           </div>
         </div>

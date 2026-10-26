@@ -22,7 +22,7 @@ interface Entry {
 
 const auth = useAuth();
 const action = ref('');
-const { data, loading, error, reload } = useAsync(
+const { data, loading, refreshing, error, reload } = useAsync(
   () => api.get<Entry[]>(`/audit?limit=200${action.value ? `&action=${encodeURIComponent(action.value)}` : ''}`),
   [action],
 );
@@ -46,7 +46,7 @@ function describe(details: Record<string, unknown>) {
         <option v-for="p in PREFIXES" :key="p" :value="p">{{ p ? p.replace('.', '') : 'All actions' }}</option>
       </select>
     </PageHeader>
-    <StateBlock :loading="loading" :error="error" :empty="!data?.length" empty-title="No entries" @retry="reload()">
+    <StateBlock :loading="loading" :refreshing="refreshing" :error="error" :empty="!data?.length" empty-title="No entries" @retry="reload()">
       <div class="card overflow-x-auto">
         <table class="w-full min-w-[640px] text-left text-[13.5px]">
           <thead class="border-b border-line bg-canvas text-[12px] tracking-wide text-ink-3 uppercase">

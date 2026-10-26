@@ -44,7 +44,7 @@ interface Board {
 
 const toast = useToast();
 const date = ref('');
-const { data, loading, error, reload } = useAsync(() => api.get<Board>(`/manager/shift-board${date.value ? `?date=${date.value}` : ''}`), [date]);
+const { data, loading, refreshing, error, reload } = useAsync(() => api.get<Board>(`/manager/shift-board${date.value ? `?date=${date.value}` : ''}`), [date]);
 
 // Keep "time left" and the phase fresh without reloading every second.
 const now = ref(Date.now());
@@ -137,7 +137,7 @@ async function grant() {
       </div>
     </PageHeader>
 
-    <StateBlock :loading="loading" :error="error" :empty="false" @retry="reload()">
+    <StateBlock :loading="loading" :refreshing="refreshing" :error="error" :empty="false" @retry="reload()">
       <div v-if="data" class="space-y-6">
         <!-- At a glance -->
         <div class="grid grid-cols-2 gap-2 md:grid-cols-4">

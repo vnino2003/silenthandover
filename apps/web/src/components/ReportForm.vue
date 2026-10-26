@@ -124,16 +124,24 @@ const problemsAnswer = computed<'yes' | 'no' | null>(() =>
 const adding = ref<(ProblemInput & { index: number | null }) | null>(null);
 function answerProblems(answer: 'yes' | 'no') {
   if (answer === 'no') {
-    const listed = content.value.problems.length;
-    if (listed && !window.confirm(`Remove the ${listed} problem${listed > 1 ? 's' : ''} you added?`)) return;
-    content.value.problems = [];
-    content.value.unresolved_issues = '';
-    content.value.no_unresolved_issues = true;
-    adding.value = null;
+    if (content.value.problems.length) {
+      confirmingNoProblems.value = true;
+      return;
+    }
+    clearProblems();
   } else {
     content.value.no_unresolved_issues = false;
     if (!content.value.problems.length) startProblem();
   }
+}
+/** Asked before "No problems" removes problems the worker already listed. */
+const confirmingNoProblems = ref(false);
+function clearProblems() {
+  confirmingNoProblems.value = false;
+  content.value.problems = [];
+  content.value.unresolved_issues = '';
+  content.value.no_unresolved_issues = true;
+  adding.value = null;
 }
 function startProblem(index: number | null = null) {
   const p = index === null ? { category: 'equipment' as const, location: '', what: '' } : content.value.problems[index]!;
@@ -439,6 +447,18 @@ const choice = (active: boolean) =>
         </div>
       </div>
     </form>
+
+    <UiDialog
+      :open="confirmingNoProblems"
+      title="Remove the problems you listed?"
+      :description="`You added ${content.problems.length} problem${content.problems.length === 1 ? '' : 's'}. Answering “No” removes them from this report.`"
+      @close="confirmingNoProblems = false"
+    >
+      <template #footer>
+        <UiButton variant="ghost" @click="confirmingNoProblems = false">Keep them</UiButton>
+        <UiButton variant="danger" @click="clearProblems">Remove</UiButton>
+      </template>
+    </UiDialog>
 
     <UiDialog :open="confirming" title="Send this report?" @close="confirming = false">
       <p class="text-[14px] text-ink-2">

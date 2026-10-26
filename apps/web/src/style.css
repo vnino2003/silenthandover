@@ -118,11 +118,148 @@ mark.evidence {
   opacity: 0;
 }
 
+/* ---- Motion ------------------------------------------------------------------
+ * Short and purposeful: things that appear rise a few pixels and fade in; nothing bounces.
+ * Everything here is cancelled by the prefers-reduced-motion rule below.
+ */
+:root {
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Interactive colour changes ease instead of snapping. Utilities that set their own transition win. */
+@layer base {
+  a,
+  button,
+  summary,
+  [role='tab'],
+  .field-input {
+    transition-property: color, background-color, border-color, box-shadow, opacity;
+    transition-duration: 150ms;
+    transition-timing-function: ease;
+  }
+}
+
+/* Page change: the new page fades in and rises slightly (backwards fill: nothing lingers after). */
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+.page-enter {
+  animation: page-enter 0.24s var(--ease-out) backwards;
+}
+
+/* Content that arrives after loading. */
+@keyframes enter-fade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+.enter-fade {
+  /* backwards, not both: once finished it leaves no transform behind (which would trap fixed children). */
+  animation: enter-fade 0.22s var(--ease-out) backwards;
+}
+
+/* Skeleton placeholders: a soft sweep rather than a blink. */
+@keyframes shimmer {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+.skeleton {
+  background: linear-gradient(90deg, var(--color-sunken) 25%, color-mix(in srgb, var(--color-sunken) 45%, white) 50%, var(--color-sunken) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+/* Dialogs: the backdrop fades; the panel scales in on desktop and slides up as a sheet on phones. */
+.dialog-enter-active,
+.dialog-leave-active {
+  transition: opacity 0.18s ease;
+}
+.dialog-enter-active .dialog-panel,
+.dialog-leave-active .dialog-panel {
+  transition:
+    transform 0.24s var(--ease-out),
+    opacity 0.18s ease;
+}
+.dialog-enter-from,
+.dialog-leave-to {
+  opacity: 0;
+}
+.dialog-enter-from .dialog-panel,
+.dialog-leave-to .dialog-panel {
+  opacity: 0;
+  transform: translateY(24px);
+}
+@media (min-width: 640px) {
+  .dialog-enter-from .dialog-panel,
+  .dialog-leave-to .dialog-panel {
+    transform: translateY(8px) scale(0.98);
+  }
+}
+
+/* Toasts slide up into place; the rest of the stack moves smoothly. */
+.toast-enter-active {
+  transition:
+    opacity 0.2s ease,
+    transform 0.26s var(--ease-out);
+}
+.toast-leave-active {
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease;
+}
+.toast-move {
+  transition: transform 0.22s var(--ease-out);
+}
+.toast-enter-from {
+  opacity: 0;
+  transform: translateY(12px);
+}
+.toast-leave-to {
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+/* Drop-down panels (the phone menu). */
+.drop-enter-active,
+.drop-leave-active {
+  transition:
+    opacity 0.16s ease,
+    transform 0.2s var(--ease-out);
+}
+.drop-enter-from,
+.drop-leave-to {
+  opacity: 0;
+  transform: translateY(-6px);
+}
+
+/* Navigation progress: a thin accent bar at the very top while a page loads. */
+@keyframes nav-progress {
+  from {
+    transform: scaleX(0.05);
+  }
+  to {
+    transform: scaleX(0.85);
+  }
+}
+.nav-progress {
+  transform-origin: left;
+  animation: nav-progress 2.5s cubic-bezier(0.1, 0.6, 0.2, 1) forwards;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
   }
 }

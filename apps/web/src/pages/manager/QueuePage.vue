@@ -35,8 +35,9 @@ interface Summary {
 
 const auth = useAuth();
 const router = useRouter();
-const queue = useAsync(() => api.get<Row[]>('/manager/queue'));
-const summary = useAsync(() => api.get<Summary>('/manager/summary'));
+// Supervisors keep this open while reports come in, so it refreshes itself.
+const queue = useAsync(() => api.get<Row[]>('/manager/queue'), [], { refreshMs: 20_000 });
+const summary = useAsync(() => api.get<Summary>('/manager/summary'), [], { refreshMs: 20_000 });
 let t: ReturnType<typeof setInterval> | null = null;
 onMounted(() => {
   t = setInterval(() => {

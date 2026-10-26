@@ -340,7 +340,7 @@ async function saveShiftSetup() {
         </div>
       </div>
 
-      <StateBlock :loading="shifts.loading.value" :error="shifts.error.value" :empty="false" @retry="shifts.reload()">
+      <StateBlock :loading="shifts.loading.value" :refreshing="shifts.refreshing.value" :error="shifts.error.value" :empty="false" @retry="shifts.reload()">
         <div class="card overflow-x-auto">
           <table class="w-full min-w-[860px] border-collapse text-left">
             <thead>

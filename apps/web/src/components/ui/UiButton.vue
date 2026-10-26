@@ -16,7 +16,10 @@ const props = withDefaults(
 );
 
 const classes = computed(() => [
-  'inline-flex items-center justify-center gap-2 rounded-md font-medium whitespace-nowrap transition-colors select-none',
+  'inline-flex items-center justify-center gap-2 rounded-md font-medium whitespace-nowrap select-none',
+  'transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-out',
+  // A slight press-down so every click feels acknowledged; not on disabled buttons.
+  'active:scale-[0.97] disabled:active:scale-100',
   'disabled:cursor-not-allowed aria-disabled:cursor-not-allowed',
   props.block && 'w-full',
   {
@@ -25,7 +28,7 @@ const classes = computed(() => [
     lg: 'h-12 px-5 text-[15px]',
   }[props.size],
   {
-    primary: 'bg-accent text-white hover:bg-accent-hover disabled:bg-line-strong disabled:text-ink-3',
+    primary: 'bg-accent text-white shadow-[0_1px_2px_rgb(22_69_64/0.18)] hover:bg-accent-hover disabled:bg-line-strong disabled:text-ink-3 disabled:shadow-none',
     secondary: 'border border-line-strong bg-surface text-ink hover:bg-sunken disabled:text-ink-3 disabled:hover:bg-surface',
     ghost: 'text-ink-2 hover:bg-sunken hover:text-ink disabled:text-ink-3',
     danger: 'border border-bad/30 bg-surface text-bad hover:bg-bad-soft disabled:text-ink-3',

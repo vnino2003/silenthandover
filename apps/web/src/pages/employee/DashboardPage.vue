@@ -36,7 +36,7 @@ interface Dashboard {
 
 const auth = useAuth();
 const now = useNow();
-const { data, loading, error, reload } = useAsync(() => api.get<Dashboard>('/employee/dashboard'));
+const { data, loading, error, reload } = useAsync(() => api.get<Dashboard>('/employee/dashboard'), [], { refreshMs: 60_000 });
 
 const tz = computed(() => auth.profile?.department_timezone ?? undefined);
 const greeting = computed(() => {

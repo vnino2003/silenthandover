@@ -342,6 +342,9 @@ describe('scheduled continuity checks', () => {
     try {
       await h.sql(`update public.operational_issues set last_activity_at = now() - interval '13 hours'`);
       const shift = await adhocShift(h, { startsSql: `now() - interval '10 hours'`, endsSql: `now() - interval '2 hours'`, employee: 'ben', label: 'Missed' });
+      // Seeded shifts whose window has already closed (depending on the time of day the tests run,
+      // e.g. the Facilities day shift in the evening) would also count; only this one should.
+      await h.sql(`update public.shifts set status = 'cancelled' where id <> $1 and window_closes_at < now()`, [shift]);
       const first = await h.call('admin', 'POST', '/api/admin/tick');
       expect(first.body.escalated_issues).toBe(3);
       expect(first.body.missing_report_alerts).toBe(1);

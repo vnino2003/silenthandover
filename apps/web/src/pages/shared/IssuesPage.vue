@@ -29,7 +29,7 @@ const tabs = computed<{ key: Scope; label: string }[]>(() => [
   isManager.value ? { key: 'verification', label: 'Needs verification' } : { key: 'mine', label: 'Assigned to me' },
   { key: 'all', label: 'All' },
 ]);
-const { data, loading, error, reload } = useAsync(() => api.get<IssueRow[]>(`/issues?scope=${scope.value}`), [scope]);
+const { data, loading, refreshing, error, reload } = useAsync(() => api.get<IssueRow[]>(`/issues?scope=${scope.value}`), [scope]);
 
 const raising = ref(false);
 const form = ref({ title: '', description: '', severity: 'medium' as IssueSeverity, is_safety: false });
@@ -75,7 +75,7 @@ async function raise() {
       </button>
     </div>
 
-    <StateBlock :loading="loading" :error="error" :empty="!data?.length" empty-title="No issues in this view" @retry="reload()">
+    <StateBlock :loading="loading" :refreshing="refreshing" :error="error" :empty="!data?.length" empty-title="No issues in this view" @retry="reload()">
       <div class="card overflow-hidden">
         <table class="w-full text-left text-[14px]">
           <thead class="hidden border-b border-line bg-canvas text-[12px] tracking-wide text-ink-3 uppercase sm:table-header-group">
