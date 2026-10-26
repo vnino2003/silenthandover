@@ -4,6 +4,7 @@ import { ROLES } from '@sh/shared';
 import { maskAddress } from '../automation/notifications';
 import { ApiError } from '../http/errors';
 import { asUser, idParam, parseBody, parseQuery, requireRole, svc, type AppEnv } from '../http/context';
+import { clearDemoActivity } from '../seed/demo';
 
 const optionalUuid = z.uuid().nullable().default(null);
 
@@ -25,6 +26,15 @@ export function adminRoutes() {
   r.use('*', async (c, next) => {
     requireRole(c, 'admin');
     await next();
+  });
+
+  // ---- Demo ------------------------------------------------------------------
+  // Local demo only: start over with no shifts, reports or tickets (accounts and setup stay).
+  r.post('/demo/clear', async (c) => {
+    const { config } = svc(c);
+    if (config.APP_MODE !== 'local' || !config.DEMO_MODE) throw new ApiError(404, 'not_found', 'Not found');
+    await parseBody(c, z.strictObject({ confirm: z.literal('CLEAR') }));
+    return c.json({ cleared: await clearDemoActivity(svc(c), c.get('userId')) });
   });
 
   // ---- Users ---------------------------------------------------------------

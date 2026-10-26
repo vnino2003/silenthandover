@@ -90,8 +90,18 @@ export type Harness = Awaited<ReturnType<typeof setup>>;
 export async function demoOutgoingShift(h: Harness): Promise<string> {
   const [row] = await h.sql<{ id: string }>(
     `select s.id from public.shifts s join public.shift_assignments a on a.shift_id = s.id
-      where s.label = 'Demo shift — Outgoing' and s.status = 'scheduled' and a.employee_id = $1 order by s.created_at desc limit 1`,
+      where s.label like '% (demo)' and s.status = 'scheduled' and a.employee_id = $1 order by s.created_at desc limit 1`,
     [h.ids.juan],
+  );
+  return row!.id;
+}
+
+/** The demo shift the incoming crew (Ana and Ben) is on. */
+export async function demoIncomingShift(h: Harness): Promise<string> {
+  const [row] = await h.sql<{ id: string }>(
+    `select s.id from public.shifts s join public.shift_assignments a on a.shift_id = s.id and a.removed_at is null
+      where s.label like '% (demo)' and s.status = 'scheduled' and a.employee_id = $1 order by s.created_at desc limit 1`,
+    [h.ids.ben],
   );
   return row!.id;
 }

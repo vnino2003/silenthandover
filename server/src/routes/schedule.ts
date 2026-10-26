@@ -82,11 +82,13 @@ export function scheduleRoutes() {
   r.post('/schedule/preset', async (c) => {
     const b = await parseBody(
       c,
-      z.strictObject({ preset: z.enum(['warehouse_extended', 'office_weekdays', 'continuous_24h']) }),
+      z.strictObject({ preset: z.enum(['two_shift', 'warehouse_extended', 'office_weekdays', 'continuous_24h']) }),
     );
-    const result = await asUser(c, async (q) =>
-      (await q.query<{ result: unknown }>('select app.apply_schedule_preset($1) as result', [b.preset]))[0]!.result,
-    );
+    const result = await asUser(c, async (q) => {
+      const [row] = await q.query<{ result: unknown }>('select app.apply_schedule_preset($1) as result', [b.preset]);
+      await q.query('select app.retire_inactive_pattern_shifts()');
+      return row!.result;
+    });
     return c.json(result);
   });
 
@@ -115,8 +117,15 @@ export function scheduleRoutes() {
   r.patch('/templates/:id', async (c) => {
     const id = idParam(c);
     const b = await parseBody(c, TemplateBody);
-    await asUser(c, (q) => q.query(templateSql, templateParams(id, b)));
-    return c.json({ ok: true });
+    // Changes carry through to the schedule: a removed pattern's shifts go, new times move upcoming ones.
+    const result = await asUser(c, async (q) => {
+      const [before] = await q.query<{ is_active: boolean }>('select is_active from public.shift_templates where id = $1', [id]);
+      await q.query(templateSql, templateParams(id, b));
+      if (!b.is_active) return { cancelled: (await q.query<{ n: number }>('select app.retire_inactive_pattern_shifts() as n'))[0]!.n, moved: 0 };
+      const restore = before ? !before.is_active : false;
+      return { cancelled: 0, moved: (await q.query<{ n: number }>('select app.sync_pattern_shifts($1, $2) as n', [id, restore]))[0]!.n };
+    });
+    return c.json({ ok: true, ...result });
   });
 
   r.post('/templates/:id/generate', async (c) => {

@@ -73,15 +73,19 @@ export async function seedDemo(
 
   // Supervisor: the day-to-day schedule for their own department.
   await db.asUser(ids.manager!, async (q) => {
-    await q.query(`select app.apply_schedule_preset('warehouse_extended')`);
+    // Two shifts: Morning 6 AM – 2 PM hands over to Afternoon 2 PM – 10 PM.
+    await q.query(`select app.apply_schedule_preset('two_shift')`);
     const templates = await q.query<{ id: string }>(`select id from public.shift_templates where department_id = app.my_department() and is_active order by start_time`);
     for (const template of templates) await q.query(`select app.generate_shifts($1, ${today} - 1, ${today} + 6, $2)`, [template.id, ids.manager]);
-    // A regular future shift for Juan so the "upcoming" list is realistic.
-    const tomorrowOpening = await val<string>(
-      q,
-      `select id as v from public.shifts where department_id = app.my_department() and label = 'Opening' and shift_date = ${today} + 1`,
+    // A realistic week from tomorrow: Juan on Morning, Ana and Ben on Afternoon.
+    // (Today is covered by the demo shifts below.)
+    const crew = await q.query<{ id: string; label: string }>(
+      `select id, label from public.shifts where department_id = app.my_department() and template_id is not null
+          and shift_date between ${today} + 1 and ${today} + 6`,
     );
-    await q.query('select app.assign_to_shift($1, $2)', [tomorrowOpening, ids.juan]);
+    for (const s of crew) {
+      for (const who of s.label === 'Morning' ? [ids.juan] : [ids.ana, ids.ben]) await q.query('select app.assign_to_shift($1, $2)', [s.id, who]);
+    }
   });
 
   await createDemoTimeline(services, ids.manager!);
@@ -113,6 +117,35 @@ export async function seedDemo(
   }
 
   return { accounts: accounts.map((a) => ({ email: a.email, role: a.role, full_name: a.full_name })) };
+}
+
+/**
+ * LOCAL DEMO ONLY: wipes all activity — shifts and assignments, reports and their AI runs,
+ * handovers, issues ("tickets"), photos and notifications — so a demo can start from a clean
+ * slate. Accounts, departments, shift patterns, source records and the audit log stay.
+ * TRUNCATE is used because the history tables refuse row deletes by design; it is listed
+ * without CASCADE so a table added later is never wiped by accident.
+ */
+export async function clearDemoActivity(services: Services, actorId: string) {
+  const tables = [
+    'public.issue_photos', 'public.issue_updates', 'public.issue_assignments', 'public.operational_issues',
+    'public.handover_routes', 'public.handover_acknowledgments', 'public.handover_deliveries', 'public.handover_approvals',
+    'public.ai_analysis_runs', 'internal.analysis_inputs', 'public.notification_deliveries', 'public.notifications',
+    'public.automation_events', 'public.report_revisions', 'public.report_window_overrides', 'public.shift_reports',
+    'public.shift_assignments', 'public.shifts',
+  ];
+  return services.db.asService(async (q) => {
+    const [counts] = await q.query<{ shifts: number; reports: number; issues: number }>(
+      `select (select count(*)::int from public.shifts) as shifts, (select count(*)::int from public.shift_reports) as reports,
+              (select count(*)::int from public.operational_issues) as issues`,
+    );
+    await q.query(`truncate ${tables.join(', ')}`);
+    await q.query(
+      `insert into public.audit_logs (actor_id, actor_role, action, entity_type, details) values ($1, 'admin', 'demo.cleared', 'system', $2::jsonb)`,
+      [actorId, JSON.stringify(counts)],
+    );
+    return counts!;
+  });
 }
 
 /**
@@ -151,17 +184,34 @@ export async function createDemoTimeline(services: Services, supervisorId: strin
       [byEmail['juan.delacruz@demo.test'], [byEmail['ana.lim@demo.test'], byEmail['ben.torres@demo.test']]],
     );
     for (const c of clashes) await q.query('select app.unassign_from_shift($1, $2)', [c.shift_id, c.employee_id]);
+    // Regular shifts in the same hours that nobody works would show beside the demo pair as
+    // duplicates; the demo stands in for them today.
+    const idle = await q.query<{ id: string; supervisor_id: string | null }>(
+      `select s.id, s.supervisor_id from public.shifts s
+        where s.department_id = app.my_department() and s.status = 'scheduled' and s.team_id is distinct from $1
+          and s.ends_at > date_trunc('minute', now()) - interval '7 hours 40 minutes'
+          and s.starts_at < date_trunc('minute', now()) + interval '8 hours 20 minutes'
+          and not exists (select 1 from public.shift_assignments a where a.shift_id = s.id and a.removed_at is null)
+          and not exists (select 1 from public.shift_reports r where r.shift_id = s.id)`,
+      [team.id],
+    );
+    for (const s of idle) await q.query(`select app.update_shift($1, $2, 'cancelled')`, [s.id, s.supervisor_id]);
+    // Named after the department's own first two shifts, so the demo reads like a normal day.
+    const names = (
+      await q.query<{ name: string }>(`select name from public.shift_templates where department_id = app.my_department() and is_active order by start_time limit 2`)
+    ).map((t) => t.name);
+    const [firstLabel, nextLabel] = [`${names[0] ?? 'Shift 1'} (demo)`, `${names[1] ?? names[0] ?? 'Shift 2'} (demo)`];
     const outgoing = await val<string>(
       q,
-      `select app.create_shift($1, 'Demo shift — Outgoing', date_trunc('minute', now()) - interval '7 hours 40 minutes',
+      `select app.create_shift($1, $2, date_trunc('minute', now()) - interval '7 hours 40 minutes',
               date_trunc('minute', now()) + interval '20 minutes', 30, 90, auth.uid(), true) as v`,
-      [team.id],
+      [team.id, firstLabel],
     );
     const incoming = await val<string>(
       q,
-      `select app.create_shift($1, 'Demo shift — Incoming', date_trunc('minute', now()) + interval '20 minutes',
+      `select app.create_shift($1, $2, date_trunc('minute', now()) + interval '20 minutes',
               date_trunc('minute', now()) + interval '8 hours 20 minutes', 30, 90, auth.uid(), true) as v`,
-      [team.id],
+      [team.id, nextLabel],
     );
     await q.query('select app.assign_to_shift($1, $2)', [outgoing, byEmail['juan.delacruz@demo.test']]);
     await q.query('select app.assign_to_shift($1, $2)', [incoming, byEmail['ana.lim@demo.test']]);

@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { DEMO_SAMPLE_REPORT } from '@sh/shared';
-import { adhocShift, demoOutgoingShift, flagResolutionsFor, setup, type Harness } from './helpers';
+import { adhocShift, demoIncomingShift, demoOutgoingShift, flagResolutionsFor, setup, type Harness } from './helpers';
 
 /**
  * End-to-end workflow against the real migrations, RLS policies and workflow functions
@@ -645,7 +645,7 @@ describe('handover routing with overlapping shifts', () => {
   beforeAll(async () => {
     h = await setup();
     outgoing = await demoOutgoingShift(h);
-    incoming = (await h.sql<{ id: string }>(`select id from public.shifts where label = 'Demo shift — Incoming' and status = 'scheduled'`))[0]!.id;
+    incoming = await demoIncomingShift(h);
   });
   afterAll(async () => h?.close());
 
@@ -655,14 +655,46 @@ describe('handover routing with overlapping shifts', () => {
       [shift],
     )).map((s) => `${s.label} ${s.shift_date}`);
 
-  it('sends each pattern to every crew on duty when it ends, and the last one to the next morning', async () => {
-    const [day] = await h.sql<{ d: string }>(`select (max(shift_date) - 2)::text as d from public.shifts where label = 'Opening'`);
+  const dayAndNext = async (label: string) => {
+    const [day] = await h.sql<{ d: string }>(`select (max(shift_date) - 2)::text as d from public.shifts where label = $1`, [label]);
     const [next] = await h.sql<{ d: string }>(`select ($1::date + 1)::text as d`, [day!.d]);
-    const shift = async (label: string) =>
-      (await h.sql(`select id from public.shifts where label = $1 and shift_date = $2::date`, [label, day!.d]))[0].id;
-    expect(await incomingOf(await shift('Opening'))).toEqual([`Mid ${day!.d}`, `Closing ${day!.d}`]);
-    expect(await incomingOf(await shift('Mid'))).toEqual([`Closing ${day!.d}`]);
-    expect(await incomingOf(await shift('Closing'))).toEqual([`Opening ${next!.d}`]);
+    const shift = async (l: string) => (await h.sql(`select id from public.shifts where label = $1 and shift_date = $2::date`, [l, day!.d]))[0].id;
+    return { day: day!.d, next: next!.d, shift };
+  };
+
+  it('hands Morning (6–2) to Afternoon (2–10), and Afternoon to the next Morning', async () => {
+    const { day, next, shift } = await dayAndNext('Morning');
+    expect(await incomingOf(await shift('Morning'))).toEqual([`Afternoon ${day}`]);
+    expect(await incomingOf(await shift('Afternoon'))).toEqual([`Morning ${next}`]);
+    // The seeded week already has its crew: Juan in the morning, Ana and Ben in the afternoon.
+    const crew = await h.sql(
+      `select s.label, array_agg(p.full_name order by p.full_name) as names from public.shifts s
+         join public.shift_assignments a on a.shift_id = s.id and a.removed_at is null join public.profiles p on p.id = a.employee_id
+        where s.shift_date = $1::date and s.template_id is not null group by s.label order by s.label`,
+      [day],
+    );
+    expect(crew).toEqual([{ label: 'Afternoon', names: ['Ana Lim', 'Ben Torres'] }, { label: 'Morning', names: ['Juan Dela Cruz'] }]);
+  });
+
+  it('sends each pattern to every crew on duty when it ends, and the last one to the next morning', async () => {
+    // Overlapping crews, as in a department using the extended warehouse preset.
+    expect((await h.call('manager', 'POST', '/api/manager/schedule/preset', { preset: 'warehouse_extended' })).status).toBe(200);
+    // Switching patterns clears the retired Morning/Afternoon shifts from now on, staffed or not.
+    const [retired] = await h.sql(
+      `select count(*) filter (where s.status = 'scheduled' and s.starts_at > now() and a.id is null)::int as empty_left,
+              count(*) filter (where s.status = 'scheduled' and a.id is not null)::int as staffed_kept
+         from public.shifts s left join public.shift_assignments a on a.shift_id = s.id and a.removed_at is null
+        where s.label in ('Morning', 'Afternoon')`,
+    );
+    expect(retired).toEqual({ empty_left: 0, staffed_kept: 0 });
+    await h.services.db.asUser(h.ids.manager!, async (q) => {
+      const templates = await q.query<{ id: string }>(`select id from public.shift_templates where is_active and department_id = app.my_department()`);
+      for (const t of templates) await q.query(`select app.generate_shifts($1, current_date + 20, current_date + 23, auth.uid())`, [t.id]);
+    });
+    const { day, next, shift } = await dayAndNext('Opening');
+    expect(await incomingOf(await shift('Opening'))).toEqual([`Mid ${day}`, `Closing ${day}`]);
+    expect(await incomingOf(await shift('Mid'))).toEqual([`Closing ${day}`]);
+    expect(await incomingOf(await shift('Closing'))).toEqual([`Opening ${next}`]);
   });
 
   it('delivers an approved handover to every crew on duty, not only the next one to start', async () => {
@@ -688,7 +720,7 @@ describe('handover routing with overlapping shifts', () => {
     const detail = await h.call('manager', 'GET', `/api/manager/reports/${reportId}`);
     expect(detail.body.incoming_shifts.map((s: any) => [s.label, s.assignees])).toEqual([
       ['Mid crew', ['Ana Lim']],
-      ['Demo shift — Incoming', ['Ben Torres']],
+      ['Afternoon (demo)', ['Ben Torres']],
     ]);
     const res = await h.call('manager', 'POST', `/api/manager/reports/${reportId}/decision`, {
       decision: 'approved',
@@ -723,9 +755,10 @@ describe('handover routing with overlapping shifts', () => {
     expect(second.status).toBe(201);
     const active = await h.sql(
       `select s.label from public.shift_assignments a join public.shifts s on s.id = a.shift_id
-        where a.removed_at is null and s.status = 'scheduled' and s.label like 'Demo shift%' order by s.label`,
+        where a.removed_at is null and s.status = 'scheduled' and s.label like '% (demo)' order by s.label`,
     );
-    expect(active.map((r: any) => r.label)).toEqual(['Demo shift — Incoming', 'Demo shift — Incoming', 'Demo shift — Outgoing']);
+    // Named after the department's own first two shifts (Opening and Mid after the preset switch above).
+    expect(active.map((r: any) => r.label)).toEqual(['Mid (demo)', 'Mid (demo)', 'Opening (demo)']);
     expect((await h.call('juan', 'GET', '/api/employee/dashboard')).body.current_shift).toMatchObject({ id: second.body.outgoing, window_state: 'open' });
   });
 });
@@ -779,7 +812,7 @@ describe('crew takeover: many workers leave, many arrive', () => {
   beforeAll(async () => {
     h = await setup();
     morning = await demoOutgoingShift(h);
-    afternoon = (await h.sql<{ id: string }>(`select id from public.shifts where label = 'Demo shift — Incoming' and status = 'scheduled'`))[0]!.id;
+    afternoon = await demoIncomingShift(h);
     dockIssue = (await h.sql<{ id: string }>(`select id from public.operational_issues where title like 'Dock 3 door%'`))[0]!.id;
     await addWorker('pedro', 'Pedro Ramos');
     await addWorker('carla', 'Carla Mendoza');
@@ -842,6 +875,29 @@ describe('crew takeover: many workers leave, many arrive', () => {
     expect((await h.call('ben', 'POST', `/api/issues/${taskIds[0]}/claim`, { take: true })).status).toBe(200);
   });
 
+  it('shows the supervisor who is on duty now and who took what', async () => {
+    const board = (await h.call('manager', 'GET', '/api/manager/shift-board')).body;
+    const out = board.shifts.find((s: any) => s.id === morning);
+    const inc = board.shifts.find((s: any) => s.id === afternoon);
+    expect(out).toMatchObject({ phase: 'active' });
+    expect(out.assignees.map((a: any) => [a.employee_name, a.report_status])).toEqual([
+      ['Juan Dela Cruz', 'delivered'],
+      ['Pedro Ramos', 'delivered'],
+    ]);
+    expect(inc).toMatchObject({ phase: 'upcoming' });
+    expect(Object.fromEntries(inc.assignees.map((a: any) => [a.employee_name, a.items_taken]))).toMatchObject({ 'Ben Torres': 1, 'Ana Lim': 0 });
+    expect(inc.assignees.every((a: any) => a.incoming_delivery.length === 2)).toBe(true);
+    expect(board.counts).toMatchObject({ pending_review: 0 });
+    // Cancelled shifts are left out of the day, and so is tomorrow (days end at midnight in Manila).
+    expect(board.shifts.every((s: any) => s.status === 'scheduled')).toBe(true);
+    const midnight = new Date(`${board.today}T00:00:00+08:00`).getTime() + 86400e3;
+    expect(board.shifts.every((s: any) => new Date(s.starts_at).getTime() < midnight)).toBe(true);
+    const tomorrow = new Date(midnight + 12 * 3600e3).toISOString().slice(0, 10);
+    const next = (await h.call('manager', 'GET', `/api/manager/shift-board?date=${tomorrow}`)).body;
+    expect(next.shifts.filter((s: any) => s.template_id).map((s: any) => s.label)).toEqual(['Morning', 'Afternoon']);
+    expect((await h.call('juan', 'GET', '/api/manager/shift-board')).status).toBe(403);
+  });
+
   it('sends a late approval to the crew on duty now, not to a crew that already went home', async () => {
     await addWorker('eli', 'Eli Santos');
     await addWorker('fay', 'Fay Cruz');
@@ -863,5 +919,102 @@ describe('crew takeover: many workers leave, many arrive', () => {
     expect(await submitAndApprove('eli', early, 'Sweep Bay 2')).toMatchObject({ status: 'delivered', recipients: 1 });
     expect((await h.call('gia', 'GET', '/api/handovers/incoming')).body).toHaveLength(1);
     expect((await h.call('fay', 'GET', '/api/handovers/incoming')).body).toEqual([]);
+  });
+});
+
+describe("each supervisor sets their own department's shifts", () => {
+  let h: Harness;
+  let day: { id: string } & Record<string, unknown>;
+  const body = (over: Record<string, unknown> = {}) => ({
+    team_id: null, name: 'Day', start_time: '07:00', end_time: '19:00', window_open_minutes: 30, grace_minutes: 30,
+    allow_early_draft: true, is_active: true, weekdays: [1, 2, 3, 4, 5, 6, 7], ...over,
+  });
+  const dayShifts = () =>
+    h.sql<{ status: string; future: boolean; ended: boolean; staffed: boolean; starts: string }>(
+      `select s.status, s.starts_at > now() as future, s.ends_at <= now() as ended,
+              exists (select 1 from public.shift_assignments a where a.shift_id = s.id and a.removed_at is null) as staffed,
+              to_char(s.starts_at at time zone s.timezone, 'HH24:MI') as starts
+         from public.shifts s where s.template_id = $1 order by s.starts_at`,
+      [day.id],
+    );
+
+  beforeAll(async () => {
+    h = await setup();
+    // Facilities runs one 7 AM – 7 PM "Day" shift; Liza works today's.
+    day = (await h.call('facmanager', 'GET', '/api/manager/templates')).body.find((t: any) => t.name === 'Day');
+  });
+  afterAll(async () => h?.close());
+
+  it('keeps one department’s shifts out of another supervisor’s hands', async () => {
+    expect((await h.call('manager', 'PATCH', `/api/manager/templates/${day.id}`, body({ is_active: false }))).status).toBe(404);
+    expect((await h.call('liza', 'PATCH', `/api/manager/templates/${day.id}`, body({ is_active: false }))).status).toBe(403);
+  });
+
+  it('moves upcoming shifts to new times instead of leaving the old ones beside them', async () => {
+    const res = await h.call('facmanager', 'PATCH', `/api/manager/templates/${day.id}`, body({ start_time: '08:00', end_time: '16:00' }));
+    expect(res.status).toBe(200);
+    expect(res.body.moved).toBeGreaterThan(0);
+    const future = (await dayShifts()).filter((s) => s.future);
+    expect(future.every((s) => s.starts === '08:00')).toBe(true);
+  });
+
+  it('lets the supervisor add a shift of their own', async () => {
+    const created = await h.call('facmanager', 'POST', '/api/manager/templates', body({ name: 'Late', start_time: '16:00', end_time: '00:00' }));
+    expect(created.status).toBe(201);
+    const names = (await h.call('facmanager', 'GET', '/api/manager/templates')).body.filter((t: any) => t.is_active).map((t: any) => t.name);
+    expect(names).toEqual(['Day', 'Late']);
+  });
+
+  it('takes a removed shift off the schedule, even when it is staffed or running', async () => {
+    const res = await h.call('facmanager', 'PATCH', `/api/manager/templates/${day.id}`, body({ start_time: '08:00', end_time: '16:00', is_active: false }));
+    expect(res.body.cancelled).toBeGreaterThan(0);
+    const shifts = await dayShifts();
+    // Nothing still to come or in progress; only finished shifts someone worked stay as history.
+    expect(shifts.filter((s) => !s.ended && s.status === 'scheduled')).toEqual([]);
+    expect(shifts.filter((s) => s.status === 'scheduled').every((s) => s.ended && s.staffed)).toBe(true);
+    expect((await h.call('liza', 'GET', '/api/employee/dashboard')).body.upcoming.some((s: any) => s.label === 'Day')).toBe(false);
+  });
+
+  it('brings the upcoming shifts back when the shift is added again', async () => {
+    await h.call('facmanager', 'PATCH', `/api/manager/templates/${day.id}`, body({ start_time: '08:00', end_time: '16:00' }));
+    const future = (await dayShifts()).filter((s) => s.future);
+    expect(future.length).toBeGreaterThan(0);
+    expect(future.every((s) => s.status === 'scheduled')).toBe(true);
+  });
+});
+
+describe('starting the local demo over', () => {
+  let h: Harness;
+  beforeAll(async () => {
+    h = await setup();
+  });
+  afterAll(async () => h?.close());
+
+  it('only lets an administrator clear it, and only with confirmation', async () => {
+    expect((await h.call('manager', 'POST', '/api/admin/demo/clear', { confirm: 'CLEAR' })).status).toBe(403);
+    expect((await h.call('admin', 'POST', '/api/admin/demo/clear', {})).status).toBe(422);
+  });
+
+  it('removes shifts, reports and tickets but keeps accounts and setup', async () => {
+    const count = async () =>
+      (await h.sql(
+        `select (select count(*)::int from public.shifts) as shifts, (select count(*)::int from public.operational_issues) as issues,
+                (select count(*)::int from public.shift_reports) as reports, (select count(*)::int from public.notifications) as notifications,
+                (select count(*)::int from public.profiles) as profiles, (select count(*)::int from public.shift_templates where is_active) as patterns,
+                (select count(*)::int from public.operational_records) as records`,
+      ))[0];
+    const before = await count();
+    const draft = (await h.call('juan', 'POST', `/api/shifts/${await demoOutgoingShift(h)}/report`)).body.report_id;
+    expect(draft).toBeTruthy();
+    const res = await h.call('admin', 'POST', '/api/admin/demo/clear', { confirm: 'CLEAR' });
+    expect(res.status).toBe(200);
+    expect(res.body.cleared).toMatchObject({ shifts: before.shifts, issues: before.issues, reports: 1 });
+    expect(await count()).toEqual({ ...before, shifts: 0, issues: 0, reports: 0, notifications: 0 });
+    const [audit] = await h.sql(`select actor_id, details from public.audit_logs where action = 'demo.cleared'`);
+    expect(audit.actor_id).toBe(h.ids.admin);
+    // Everything still works from the clean slate.
+    expect((await h.call('juan', 'GET', '/api/employee/dashboard')).body.current_shift).toBeNull();
+    expect((await h.call('manager', 'GET', '/api/manager/shift-board')).body.shifts).toEqual([]);
+    expect((await h.call('manager', 'POST', '/api/manager/demo/timeline')).status).toBe(201);
   });
 });

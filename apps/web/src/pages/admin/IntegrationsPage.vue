@@ -4,6 +4,7 @@ import PageHeader from '@/components/ui/PageHeader.vue';
 import StateBlock from '@/components/ui/StateBlock.vue';
 import StatusBadge, { type Tone } from '@/components/ui/StatusBadge.vue';
 import UiButton from '@/components/ui/UiButton.vue';
+import UiDialog from '@/components/ui/UiDialog.vue';
 import { api, errorMessage } from '@/lib/api';
 import { dateTime, relative } from '@/lib/format';
 import { useAsync } from '@/lib/useAsync';
@@ -48,6 +49,14 @@ const runTick = () =>
     const r = await api.post<Record<string, number>>('/admin/tick');
     toast.info(Object.entries(r).map(([k, v]) => `${k.replace(/_/g, ' ')}: ${v}`).join(' · '));
   }, 'Scheduled checks ran');
+
+const confirmClear = ref(false);
+const clearDemo = () =>
+  act('clear', async () => {
+    const r = await api.post<{ cleared: { shifts: number; reports: number; issues: number } }>('/admin/demo/clear', { confirm: 'CLEAR' });
+    confirmClear.value = false;
+    toast.info(`Removed ${r.cleared.shifts} shifts, ${r.cleared.reports} reports and ${r.cleared.issues} tickets`);
+  }, 'Demo data cleared');
 
 const retryEvent = (id: string) => act(id, () => api.post(`/admin/events/${id}/retry`), 'Retry queued');
 const retryDelivery = (id: string) => act(id, () => api.post(`/admin/deliveries/${id}/retry`), 'Retry queued');
@@ -201,5 +210,20 @@ const counts = (rows: { status: string; count: number }[]) => rows.reduce<Record
         </section>
       </template>
     </StateBlock>
+
+    <section v-if="auth.config?.demo" class="card mt-8 flex flex-col gap-3 border-bad/30 px-5 py-4 sm:flex-row sm:items-center sm:justify-between" aria-label="Demo data">
+      <div>
+        <p class="text-[14px] font-semibold">Start the demo over</p>
+        <p class="text-[13px] text-ink-3">Removes every shift, report, ticket and notification. Accounts, departments and shift patterns stay. Local demo only.</p>
+      </div>
+      <UiButton variant="danger" :loading="busy === 'clear'" @click="confirmClear = true">Clear demo data</UiButton>
+    </section>
+    <UiDialog :open="confirmClear" title="Clear all demo activity?" description="This permanently removes every shift, report, handover, ticket and notification in this local demo." @close="confirmClear = false">
+      <p class="text-[13.5px] text-ink-2">Accounts, departments, shift patterns, source records and the audit log are kept.</p>
+      <template #footer>
+        <UiButton variant="ghost" @click="confirmClear = false">Cancel</UiButton>
+        <UiButton variant="danger" :loading="busy === 'clear'" @click="clearDemo">Clear everything</UiButton>
+      </template>
+    </UiDialog>
   </div>
 </template>

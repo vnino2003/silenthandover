@@ -20,8 +20,8 @@ const NAV = {
     { to: '/reports', label: 'My reports' },
   ],
   manager: [
+    { to: '/manager/shifts', label: 'Today' },
     { to: '/manager', label: 'Review queue', exact: true },
-    { to: '/manager/shifts', label: 'Today’s shifts' },
     { to: '/manager/schedule', label: 'Schedule' },
     { to: '/manager/issues', label: 'Issues' },
     { to: '/manager/reports', label: 'Report history', exact: true },

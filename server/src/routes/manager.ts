@@ -171,14 +171,18 @@ export function managerRoutes() {
     return c.json({ event_id: event }, 202);
   });
 
-  // Shift board: who is on each shift, report status, missing reports, acknowledgments.
+  // Shift board: who is working on the chosen day, who is on duty right now, report status,
+  // missing reports, whether each crew read its handover, and how many items each person took.
   r.get('/shift-board', async (c) => {
     const { date } = parseQuery(c, z.object({ date: z.iso.date().optional() }));
     const rows = await asUser(c, async (q) => {
       const tz = (await q.query<{ tz: string }>('select timezone as tz from public.departments where id = app.my_department()'))[0]?.tz ?? 'UTC';
-      const day = date ?? (await q.query<{ d: string }>('select (now() at time zone $1)::date::text as d', [tz]))[0]!.d;
+      const [{ today, now }] = (await q.query<{ today: string; now: Date }>('select (now() at time zone $1)::date::text as today, now() as now', [tz])) as [
+        { today: string; now: Date },
+      ];
+      const day = date ?? today;
       const shifts = await q.query(
-        `select ${SHIFT_COLUMNS},
+        `select ${SHIFT_COLUMNS}, s.template_id,
                 case when now() < s.starts_at then 'upcoming' when now() < s.ends_at then 'active'
                      when now() < s.window_closes_at then 'reporting' else 'ended' end as phase,
                 coalesce((
@@ -188,6 +192,8 @@ export function managerRoutes() {
                     'override_expires_at', (select max(o.expires_at) from public.report_window_overrides o
                                              where o.shift_id = s.id and o.employee_id = a.employee_id and o.expires_at > now()),
                     'missing', now() >= s.window_closes_at and (r.id is null or r.status = 'draft'),
+                    'items_taken', (select count(*)::int from public.issue_assignments ia join public.operational_issues i on i.id = ia.issue_id
+                                     where ia.assignee_id = a.employee_id and ia.ended_at is null and i.status in ('open', 'in_progress')),
                     'incoming_delivery', (select jsonb_agg(jsonb_build_object('reference', ap.report_reference, 'acknowledged_at', k.acknowledged_at))
                                             from public.handover_deliveries hd
                                             join public.handover_approvals ap on ap.id = hd.approval_id
@@ -202,11 +208,21 @@ export function managerRoutes() {
            join public.departments d on d.id = s.department_id
            left join public.teams t on t.id = s.team_id
            left join public.profiles sup on sup.id = s.supervisor_id
-          where s.department_id = app.my_department() and s.shift_date between $1::date - 1 and $1::date
+          where s.department_id = app.my_department() and s.status = 'scheduled'
+            and ((s.starts_at < (($1::date + 1)::timestamp at time zone $2) and s.ends_at > ($1::date::timestamp at time zone $2))
+                 -- Today also shows last night's shifts whose reports may still be missing.
+                 or ($1::date = $3::date and s.ends_at > now() - interval '12 hours' and s.starts_at < now()))
           order by s.starts_at`,
-        [day],
+        [day, tz, today],
       );
-      return { date: day, timezone: tz, shifts };
+      const [counts] = await q.query<{ pending_review: number; untaken: number; safety_open: number }>(
+        `select (select count(*)::int from public.shift_reports where department_id = app.my_department() and status = 'pending_review') as pending_review,
+                (select count(*)::int from public.operational_issues i where i.department_id = app.my_department() and i.status in ('open', 'in_progress')
+                   and not exists (select 1 from public.issue_assignments ia where ia.issue_id = i.id and ia.ended_at is null)) as untaken,
+                (select count(*)::int from public.operational_issues i where i.department_id = app.my_department() and i.is_safety
+                   and i.status in ('reported', 'pending_verification', 'open', 'in_progress', 'resolution_submitted')) as safety_open`,
+      );
+      return { date: day, today, server_now: now, timezone: tz, shifts, counts };
     });
     return c.json(rows);
   });
