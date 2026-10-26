@@ -15,7 +15,7 @@ const menuOpen = ref(false);
 const NAV = {
   employee: [
     { to: '/', label: 'Today', exact: true },
-    { to: '/handover', label: 'Incoming handover' },
+    { to: '/handover', label: 'Shift takeover' },
     { to: '/tasks', label: 'Open issues' },
     { to: '/reports', label: 'My reports' },
   ],
@@ -40,7 +40,7 @@ const NAV = {
 const nav = computed(() => (auth.role ? NAV[auth.role] : []));
 const employeeMobileNav = [
   { to: '/', label: 'Today', exact: true },
-  { to: '/handover', label: 'Handover' },
+  { to: '/handover', label: 'Takeover' },
   { to: '/tasks', label: 'Issues' },
   { to: '/reports', label: 'Reports' },
 ] as const;

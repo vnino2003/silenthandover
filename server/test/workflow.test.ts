@@ -729,3 +729,139 @@ describe('handover routing with overlapping shifts', () => {
     expect((await h.call('juan', 'GET', '/api/employee/dashboard')).body.current_shift).toMatchObject({ id: second.body.outgoing, window_state: 'open' });
   });
 });
+
+describe('crew takeover: many workers leave, many arrive', () => {
+  let h: Harness;
+  let morning: string;
+  let afternoon: string;
+  let dockIssue: string;
+  const taskIds: string[] = [];
+  const PASSWORD = 'test-password-123';
+
+  async function addWorker(key: string, name: string) {
+    const [dept] = await h.sql<{ id: string }>(`select id from public.departments where code = 'WH'`);
+    const email = `${key}@demo.test`;
+    const res = await h.call('admin', 'POST', '/api/admin/users', { full_name: name, email, password: PASSWORD, role: 'employee', department_id: dept!.id });
+    expect(res.status).toBe(201);
+    h.ids[key] = (await h.sql<{ id: string }>('select id from public.profiles where email = $1', [email]))[0]!.id;
+    await h.loginAs(key, email, PASSWORD);
+  }
+
+  async function submitAndApprove(who: string, shift: string, task: string) {
+    const reportId = (await h.call(who, 'POST', `/api/shifts/${shift}/report`)).body.report_id;
+    const submit = await h.call(who, 'POST', `/api/reports/${reportId}/submit`, {
+      content: { completed_work: 'Picked and staged outbound orders.', unresolved_issues: 'Dock 3 door still stops halfway.', pending_tasks: task },
+    });
+    expect(submit.status).toBe(201);
+    await h.drain();
+    const detail = await h.call('manager', 'GET', `/api/manager/reports/${reportId}`);
+    const res = await h.call('manager', 'POST', `/api/manager/reports/${reportId}/decision`, {
+      decision: 'approved',
+      content: {
+        summary: detail.body.runs[0].draft.summary,
+        completed_tasks: [],
+        unresolved_issues: [
+          { title: 'Dock 3 door sensor still stops halfway', description: '', severity: 'medium', is_safety_concern: false, link_issue_id: dockIssue, initial_status: 'open' },
+        ],
+        pending_actions: [{ description: task }],
+        notes_for_incoming: '',
+      },
+      flag_resolutions: flagResolutionsFor(detail.body.runs[0].flags),
+      note: '',
+    });
+    expect(res.status).toBe(200);
+    return res.body;
+  }
+
+  const boardShift = async (who: string, shift: string) =>
+    (await h.call(who, 'GET', '/api/handovers/board')).body.shifts.find((s: any) => s.id === shift);
+
+  beforeAll(async () => {
+    h = await setup();
+    morning = await demoOutgoingShift(h);
+    afternoon = (await h.sql<{ id: string }>(`select id from public.shifts where label = 'Demo shift — Incoming' and status = 'scheduled'`))[0]!.id;
+    dockIssue = (await h.sql<{ id: string }>(`select id from public.operational_issues where title like 'Dock 3 door%'`))[0]!.id;
+    await addWorker('pedro', 'Pedro Ramos');
+    await addWorker('carla', 'Carla Mendoza');
+    // Morning crew: Juan and Pedro. Afternoon crew: Ana, Ben and Carla.
+    expect((await h.call('manager', 'POST', `/api/manager/schedule/${morning}/assignments`, { employee_id: h.ids.pedro })).status).toBe(201);
+    expect((await h.call('manager', 'POST', `/api/manager/schedule/${afternoon}/assignments`, { employee_id: h.ids.carla })).status).toBe(201);
+  });
+  afterAll(async () => h?.close());
+
+  it('shows the afternoon crew who is handing over, before anything is approved', async () => {
+    const shift = await boardShift('ana', afternoon);
+    expect(shift.outgoing.map((o: any) => [o.employee_name, o.report_status])).toEqual([
+      ['Juan Dela Cruz', 'not_started'],
+      ['Pedro Ramos', 'not_started'],
+    ]);
+    expect(shift.handovers).toEqual([]);
+  });
+
+  it('gives every afternoon worker every morning handover, with one combined checklist', async () => {
+    expect(await submitAndApprove('juan', morning, 'Wrap 6 pallets for Northstar')).toMatchObject({ status: 'delivered', recipients: 3 });
+    // Pedro's report is still waiting: the crew sees that it is on the way, but not its content.
+    const pedroReport = (await h.call('pedro', 'POST', `/api/shifts/${morning}/report`)).body.report_id;
+    await h.call('pedro', 'PUT', `/api/reports/${pedroReport}/draft`, { content: { completed_work: 'Secret draft text' } });
+    const waiting = await boardShift('ben', afternoon);
+    expect(waiting.outgoing.map((o: any) => o.report_status)).toEqual(['delivered', 'draft']);
+    expect(JSON.stringify(waiting)).not.toContain('Secret draft text');
+
+    expect(await submitAndApprove('pedro', morning, 'Recount Aisle 7')).toMatchObject({ status: 'delivered', recipients: 3 });
+    for (const who of ['ana', 'ben', 'carla']) {
+      const shift = await boardShift(who, afternoon);
+      expect(shift.handovers.map((d: any) => d.outgoing_employee).sort()).toEqual(['Juan Dela Cruz', 'Pedro Ramos']);
+      expect(shift.outgoing.every((o: any) => o.report_status === 'delivered')).toBe(true);
+      // Both reported the Dock 3 door: it appears once, credited to both.
+      const dock = shift.checklist.filter((i: any) => i.id === dockIssue);
+      expect(dock).toHaveLength(1);
+      expect(dock[0].from).toEqual(['Juan Dela Cruz', 'Pedro Ramos']);
+      expect(shift.checklist).toHaveLength(3);
+    }
+    const shift = await boardShift('ana', afternoon);
+    taskIds.push(...shift.checklist.filter((i: any) => i.kind === 'task').map((i: any) => i.id));
+    expect(taskIds).toHaveLength(2);
+  });
+
+  it('lets one worker take an item so nobody else doubles up on it', async () => {
+    const take = await h.call('ana', 'POST', `/api/issues/${taskIds[0]}/claim`, { take: true });
+    expect(take.status).toBe(200);
+    expect(take.body).toMatchObject({ owner_id: h.ids.ana, status: 'in_progress' });
+    const clash = await h.call('ben', 'POST', `/api/issues/${taskIds[0]}/claim`, { take: true });
+    expect(clash.status).toBe(409);
+    expect(clash.body.error.message).toContain('Ana Lim already took this');
+    expect((await h.call('ben', 'POST', `/api/issues/${taskIds[0]}/claim`, { take: false })).status).toBe(403);
+    const item = (await boardShift('carla', afternoon)).checklist.find((i: any) => i.id === taskIds[0]);
+    expect(item).toMatchObject({ owner_name: 'Ana Lim', status: 'in_progress' });
+    expect((await h.call('manager', 'POST', `/api/issues/${taskIds[0]}/claim`, { take: true })).status).toBe(403);
+  });
+
+  it('puts an item back for anyone when its owner lets go', async () => {
+    const release = await h.call('ana', 'POST', `/api/issues/${taskIds[0]}/claim`, { take: false });
+    expect(release.body).toMatchObject({ owner_id: null, status: 'open' });
+    expect((await h.call('ben', 'POST', `/api/issues/${taskIds[0]}/claim`, { take: true })).status).toBe(200);
+  });
+
+  it('sends a late approval to the crew on duty now, not to a crew that already went home', async () => {
+    await addWorker('eli', 'Eli Santos');
+    await addWorker('fay', 'Fay Cruz');
+    await addWorker('gia', 'Gia Torres');
+    const [dept] = await h.sql<{ id: string }>(`select id from public.departments where code = 'WH'`);
+    const team = (await h.call('admin', 'POST', `/api/admin/departments/${dept!.id}/teams`, { name: 'Late approvals' })).body.id;
+    const make = (label: string, starts: string, ends: string, grace: number, who: string) =>
+      h.services.db.asUser(h.ids.manager!, async (q) => {
+        const [s] = await q.query<{ id: string }>(`select app.create_shift($1, $2, ${starts}, ${ends}, 30, $3, null, true) as id`, [team, label, grace]);
+        await q.query('select app.assign_to_shift($1, $2)', [s!.id, h.ids[who]]);
+        return s!.id;
+      });
+    const early = await make('Early', `now() - interval '10 hours'`, `now() - interval '2 hours'`, 180, 'eli');
+    const gone = await make('Gone home', `now() - interval '2 hours'`, `now() - interval '1 hour'`, 30, 'fay');
+    const onDuty = await make('On duty', `now() - interval '30 minutes'`, `now() + interval '7 hours'`, 30, 'gia');
+    expect((await h.sql('select x::text from app.incoming_shifts($1) x', [early])).map((r: any) => r.x)).toEqual([gone]);
+    expect((await h.sql('select x::text from app.receiving_shifts($1) x', [early])).map((r: any) => r.x)).toEqual([onDuty]);
+
+    expect(await submitAndApprove('eli', early, 'Sweep Bay 2')).toMatchObject({ status: 'delivered', recipients: 1 });
+    expect((await h.call('gia', 'GET', '/api/handovers/incoming')).body).toHaveLength(1);
+    expect((await h.call('fay', 'GET', '/api/handovers/incoming')).body).toEqual([]);
+  });
+});

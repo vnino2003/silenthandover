@@ -45,6 +45,23 @@ async function myShifts(q: Queryable, fromSql: string, toSql: string) {
 
 const ACTIVE_STATES = new Set(['early_draft', 'open', 'override']);
 
+interface BoardDelivery {
+  delivery_id: string;
+  shift_id: string;
+  outgoing_employee: string;
+  acknowledged_at: Date | null;
+  approved_content: {
+    unresolved_issues?: { issue_id?: string }[];
+    pending_actions?: { issue_id?: string }[];
+  };
+}
+
+interface BoardIssue {
+  id: string;
+  status: string;
+  is_safety: boolean;
+}
+
 export function employeeRoutes() {
   const r = new Hono<AppEnv>();
 
@@ -241,6 +258,99 @@ export function employeeRoutes() {
       : [];
     const byId = Object.fromEntries(items.map((i) => [i.id, i]));
     return c.json(rows.map((r) => ({ ...r, checklist: byId })));
+  });
+
+  // The crew takeover board: for each of my shifts around now, every handover sent to it,
+  // one combined checklist (an item reported by several people appears once), who has taken
+  // what, and which outgoing workers' handovers are still on the way.
+  r.get('/handovers/board', async (c) => {
+    requireRole(c, 'employee');
+    const data = await asUser(c, async (q) => {
+      const [{ now }] = (await q.query<{ now: Date }>('select now() as now')) as [{ now: Date }];
+      const deliveries = await q.query<BoardDelivery>(
+        `select d.id as delivery_id, d.shift_id, d.delivered_at, a.report_reference, a.approved_content, a.decided_at,
+                so.label as outgoing_label, so.shift_date::text as outgoing_date, so.ends_at as outgoing_ended_at,
+                author.full_name as outgoing_employee, reviewer.full_name as reviewer_name,
+                k.acknowledged_at, k.note as acknowledgment_note
+           from public.handover_deliveries d
+           join public.handover_approvals a on a.id = d.approval_id
+           join public.shifts so on so.id = a.outgoing_shift_id
+           join public.profiles author on author.id = a.author_id
+           join public.profiles reviewer on reviewer.id = a.reviewer_id
+           left join public.handover_acknowledgments k on k.delivery_id = d.id
+          where d.recipient_id = auth.uid() and d.revoked_at is null
+          order by d.delivered_at desc limit 60`,
+      );
+      const shifts = await q.query<{ id: string; label: string; starts_at: Date; ends_at: Date; timezone: string }>(
+        `select s.id, s.label, s.starts_at, s.ends_at, s.timezone from public.shifts s
+          where s.status = 'scheduled' and (
+                  (exists (select 1 from public.shift_assignments a where a.shift_id = s.id and a.employee_id = auth.uid() and a.removed_at is null)
+                   and s.ends_at > now() - interval '12 hours' and s.starts_at < now() + interval '24 hours')
+                  or s.id = any($1::uuid[]))
+          order by (s.ends_at < now()), s.starts_at`,
+        [deliveries.filter((d) => !d.acknowledged_at).map((d) => d.shift_id)],
+      );
+      const shiftIds = new Set(shifts.map((s) => s.id));
+
+      // Merge every problem and task across the handovers of one shift; remember who mentioned it.
+      const merged = new Map<string, Map<string, Set<string>>>();
+      for (const d of deliveries) {
+        if (!shiftIds.has(d.shift_id)) continue;
+        const items = merged.get(d.shift_id) ?? new Map<string, Set<string>>();
+        merged.set(d.shift_id, items);
+        for (const i of [...(d.approved_content.unresolved_issues ?? []), ...(d.approved_content.pending_actions ?? [])]) {
+          if (i.issue_id) items.set(i.issue_id, (items.get(i.issue_id) ?? new Set<string>()).add(d.outgoing_employee));
+        }
+      }
+      const listed = [...merged.values()].flatMap((m) => [...m.keys()]);
+      const issues = await q.query<BoardIssue>(
+        `select i.id, i.code, i.kind, i.title, i.status, i.severity, i.is_safety, i.created_at,
+                ia.assignee_id as owner_id, ap.full_name as owner_name,
+                (select count(*)::int from public.issue_photos ph where ph.issue_id = i.id) as photo_count
+           from public.operational_issues i
+           left join public.issue_assignments ia on ia.issue_id = i.id and ia.ended_at is null
+           left join public.profiles ap on ap.id = ia.assignee_id
+          where i.id = any($1::uuid[])
+             or (i.department_id = app.my_department()
+                 and i.status in ('reported','pending_verification','open','in_progress','resolution_submitted'))
+          order by (ia.assignee_id = auth.uid()) desc nulls last, i.is_safety desc,
+                   array_position(array['critical','high','medium','low'], i.severity), i.last_activity_at desc`,
+        [listed],
+      );
+      const byId = new Map(issues.map((i) => [i.id, i]));
+      const rank = (i: BoardIssue) => (i.status === 'resolved' || i.status === 'closed' ? 2 : i.status === 'resolution_submitted' ? 1 : 0);
+
+      const board = [];
+      for (const s of shifts) {
+        const outgoing = await q.query('select * from app.turnover_status($1)', [s.id]);
+        const items = [...(merged.get(s.id) ?? new Map<string, Set<string>>()).entries()]
+          .map(([id, from]) => (byId.has(id) ? { ...byId.get(id)!, from: [...from].sort() } : null))
+          .filter((x): x is BoardIssue & { from: string[] } => x !== null)
+          .sort((a, b) => rank(a) - rank(b) || Number(b.is_safety) - Number(a.is_safety));
+        board.push({
+          ...s,
+          is_now: s.starts_at <= now && s.ends_at > now,
+          outgoing,
+          handovers: deliveries.filter((d) => d.shift_id === s.id),
+          checklist: items,
+        });
+      }
+      const listedSet = new Set(listed);
+      const carriedOver = issues
+        .filter((i) => !listedSet.has(i.id) && ['open', 'in_progress', 'resolution_submitted'].includes(i.status))
+        .slice(0, 12);
+      const earlier = deliveries.filter((d) => !shiftIds.has(d.shift_id)).slice(0, 10);
+      return { server_now: now, shifts: board, carried_over: carriedOver, earlier };
+    });
+    return c.json(data);
+  });
+
+  r.post('/issues/:id/claim', async (c) => {
+    requireRole(c, 'employee');
+    const id = idParam(c);
+    const { take } = await parseBody(c, z.strictObject({ take: z.boolean() }));
+    const result = await asUser(c, async (q) => (await q.query<{ r: unknown }>('select app.claim_issue($1, $2) as r', [id, take]))[0]!.r);
+    return c.json(result);
   });
 
   r.post('/handovers/:id/acknowledge', async (c) => {

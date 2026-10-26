@@ -112,13 +112,13 @@ export function managerRoutes() {
           order by created_at desc limit 100`,
         [report.department_id],
       );
-      // Every crew on duty when this shift ends receives the handover (the author excluded).
+      // The crews this would go to if approved now: on duty when the shift ended, or on duty now if they have all left.
       const incoming = await q.query(
         `select n.id, n.label, n.starts_at,
                 coalesce((select jsonb_agg(p.full_name order by p.full_name) from public.shift_assignments a
                            join public.profiles p on p.id = a.employee_id
                           where a.shift_id = n.id and a.removed_at is null and a.employee_id <> $2), '[]'::jsonb) as assignees
-           from public.shifts n where n.id in (select app.incoming_shifts($1)) order by n.starts_at`,
+           from public.shifts n where n.id in (select app.receiving_shifts($1)) order by n.starts_at`,
         [report.shift_id, report.employee_id],
       );
       const deliveries = await q.query(
