@@ -64,7 +64,7 @@ const percent = computed(() => Math.round(fraction.value * 100));
           cy="56"
           :r="R"
           fill="none"
-          class="stroke-accent transition-[stroke-dasharray] duration-700 ease-out"
+          class="ring-draw stroke-accent transition-[stroke-dasharray] duration-700 ease-out"
           stroke-width="9"
           stroke-linecap="round"
           :stroke-dasharray="`${fraction * C} ${C}`"
@@ -78,7 +78,7 @@ const percent = computed(() => Math.round(fraction.value * 100));
 
     <div class="min-w-0 flex-1">
       <p class="text-[13.5px] font-medium" :class="phase === 'reporting' || phase === 'done' ? 'text-accent-ink' : 'text-ink'">{{ caption }}</p>
-      <ol class="mt-2.5 space-y-1.5 text-[12.5px] tnum">
+      <ol class="stagger mt-2.5 space-y-1.5 text-[12.5px] tnum">
         <li class="flex items-center gap-2">
           <span class="size-2 rounded-full" :class="phase === 'upcoming' ? 'border border-line-strong' : 'bg-accent'" aria-hidden="true" />
           <span class="w-20 text-ink-3">Start</span>

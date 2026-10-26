@@ -24,7 +24,7 @@ async function open(n: NotificationItem) {
       <UiButton v-if="notes.unread" size="sm" @click="notes.markRead(null)">Mark all as read</UiButton>
     </PageHeader>
     <StateBlock :empty="!notes.items.length" empty-title="You’re all caught up" empty-text="Approvals, handovers and follow-ups appear here.">
-      <ul class="card divide-y divide-line">
+      <ul class="stagger card divide-y divide-line">
         <li v-for="n in notes.items" :key="n.id">
           <button class="flex w-full items-start gap-3 px-5 py-3.5 text-left hover:bg-canvas" @click="open(n)">
             <span class="mt-2 size-2 shrink-0 rounded-full" :class="n.read_at ? 'bg-transparent' : 'bg-accent'" :aria-label="n.read_at ? undefined : 'Unread'" />

@@ -169,7 +169,7 @@ const KIND_LABEL: Record<string, string> = {
 
         <section class="mt-6">
           <h2 class="text-[15px] font-semibold">History</h2>
-          <ol class="mt-3 space-y-0">
+          <ol class="stagger mt-3 space-y-0">
             <li v-for="u in data.updates" :key="u.id" class="relative border-l border-line pb-5 pl-5 last:pb-0">
               <span class="absolute top-1.5 -left-[4.5px] size-2 rounded-full" :class="u.kind === 'escalation' ? 'bg-warn' : u.kind === 'status_change' ? 'bg-accent' : 'bg-line-strong'" />
               <p class="text-[13px] text-ink-3 tnum">

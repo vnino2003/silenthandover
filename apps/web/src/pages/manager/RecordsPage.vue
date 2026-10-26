@@ -55,7 +55,7 @@ async function save() {
       <UiButton variant="primary" @click="open = true">Add record</UiButton>
     </PageHeader>
     <StateBlock :loading="loading" :error="error" :empty="!data?.length" empty-title="No records yet" @retry="reload()">
-      <ul class="card divide-y divide-line">
+      <ul class="stagger card divide-y divide-line">
         <li v-for="r in data" :key="r.id" class="px-5 py-3">
           <p class="flex flex-wrap items-baseline gap-x-2 text-[14px]">
             <span class="font-medium tnum">{{ r.reference_code }}</span>

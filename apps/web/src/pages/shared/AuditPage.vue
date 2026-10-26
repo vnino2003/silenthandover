@@ -57,7 +57,7 @@ function describe(details: Record<string, unknown>) {
               <th class="px-4 py-2.5 font-medium">Details</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-line">
+          <tbody class="stagger divide-y divide-line">
             <tr v-for="e in data" :key="e.id" class="align-top">
               <td class="px-4 py-2.5 whitespace-nowrap text-ink-3 tnum">{{ dateTime(e.created_at) }}</td>
               <td class="px-3 py-2.5">{{ e.actor_name ?? 'System' }}<span class="block text-[12px] text-ink-3">{{ ROLE_LABELS[e.actor_role as Role] ?? 'System' }}</span></td>

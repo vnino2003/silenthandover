@@ -202,13 +202,13 @@ async function afterDone() {
               </div>
             </div>
             <div class="h-1 bg-sunken" aria-hidden="true">
-              <div class="h-full bg-ok transition-all" :style="{ width: `${(progress(s).done / progress(s).total) * 100}%` }" />
+              <div class="grow-x h-full bg-ok transition-all" :style="{ width: `${(progress(s).done / progress(s).total) * 100}%` }" />
             </div>
-            <ul class="divide-y divide-line">
+            <ul class="stagger divide-y divide-line">
               <li v-for="i in visible(s)" :key="i.id" class="flex flex-wrap items-start gap-3 px-5 py-3.5 sm:flex-nowrap">
                 <span
                   class="mt-0.5 grid size-5 shrink-0 place-items-center rounded-full border text-[11px]"
-                  :class="isDone(i.status) ? 'border-ok bg-ok text-white' : i.status === 'resolution_submitted' ? 'border-violet bg-violet-soft text-violet' : 'border-line-strong'"
+                  :class="isDone(i.status) ? 'pop border-ok bg-ok text-white' : i.status === 'resolution_submitted' ? 'border-violet bg-violet-soft text-violet' : 'border-line-strong'"
                   aria-hidden="true"
                   >{{ isDone(i.status) ? '✓' : i.status === 'resolution_submitted' ? '…' : '' }}</span
                 >
@@ -242,7 +242,7 @@ async function afterDone() {
           </div>
 
           <!-- The handovers themselves -->
-          <div v-if="s.handovers.length" class="space-y-3">
+          <div v-if="s.handovers.length" class="stagger space-y-3">
             <div class="flex flex-wrap items-center justify-between gap-2">
               <h3 class="text-[15px] font-semibold">
                 Handovers to read
@@ -259,7 +259,9 @@ async function afterDone() {
                 <span v-if="h.acknowledged_at" class="text-[12.5px] text-ok tnum">Read {{ dateTime(h.acknowledged_at) }}</span>
                 <span v-else class="rounded-full bg-accent-soft px-2.5 py-0.5 text-[12px] font-medium text-accent-ink">New</span>
               </button>
-              <template v-if="isOpen(h)">
+              <!-- Slides open and closed; while closed it is inert so its fields can't be tabbed into. -->
+              <div class="expand" :class="{ open: isOpen(h) }">
+              <div :inert="!isOpen(h)">
                 <div class="space-y-3 border-t border-line px-5 py-4">
                   <p class="text-[14.5px] leading-relaxed whitespace-pre-wrap">{{ h.approved_content.summary }}</p>
                   <p v-if="h.approved_content.notes_for_incoming" class="rounded-md bg-sunken px-3.5 py-2.5 text-[14px]">{{ h.approved_content.notes_for_incoming }}</p>
@@ -278,7 +280,8 @@ async function afterDone() {
                   <UiButton variant="primary" :loading="busy === h.delivery_id" @click="acknowledge(h)">I’ve read this</UiButton>
                 </footer>
                 <p v-else-if="h.acknowledgment_note" class="border-t border-line px-5 py-3 text-[13px] text-ink-2">Your note: {{ h.acknowledgment_note }}</p>
-              </template>
+              </div>
+              </div>
             </article>
           </div>
           <p v-else-if="s.outgoing.length" class="text-[13.5px] text-ink-3">No handover has been approved for your shift yet. They appear here as soon as the supervisor checks them.</p>
@@ -290,7 +293,7 @@ async function afterDone() {
             <h3 class="text-[15px] font-semibold">Still open from earlier shifts</h3>
             <RouterLink to="/tasks" class="text-[13px] link">All open items</RouterLink>
           </div>
-          <ul class="divide-y divide-line">
+          <ul class="stagger divide-y divide-line">
             <li v-for="i in data.carried_over" :key="i.id" class="flex flex-wrap items-center gap-3 px-5 py-3 sm:flex-nowrap">
               <div class="min-w-0 flex-1">
                 <RouterLink :to="`/tasks/${i.id}`" class="text-[14px] hover:underline">{{ i.title }}</RouterLink>

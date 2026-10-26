@@ -140,7 +140,7 @@ async function grant() {
     <StateBlock :loading="loading" :refreshing="refreshing" :error="error" :empty="false" @retry="reload()">
       <div v-if="data" class="space-y-6">
         <!-- At a glance -->
-        <div class="grid grid-cols-2 gap-2 md:grid-cols-4">
+        <div class="stagger grid grid-cols-2 gap-2 md:grid-cols-4">
           <div class="card px-4 py-3">
             <p class="text-[12px] text-ink-3">{{ viewingToday ? 'On duty now' : 'Shifts' }}</p>
             <p class="mt-0.5 text-[22px] font-semibold tnum">{{ viewingToday ? onDuty.reduce((n, s) => n + s.assignees.length, 0) : data.shifts.length }}</p>
@@ -149,11 +149,11 @@ async function grant() {
             <p class="text-[12px] text-ink-3">Working {{ viewingToday ? 'today' : 'this day' }}</p>
             <p class="mt-0.5 text-[22px] font-semibold tnum">{{ peopleToday }}</p>
           </div>
-          <RouterLink to="/manager" class="card px-4 py-3 hover:bg-sunken" :class="{ 'border-warn/40 bg-warn-soft/40': data.counts.pending_review }">
+          <RouterLink to="/manager" class="lift card px-4 py-3 hover:bg-sunken" :class="{ 'border-warn/40 bg-warn-soft/40': data.counts.pending_review }">
             <p class="text-[12px] text-ink-3">Reports to review</p>
             <p class="mt-0.5 text-[22px] font-semibold tnum" :class="{ 'text-warn': data.counts.pending_review }">{{ data.counts.pending_review }}</p>
           </RouterLink>
-          <RouterLink to="/manager/issues" class="card px-4 py-3 hover:bg-sunken" :class="{ 'border-bad/30 bg-bad-soft/40': missingCount }">
+          <RouterLink to="/manager/issues" class="lift card px-4 py-3 hover:bg-sunken" :class="{ 'border-bad/30 bg-bad-soft/40': missingCount }">
             <p class="text-[12px] text-ink-3">{{ missingCount ? 'Missing reports' : 'Items nobody took' }}</p>
             <p class="mt-0.5 text-[22px] font-semibold tnum" :class="{ 'text-bad': missingCount }">{{ missingCount || data.counts.untaken }}</p>
           </RouterLink>
@@ -176,7 +176,7 @@ async function grant() {
                 <p class="text-[13px] font-medium text-info tnum">{{ left(s) }}</p>
               </div>
               <div class="mx-5 mt-3 h-1.5 overflow-hidden rounded-full bg-sunken" aria-hidden="true">
-                <div class="h-full rounded-full bg-info transition-all" :style="{ width: `${elapsed(s)}%` }" />
+                <div class="grow-x h-full rounded-full bg-info transition-all" :style="{ width: `${elapsed(s)}%` }" />
               </div>
               <ul v-if="s.assignees.length" class="flex flex-wrap gap-x-6 gap-y-3 px-5 py-4">
                 <li v-for="a in s.assignees" :key="a.employee_id" class="flex items-center gap-2.5">
@@ -216,7 +216,7 @@ async function grant() {
             <p class="text-[14px] font-medium">No shifts on this day</p>
             <p class="mt-0.5 text-[13px] text-ink-3">Add people in <RouterLink to="/manager/schedule" class="link">Schedule</RouterLink>.</p>
           </div>
-          <ol v-else class="space-y-0">
+          <ol v-else class="stagger space-y-0">
             <li v-for="(s, i) in data.shifts" :key="s.id">
               <!-- The change-over between two shifts -->
               <div v-if="i > 0" class="flex items-center gap-2 py-2 pl-5 text-[12.5px] text-ink-3">

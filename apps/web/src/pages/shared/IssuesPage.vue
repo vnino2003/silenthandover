@@ -87,7 +87,7 @@ async function raise() {
               <th class="px-5 py-2.5 text-right font-medium">Status</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-line">
+          <tbody class="stagger divide-y divide-line">
             <tr v-for="i in data" :key="i.id" class="cursor-pointer hover:bg-canvas" @click="router.push(`${base}/${i.id}`)">
               <td class="px-5 py-3">
                 <RouterLink :to="`${base}/${i.id}`" class="font-medium hover:underline" @click.stop>{{ i.title }}</RouterLink>

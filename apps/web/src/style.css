@@ -240,6 +240,109 @@ mark.evidence {
   transform: translateY(-6px);
 }
 
+/* Lists cascade in: each item rises a moment after the one before it. Items added later (a new
+ * report arriving) animate on their own; items that only update do not replay. */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+.stagger > * {
+  animation: rise-in 0.36s var(--ease-out) backwards;
+}
+.stagger > :nth-child(1) { animation-delay: 30ms; }
+.stagger > :nth-child(2) { animation-delay: 60ms; }
+.stagger > :nth-child(3) { animation-delay: 90ms; }
+.stagger > :nth-child(4) { animation-delay: 120ms; }
+.stagger > :nth-child(5) { animation-delay: 150ms; }
+.stagger > :nth-child(6) { animation-delay: 180ms; }
+.stagger > :nth-child(7) { animation-delay: 210ms; }
+.stagger > :nth-child(8) { animation-delay: 240ms; }
+.stagger > :nth-child(n + 9) { animation-delay: 270ms; }
+
+/* Clickable cards lift slightly under the pointer and settle when pressed. */
+.lift {
+  transition:
+    transform 0.2s var(--ease-out),
+    box-shadow 0.2s ease,
+    background-color 0.15s ease,
+    border-color 0.15s ease;
+}
+@media (hover: hover) {
+  .lift:hover {
+    transform: translateY(-2px);
+    box-shadow:
+      0 1px 2px rgb(27 26 24 / 0.05),
+      0 6px 16px -6px rgb(27 26 24 / 0.16);
+  }
+}
+.lift:active {
+  transform: translateY(0) scale(0.99);
+}
+
+/* Something that just changed (a count, a tick) pops once. */
+@keyframes pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+}
+.pop {
+  animation: pop 0.34s var(--ease-out) backwards;
+}
+
+/* Progress fills grow from the start instead of appearing full. */
+@keyframes grow-x {
+  from {
+    transform: scaleX(0);
+  }
+}
+.grow-x {
+  transform-origin: left;
+  animation: grow-x 0.8s var(--ease-out) 0.1s backwards;
+}
+
+/* Rings draw themselves in. */
+@keyframes ring-draw {
+  from {
+    stroke-dasharray: 0 999;
+  }
+}
+.ring-draw {
+  animation: ring-draw 1s var(--ease-out) 0.15s backwards;
+}
+
+/* Sections that open and close slide to their height (no fixed heights needed). */
+.expand {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows 0.3s var(--ease-out),
+    opacity 0.2s ease;
+}
+.expand.open {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+.expand > * {
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* A gentle rise for single blocks (the sign-in card), with an optional delay. */
+.rise {
+  animation: rise-in 0.5s var(--ease-out) backwards;
+}
+.rise-delay {
+  animation-delay: 0.12s;
+}
+
 /* Navigation progress: a thin accent bar at the very top while a page loads. */
 @keyframes nav-progress {
   from {

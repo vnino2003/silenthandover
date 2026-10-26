@@ -101,7 +101,7 @@ async function signOut() {
       <div class="flex items-center gap-1">
         <RouterLink to="/notifications" class="relative rounded-md px-2.5 py-1.5 text-[14px] text-ink-2 hover:bg-sunken" aria-label="Notifications">
           Alerts
-          <span v-if="notes.unread" class="ml-1 rounded-full bg-accent px-1.5 text-[11px] font-semibold text-white tnum">{{ notes.unread }}</span>
+          <span v-if="notes.unread" :key="notes.unread" class="pop ml-1 inline-block rounded-full bg-accent px-1.5 text-[11px] font-semibold text-white tnum">{{ notes.unread }}</span>
         </RouterLink>
         <button class="rounded-md px-2.5 py-1.5 text-[14px] text-ink-2 hover:bg-sunken" :aria-expanded="menuOpen" @click="menuOpen = !menuOpen">Menu</button>
       </div>
@@ -127,7 +127,8 @@ async function signOut() {
           {{ item.label }}
           <span
             v-if="item.count && counts[item.count]"
-            class="rounded-full bg-warn px-1.5 text-[11px] leading-[18px] font-semibold text-white tnum"
+            :key="counts[item.count]"
+            class="pop rounded-full bg-warn px-1.5 text-[11px] leading-[18px] font-semibold text-white tnum"
             :aria-label="`${counts[item.count]} waiting`"
           >{{ counts[item.count] }}</span>
         </RouterLink>
@@ -156,14 +157,15 @@ async function signOut() {
               v-for="item in g.items"
               :key="item.to"
               :to="item.to"
-              class="flex items-center justify-between rounded-md px-2.5 py-1.5 text-[14px]"
-              :class="isActive(item) ? 'bg-accent-soft font-medium text-accent-ink' : 'text-ink-2 hover:bg-sunken hover:text-ink'"
+              class="relative flex items-center justify-between rounded-md px-2.5 py-1.5 text-[14px] transition-[color,background-color,transform] duration-200 before:absolute before:top-1.5 before:bottom-1.5 before:-left-1.5 before:w-[3px] before:rounded-full before:bg-accent before:transition-transform before:duration-300 before:content-['']"
+              :class="isActive(item) ? 'bg-accent-soft font-medium text-accent-ink before:scale-y-100' : 'text-ink-2 before:scale-y-0 hover:translate-x-0.5 hover:bg-sunken hover:text-ink'"
               :aria-current="isActive(item) ? 'page' : undefined"
             >
               {{ item.label }}
               <span
             v-if="item.count && counts[item.count]"
-            class="rounded-full bg-warn px-1.5 text-[11px] leading-[18px] font-semibold text-white tnum"
+            :key="counts[item.count]"
+            class="pop rounded-full bg-warn px-1.5 text-[11px] leading-[18px] font-semibold text-white tnum"
             :aria-label="`${counts[item.count]} waiting`"
           >{{ counts[item.count] }}</span>
             </RouterLink>
@@ -176,7 +178,7 @@ async function signOut() {
             :class="route.path === '/notifications' ? 'bg-accent-soft font-medium text-accent-ink' : 'text-ink-2 hover:bg-sunken hover:text-ink'"
           >
             Notifications
-            <span v-if="notes.unread" class="rounded-full bg-accent px-1.5 text-[11px] leading-[18px] font-semibold text-white tnum">{{ notes.unread }}</span>
+            <span v-if="notes.unread" :key="notes.unread" class="pop rounded-full bg-accent px-1.5 text-[11px] leading-[18px] font-semibold text-white tnum">{{ notes.unread }}</span>
           </RouterLink>
         </div>
         <div class="mt-auto space-y-3 px-2">
@@ -213,7 +215,7 @@ async function signOut() {
         v-for="item in employeeMobileNav"
         :key="item.to"
         :to="item.to"
-        class="rounded-md px-1 py-2 text-center text-[12px] font-medium"
+        class="rounded-md px-1 py-2 text-center text-[12px] font-medium transition-[color,background-color,transform] duration-200 active:scale-95"
         :class="isActive(item) ? 'bg-accent-soft text-accent-ink' : 'text-ink-3'"
         :aria-current="isActive(item) ? 'page' : undefined"
       >

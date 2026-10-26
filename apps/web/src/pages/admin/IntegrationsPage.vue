@@ -148,7 +148,7 @@ const counts = (rows: { status: string; count: number }[]) => rows.reduce<Record
 
     <StateBlock :loading="loading" :error="error" :lines="6" @retry="reload()">
       <template v-if="data">
-        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="stagger grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div class="card flex flex-col p-4">
             <p class="eyebrow">AI processing</p>
             <p class="mt-1.5 text-[15px] font-medium">{{ aiTitle }}</p>
@@ -199,7 +199,7 @@ const counts = (rows: { status: string; count: number }[]) => rows.reduce<Record
 
         <section v-if="failedEvents.length" class="mt-6">
           <h2 class="mb-2 text-[15px] font-semibold text-bad">Failed automation</h2>
-          <ul class="card divide-y divide-line">
+          <ul class="stagger card divide-y divide-line">
             <li v-for="e in failedEvents" :key="e.id" class="flex flex-wrap items-center justify-between gap-3 px-5 py-3">
               <div class="min-w-0">
                 <p class="text-[14px] font-medium">{{ e.kind.replace('_', ' ') }} <span class="font-normal text-ink-3">· {{ e.department_name }} · attempt {{ e.attempts }}/{{ e.max_attempts }}</span></p>
@@ -217,7 +217,7 @@ const counts = (rows: { status: string; count: number }[]) => rows.reduce<Record
               <thead class="border-b border-line bg-canvas text-[12px] tracking-wide text-ink-3 uppercase">
                 <tr><th class="px-4 py-2.5 font-medium">Created</th><th class="px-3 py-2.5 font-medium">Kind</th><th class="px-3 py-2.5 font-medium">Adapter</th><th class="px-3 py-2.5 font-medium">Attempts</th><th class="px-4 py-2.5 font-medium">Status</th></tr>
               </thead>
-              <tbody class="divide-y divide-line">
+              <tbody class="stagger divide-y divide-line">
                 <tr v-for="e in data.events" :key="e.id">
                   <td class="px-4 py-2 text-ink-3 tnum">{{ dateTime(e.created_at) }}</td>
                   <td class="px-3 py-2">{{ e.kind.replace('_', ' ') }}<span class="block text-[12px] text-ink-3">{{ e.department_name }}</span></td>
@@ -238,7 +238,7 @@ const counts = (rows: { status: string; count: number }[]) => rows.reduce<Record
                 <thead class="border-b border-line bg-canvas text-[12px] tracking-wide text-ink-3 uppercase">
                   <tr><th class="px-4 py-2.5 font-medium">Created</th><th class="px-3 py-2.5 font-medium">Recipient</th><th class="px-3 py-2.5 font-medium">Channel</th><th class="px-3 py-2.5 font-medium">Provider</th><th class="px-4 py-2.5 font-medium">Status</th></tr>
                 </thead>
-                <tbody class="divide-y divide-line">
+                <tbody class="stagger divide-y divide-line">
                   <tr v-for="d in data.deliveries" :key="d.id">
                     <td class="px-4 py-2 text-ink-3 tnum">{{ dateTime(d.created_at) }}</td>
                     <td class="px-3 py-2">{{ d.recipient_name }}</td>
@@ -261,7 +261,7 @@ const counts = (rows: { status: string; count: number }[]) => rows.reduce<Record
           <h2 class="text-[15px] font-semibold">Dev outbox</h2>
           <p class="mb-2 text-[13px] text-ink-3">What would have been emailed. Nothing here left this machine.</p>
           <StateBlock :empty="!data.outbox.length" empty-title="Empty">
-            <ul class="card divide-y divide-line">
+            <ul class="stagger card divide-y divide-line">
               <li v-for="o in data.outbox" :key="o.id" class="px-5 py-3">
                 <p class="flex flex-wrap justify-between gap-2 text-[13.5px]"><span class="font-medium">{{ o.provider_response?.subject }}</span><span class="text-ink-3">to {{ o.address }} · {{ relative(o.updated_at) }}</span></p>
                 <pre class="mt-1 text-[12.5px] whitespace-pre-wrap text-ink-2 font-sans">{{ o.provider_response?.preview }}</pre>

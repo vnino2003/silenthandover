@@ -352,7 +352,7 @@ async function saveShiftSetup() {
                 </th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-line">
+            <tbody class="stagger divide-y divide-line">
               <tr v-for="p in patterns" :key="p.id" class="align-top">
                 <th class="sticky left-0 z-10 border-r border-line bg-surface px-4 py-3">
                   <span class="block text-[14px] font-semibold">{{ p.name }}</span>
@@ -362,7 +362,7 @@ async function saveShiftSetup() {
                   <button
                     v-if="cell(p.id, d.iso)"
                     type="button"
-                    class="flex min-h-20 w-full flex-col gap-1 rounded-md border px-2 py-2 text-left transition hover:border-line-strong hover:bg-sunken"
+                    class="lift flex min-h-20 w-full flex-col gap-1 rounded-md border px-2 py-2 text-left hover:border-line-strong hover:bg-sunken"
                     :class="cell(p.id, d.iso)!.status === 'cancelled' ? 'border-dashed border-line bg-canvas' : cell(p.id, d.iso)!.assignees.length ? 'border-line bg-surface' : 'border-warn/40 bg-warn-soft/40'"
                     :aria-label="`${p.name}, ${d.label} ${d.dateNumber}: ${cell(p.id, d.iso)!.assignees.length} assigned`"
                     @click="openShift(cell(p.id, d.iso)!)"
@@ -391,7 +391,7 @@ async function saveShiftSetup() {
               v-for="s in otherShifts"
               :key="s.id"
               type="button"
-              class="rounded-md border border-line bg-surface px-3 py-2.5 text-left hover:border-line-strong hover:bg-sunken"
+              class="lift rounded-md border border-line bg-surface px-3 py-2.5 text-left hover:border-line-strong hover:bg-sunken"
               :class="{ 'opacity-55': s.status === 'cancelled' }"
               @click="openShift(s)"
             >

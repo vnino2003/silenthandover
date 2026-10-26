@@ -52,7 +52,7 @@ const { data, loading, refreshing, error, reload } = useAsync(
           <thead class="border-b border-line bg-canvas text-[12px] tracking-wide text-ink-3 uppercase">
             <tr><th class="px-5 py-2.5 font-medium">Report</th><th class="px-3 py-2.5 font-medium">Employee</th><th class="px-3 py-2.5 font-medium">Shift</th><th class="px-3 py-2.5 font-medium">Submitted</th><th class="px-5 py-2.5 text-right font-medium">Status</th></tr>
           </thead>
-          <tbody class="divide-y divide-line">
+          <tbody class="stagger divide-y divide-line">
             <tr v-for="r in data" :key="r.id" class="cursor-pointer transition-colors hover:bg-canvas" @click="router.push(`/manager/reports/${r.id}`)">
               <td class="px-5 py-3"><RouterLink :to="`/manager/reports/${r.id}`" class="font-medium tnum hover:underline" @click.stop>{{ r.reference_code }}</RouterLink></td>
               <td class="px-3 py-3">{{ r.employee_name }}</td>

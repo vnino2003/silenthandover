@@ -85,7 +85,7 @@ const pendingAcks = computed(() => data.value?.incoming.filter((i) => !i.acknowl
           </ul>
         </div>
 
-        <div class="grid gap-5 lg:grid-cols-[1.4fr_1fr] [&>*]:min-w-0">
+        <div class="stagger grid gap-5 lg:grid-cols-[1.4fr_1fr] [&>*]:min-w-0">
           <!-- Current shift and the primary action -->
           <section class="card p-5 sm:p-6" aria-labelledby="shift-h">
             <template v-if="current">

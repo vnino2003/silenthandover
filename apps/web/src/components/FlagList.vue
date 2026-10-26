@@ -28,7 +28,7 @@ void props;
 </script>
 
 <template>
-  <ol class="space-y-3">
+  <ol class="stagger space-y-3">
     <li
       v-for="(f, i) in flags"
       :key="i"

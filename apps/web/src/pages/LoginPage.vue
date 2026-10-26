@@ -38,11 +38,11 @@ async function submit() {
 <template>
   <div class="flex min-h-dvh flex-col items-center justify-center bg-canvas px-4 py-10">
     <main class="w-full max-w-[400px]">
-      <div class="mb-8 flex justify-center">
+      <div class="rise mb-8 flex justify-center">
         <BrandMark :size="40" />
       </div>
 
-      <div class="card px-6 py-7 shadow-pop sm:px-8">
+      <div class="rise rise-delay card px-6 py-7 shadow-pop sm:px-8">
         <h1 class="text-center text-[22px] leading-tight font-semibold tracking-[-0.015em]">Sign in</h1>
         <p class="mt-1.5 text-center text-[14px] text-ink-2">Shift reports, handovers and open tickets for your team.</p>
 

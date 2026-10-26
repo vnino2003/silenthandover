@@ -55,7 +55,7 @@ const inFlight = computed(() => queue.data.value?.filter((r) => r.status !== 'pe
   <div class="mx-auto max-w-5xl">
     <PageHeader :eyebrow="auth.profile?.department_name ?? ''" title="Review queue" description="Nothing reaches the incoming shift until you verify and approve it." />
 
-    <div v-if="summary.data.value" class="mb-6 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-4">
+    <div v-if="summary.data.value" class="stagger mb-6 grid grid-cols-2 gap-px overflow-hidden rounded-lg border border-line bg-line sm:grid-cols-4">
       <div class="bg-surface px-4 py-3"><p class="text-[12.5px] text-ink-3">Awaiting your review</p><p class="text-[20px] font-semibold tnum">{{ summary.data.value.pending_review }}</p></div>
       <div class="bg-surface px-4 py-3"><p class="text-[12.5px] text-ink-3">Being prepared</p><p class="text-[20px] font-semibold tnum">{{ summary.data.value.processing }}</p></div>
       <RouterLink to="/manager/issues" class="bg-surface px-4 py-3 hover:bg-canvas"><p class="text-[12.5px] text-ink-3">Resolutions to verify</p><p class="text-[20px] font-semibold tnum">{{ summary.data.value.awaiting_verification }}</p></RouterLink>
@@ -69,7 +69,7 @@ const inFlight = computed(() => queue.data.value?.filter((r) => r.status !== 'pe
       <section>
         <h2 class="mb-2 text-[15px] font-semibold">Ready for review</h2>
         <StateBlock :empty="!review.length" empty-title="Nothing waiting for review" empty-text="New reports appear here once their draft is ready.">
-          <ul class="card divide-y divide-line">
+          <ul class="stagger card divide-y divide-line">
             <li v-for="r in review" :key="r.id">
               <button class="grid w-full gap-1 px-5 py-3.5 text-left hover:bg-canvas sm:grid-cols-[1fr_auto] sm:items-center sm:gap-4" @click="router.push(`/manager/reports/${r.id}`)">
                 <div class="min-w-0">
@@ -93,7 +93,7 @@ const inFlight = computed(() => queue.data.value?.filter((r) => r.status !== 'pe
 
       <section v-if="inFlight.length" class="mt-8">
         <h2 class="mb-2 text-[15px] font-semibold">In progress</h2>
-        <ul class="card divide-y divide-line">
+        <ul class="stagger card divide-y divide-line">
           <li v-for="r in inFlight" :key="r.id">
             <RouterLink :to="`/manager/reports/${r.id}`" class="flex items-center justify-between gap-3 px-5 py-3 hover:bg-canvas">
               <span class="min-w-0 text-[14px]">

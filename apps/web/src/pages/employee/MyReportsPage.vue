@@ -53,7 +53,7 @@ const filterOptions = computed<{ value: ReportFilter; label: string }[]>(() => [
       </button>
     </div>
     <StateBlock :loading="loading" :error="error" :empty="!rows.length" empty-title="No reports yet" empty-text="Reports you start from the Today page appear here." @retry="reload()">
-      <ul class="card divide-y divide-line">
+      <ul class="stagger card divide-y divide-line">
         <li v-for="r in rows" :key="r.id">
           <RouterLink :to="`/reports/${r.id}`" class="grid gap-1 px-5 py-3.5 hover:bg-canvas sm:grid-cols-[1fr_auto] sm:items-center sm:gap-4">
             <div class="min-w-0">

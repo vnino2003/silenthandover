@@ -103,7 +103,7 @@ const journeyIndex = computed(() => {
         </PageHeader>
 
         <div class="card -mt-2 mb-4 overflow-hidden" aria-label="Report progress">
-          <ol class="grid grid-cols-2 sm:grid-cols-4">
+          <ol class="stagger grid grid-cols-2 sm:grid-cols-4">
             <li
               v-for="(step, index) in journey"
               :key="step"
