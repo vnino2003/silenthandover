@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <defs>
+    <!-- Soft indigo halo behind a solid black arrow. -->
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%" color-interpolation-filters="sRGB">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="3.2" result="blur"/>
+      <feFlood flood-color="#5a63ff" flood-opacity="0.8"/>
+      <feComposite in2="blur" operator="in" result="halo"/>
+      <feMerge><feMergeNode in="halo"/><feMergeNode in="halo"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <path
+    filter="url(#glow)"
+    d="M7.2 5.6c0-.7.8-1.1 1.4-.6l13.3 11.2c.6.5.3 1.4-.5 1.5l-5.1.5 3 6.4c.2.5 0 1-.5 1.2l-1.9.9c-.5.2-1 0-1.2-.5l-3-6.4-3.9 3.4c-.6.5-1.6.1-1.6-.7z"
+    fill="#0a0a0f"
+  />
+</svg>

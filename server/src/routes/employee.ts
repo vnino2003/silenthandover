@@ -70,13 +70,16 @@ export function employeeRoutes() {
       );
       const incoming = await q.query(
         `select d.id as delivery_id, d.delivered_at, a.report_reference, so.label as outgoing_label, p.full_name as outgoing_employee,
+                si.label as incoming_label, si.starts_at as incoming_starts_at,
                 k.acknowledged_at
            from public.handover_deliveries d
            join public.handover_approvals a on a.id = d.approval_id
            join public.shifts so on so.id = a.outgoing_shift_id
+           join public.shifts si on si.id = d.shift_id
            join public.profiles p on p.id = a.author_id
            left join public.handover_acknowledgments k on k.delivery_id = d.id
-          where d.recipient_id = auth.uid() and (k.id is null or d.delivered_at > now() - interval '24 hours')
+          where d.recipient_id = auth.uid() and d.revoked_at is null
+            and (k.id is null or d.delivered_at > now() - interval '24 hours')
           order by d.delivered_at desc limit 5`,
       );
       const tasks = await q.query(
@@ -165,7 +168,7 @@ export function employeeRoutes() {
         `select d.id, p.full_name as recipient_name, d.delivered_at, k.acknowledged_at
            from public.handover_deliveries d join public.profiles p on p.id = d.recipient_id
            left join public.handover_acknowledgments k on k.delivery_id = d.id
-          where d.report_id = $1 order by p.full_name`,
+          where d.report_id = $1 and d.revoked_at is null order by p.full_name`,
         [id],
       );
       const issues = await q.query(
@@ -217,7 +220,7 @@ export function employeeRoutes() {
            join public.profiles author on author.id = a.author_id
            join public.profiles reviewer on reviewer.id = a.reviewer_id
            left join public.handover_acknowledgments k on k.delivery_id = d.id
-          where d.recipient_id = auth.uid()
+          where d.recipient_id = auth.uid() and d.revoked_at is null
           order by (k.id is null) desc, d.delivered_at desc limit 30`,
       ),
     );

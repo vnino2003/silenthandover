@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { classifyWindow, type ReportStatus } from '@sh/shared';
+import { classifyWindow, formatDuration, type ReportStatus } from '@sh/shared';
 import ReportingWindow from '@/components/ReportingWindow.vue';
 import SeverityTag from '@/components/ui/SeverityTag.vue';
 import StateBlock from '@/components/ui/StateBlock.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import { api } from '@/lib/api';
-import { day, longDate, relative, shiftRange } from '@/lib/format';
+import { dateTime, day, longDate, relative, shiftRange } from '@/lib/format';
 import type { IssueRow, ShiftView } from '@/lib/types';
 import { useAsync } from '@/lib/useAsync';
 import { useNow } from '@/lib/useNow';
@@ -19,7 +19,16 @@ interface Dashboard {
   upcoming: ShiftView[];
   missed: ShiftView[];
   needs_revision: { id: string; reference_code: string; label: string; shift_date: string }[];
-  incoming: { delivery_id: string; delivered_at: string; report_reference: string; outgoing_label: string; outgoing_employee: string; acknowledged_at: string | null }[];
+  incoming: {
+    delivery_id: string;
+    delivered_at: string;
+    report_reference: string;
+    outgoing_label: string;
+    outgoing_employee: string;
+    incoming_label: string;
+    incoming_starts_at: string;
+    acknowledged_at: string | null;
+  }[];
   tasks: IssueRow[];
   recent_reports: { id: string; reference_code: string; status: ReportStatus; last_submitted_at: string | null; label: string; shift_date: string }[];
 }
@@ -55,6 +64,17 @@ const action = computed(() => {
 });
 
 const pendingAcks = computed(() => data.value?.incoming.filter((i) => !i.acknowledged_at) ?? []);
+const dutyProgress = computed(() => {
+  const shift = current.value;
+  if (!shift) return null;
+  const start = new Date(shift.starts_at).getTime();
+  const end = new Date(shift.ends_at).getTime();
+  const elapsed = now.value - start;
+  const percent = Math.max(0, Math.min(100, Math.round((elapsed / (end - start)) * 100)));
+  if (now.value < start) return { percent: 0, label: `Starts in ${formatDuration(start - now.value)}` };
+  if (now.value < end) return { percent, label: `${formatDuration(end - now.value)} left in your duty` };
+  return { percent: 100, label: 'Duty finished — complete your handover report' };
+});
 </script>
 
 <template>
@@ -88,6 +108,15 @@ const pendingAcks = computed(() => data.value?.incoming.filter((i) => !i.acknowl
                 <div><dt class="text-ink-3">Department</dt><dd>{{ current.department_name }}</dd></div>
                 <div v-if="current.supervisor_name"><dt class="text-ink-3">Supervisor</dt><dd>{{ current.supervisor_name }}</dd></div>
               </dl>
+              <div v-if="dutyProgress" class="mt-5 rounded-md bg-canvas px-3.5 py-3">
+                <div class="flex items-center justify-between gap-3 text-[12.5px]">
+                  <span class="font-medium text-ink-2">Duty progress</span>
+                  <span class="text-ink-3 tnum">{{ dutyProgress.label }}</span>
+                </div>
+                <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-sunken" role="progressbar" :aria-valuenow="dutyProgress.percent" aria-valuemin="0" aria-valuemax="100" aria-label="Duty progress">
+                  <div class="h-full rounded-full bg-accent transition-all" :style="{ width: `${dutyProgress.percent}%` }" />
+                </div>
+              </div>
               <div class="mt-5 border-t border-line pt-5">
                 <ReportingWindow :shift="current" :now="now" />
                 <div class="mt-5 flex flex-wrap items-center gap-3">
@@ -117,6 +146,7 @@ const pendingAcks = computed(() => data.value?.incoming.filter((i) => !i.acknowl
             <div v-if="pendingAcks.length" class="mt-3 rounded-md bg-accent-soft px-3.5 py-3">
               <p class="text-[14px] font-medium text-accent-ink">{{ pendingAcks.length }} handover{{ pendingAcks.length > 1 ? 's' : '' }} waiting for you</p>
               <p class="mt-0.5 text-[13px] text-ink-2">From {{ pendingAcks[0]!.outgoing_employee }} · {{ pendingAcks[0]!.outgoing_label }}</p>
+              <p class="mt-1 text-[12.5px] text-ink-3 tnum">For your {{ pendingAcks[0]!.incoming_label }} shift · starts {{ dateTime(pendingAcks[0]!.incoming_starts_at, tz) }}</p>
               <UiButton class="mt-3" size="sm" variant="primary" to="/handover">Read and acknowledge</UiButton>
             </div>
             <p v-else-if="data.incoming.length" class="mt-3 text-[14px] text-ink-2">All handovers acknowledged.</p>

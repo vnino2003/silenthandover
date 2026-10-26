@@ -77,12 +77,21 @@ const STATUS_COPY: Record<ReportStatus, string> = {
   rejected: 'Your supervisor rejected this report.',
   delivered: 'Verified, approved and delivered to the incoming shift.',
 };
+const journey = ['Write', 'Supervisor review', 'Approved', 'Delivered'];
+const journeyIndex = computed(() => {
+  const value = status.value;
+  if (!value || value === 'draft' || value === 'revision_requested') return 0;
+  if (['submitted', 'processing', 'pending_review', 'rejected'].includes(value)) return 1;
+  if (value === 'approved') return 2;
+  return 3;
+});
 </script>
 
 <template>
   <div class="mx-auto max-w-3xl">
     <StateBlock :loading="loading" :error="error" :lines="6" @retry="reload()">
       <template v-if="data">
+        <RouterLink to="/reports" class="mb-4 inline-block text-[13px] text-ink-3 hover:text-ink">← My reports</RouterLink>
         <PageHeader :eyebrow="data.report.reference_code" :title="`${data.shift.label} report`">
           <template #meta>
             <p class="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[14px] text-ink-2 tnum">
@@ -93,7 +102,21 @@ const STATUS_COPY: Record<ReportStatus, string> = {
           </template>
         </PageHeader>
 
-        <p class="-mt-3 mb-6 text-[14px] text-ink-2">{{ STATUS_COPY[data.report.status] }}</p>
+        <div class="card -mt-2 mb-4 overflow-hidden" aria-label="Report progress">
+          <ol class="grid grid-cols-2 sm:grid-cols-4">
+            <li
+              v-for="(step, index) in journey"
+              :key="step"
+              class="flex items-center gap-2 border-b border-line px-3 py-2.5 last:border-b-0 sm:border-r sm:border-b-0 sm:last:border-r-0"
+              :class="index === journeyIndex ? 'bg-accent-soft text-accent-ink' : index < journeyIndex ? 'text-ok' : 'text-ink-3'"
+            >
+              <span class="grid size-5 shrink-0 place-items-center rounded-full border text-[10px] font-semibold" :class="index <= journeyIndex ? 'border-current' : 'border-line-strong'">{{ index < journeyIndex ? '✓' : index + 1 }}</span>
+              <span class="text-[11.5px] font-medium">{{ step }}</span>
+            </li>
+          </ol>
+        </div>
+
+        <p class="mb-6 text-[14px] text-ink-2">{{ STATUS_COPY[data.report.status] }}</p>
 
         <div v-if="latestDecision && latestDecision.decision !== 'approved'" class="mb-6 rounded-lg border px-4 py-3"
           :class="latestDecision.decision === 'rejected' ? 'border-bad/25 bg-bad-soft' : 'border-violet/25 bg-violet-soft'">

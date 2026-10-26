@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ROLE_LABELS, type Role } from '@sh/shared';
+import BrandMark from '@/components/BrandMark.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import UiField from '@/components/ui/UiField.vue';
 import { errorMessage } from '@/lib/api';
@@ -44,7 +45,7 @@ function useAccount(a: { email: string }) {
 <template>
   <div class="grid min-h-dvh lg:grid-cols-[1fr_1.1fr]">
     <section class="flex flex-col justify-between px-6 py-8 sm:px-12 lg:py-12">
-      <p class="text-[15px] font-semibold tracking-[-0.01em]">Silent Handover</p>
+      <p class="text-[15px] font-semibold tracking-[-0.01em]"><BrandMark :size="34" /></p>
 
       <div class="mx-auto w-full max-w-sm py-12">
         <h1 class="text-[26px] leading-tight font-semibold tracking-[-0.015em]">Sign in</h1>

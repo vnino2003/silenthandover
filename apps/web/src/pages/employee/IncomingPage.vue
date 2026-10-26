@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import type { IssueStatus } from '@sh/shared';
 import MarkDoneDialog from '@/components/MarkDoneDialog.vue';
 import PageHeader from '@/components/ui/PageHeader.vue';
@@ -45,6 +45,14 @@ const { data, loading, error, reload } = useAsync(() => api.get<Incoming[]>('/ha
 const ackNote = ref<Record<string, string>>({});
 const busy = ref<string | null>(null);
 const marking = ref<ChecklistEntry | null>(null);
+const showAcknowledged = ref(false);
+const waiting = computed(() => (data.value ?? []).filter((handover) => !handover.acknowledged_at));
+const acknowledged = computed(() => (data.value ?? []).filter((handover) => handover.acknowledged_at));
+const visibleHandovers = computed(() => {
+  if (showAcknowledged.value) return [...waiting.value, ...acknowledged.value];
+  return waiting.value.length ? waiting.value : acknowledged.value.slice(0, 1);
+});
+const hiddenAcknowledged = computed(() => Math.max(0, acknowledged.value.length - (waiting.value.length ? 0 : 1)));
 
 /** Problems first, then tasks, each with its live status. Items from older handovers without an id stay as plain text. */
 function items(h: Incoming) {
@@ -81,7 +89,7 @@ async function afterDone() {
 
 <template>
   <div class="mx-auto max-w-3xl">
-    <PageHeader title="Incoming handover" description="What the previous shift left for you, checked by your supervisor. Tick items off as you finish them." />
+    <PageHeader title="Incoming handover" description="Read the verified handover first, then work through its checklist during your shift." />
     <StateBlock
       :loading="loading"
       :error="error"
@@ -91,7 +99,15 @@ async function afterDone() {
       @retry="reload()"
     >
       <div class="space-y-5">
-        <article v-for="h in data" :key="h.delivery_id" class="card" :class="{ 'ring-1 ring-accent/30': !h.acknowledged_at }">
+        <div v-if="waiting.length" class="flex items-center gap-3 rounded-lg border border-accent/20 bg-accent-soft px-4 py-3">
+          <span class="grid size-8 shrink-0 place-items-center rounded-full bg-accent text-[13px] font-semibold text-white tnum">{{ waiting.length }}</span>
+          <div>
+            <p class="text-[14px] font-semibold text-accent-ink">{{ waiting.length === 1 ? 'A handover is waiting for you' : `${waiting.length} handovers are waiting for you` }}</p>
+            <p class="text-[12.5px] text-ink-2">Read and acknowledge before starting the checklist.</p>
+          </div>
+        </div>
+
+        <article v-for="h in visibleHandovers" :key="h.delivery_id" class="card" :class="{ 'ring-1 ring-accent/30': !h.acknowledged_at }">
           <header class="flex flex-wrap items-start justify-between gap-3 border-b border-line px-5 py-4">
             <div>
               <p class="eyebrow tnum">{{ h.report_reference }}</p>
@@ -164,6 +180,15 @@ async function afterDone() {
           </footer>
           <p v-else-if="h.acknowledgment_note" class="border-t border-line px-5 py-3 text-[13px] text-ink-2">Your note: {{ h.acknowledgment_note }}</p>
         </article>
+
+        <button
+          v-if="acknowledged.length > (waiting.length ? 0 : 1)"
+          type="button"
+          class="w-full rounded-lg border border-line bg-surface px-4 py-3 text-[13.5px] font-medium text-ink-2 hover:bg-sunken"
+          @click="showAcknowledged = !showAcknowledged"
+        >
+          {{ showAcknowledged ? 'Hide acknowledged handovers' : `Show ${hiddenAcknowledged} acknowledged handover${hiddenAcknowledged === 1 ? '' : 's'}` }}
+        </button>
         <p class="text-[13px] text-ink-3">
           Anything you don’t finish stays on the list for the next shift. New problems you find go in your own end-of-shift report.
         </p>

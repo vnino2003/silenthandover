@@ -131,7 +131,7 @@ describe('shift report → AI draft → human approval → delivery → continui
     expect(res.body.revisions[0].content.completed_work).toContain('Ana Lim');
     expect(JSON.stringify(res.body.runs[0].draft)).toContain('Ana Lim');
     expect(res.body.analysis_input.sanitized_text).not.toContain('Ana Lim');
-    expect(res.body.next_shift.assignees).toEqual(['Ana Lim', 'Ben Torres']);
+    expect(res.body.incoming_shifts.map((s: any) => s.assignees)).toEqual([['Ana Lim', 'Ben Torres']]);
   });
 
   it('keeps managers out of other departments', async () => {
@@ -221,6 +221,22 @@ describe('shift report → AI draft → human approval → delivery → continui
     const [{ n }] = await h.sql('select app.deliver_approval($1) as n', [id]);
     expect(n).toBe(0);
     expect((await h.sql('select count(*)::int as n from public.handover_deliveries where approval_id = $1', [id]))[0].n).toBe(2);
+  });
+
+  it('revokes a handover when the recipient is removed from the incoming shift', async () => {
+    const [{ shift_id, reference_code }] = await h.sql(
+      `select d.shift_id, r.reference_code from public.handover_deliveries d
+       join public.shift_reports r on r.id = d.report_id
+       where d.report_id = $1 and d.recipient_id = $2 and d.revoked_at is null`,
+      [reportId, h.ids.ben],
+    );
+    expect((await h.call('manager', 'DELETE', `/api/manager/schedule/${shift_id}/assignments/${h.ids.ben}`)).status).toBe(200);
+    const afterRemoval = await h.call('ben', 'GET', '/api/handovers/incoming');
+    expect(afterRemoval.body.some((item: any) => item.report_reference === reference_code)).toBe(false);
+
+    expect((await h.call('manager', 'POST', `/api/manager/schedule/${shift_id}/assignments`, { employee_id: h.ids.ben })).status).toBe(201);
+    const afterReassignment = await h.call('ben', 'GET', '/api/handovers/incoming');
+    expect(afterReassignment.body.some((item: any) => item.report_reference === reference_code)).toBe(true);
   });
 
   it('lets incoming staff read and acknowledge the approved handover — once', async () => {
@@ -328,6 +344,16 @@ describe('reporting windows', () => {
   let h: Harness;
   beforeAll(async () => {
     h = await setup();
+    // Keep this suite focused on reporting-window behavior; Ben's seeded demo shift
+    // would intentionally overlap the ad-hoc windows below and trigger the roster guard.
+    const assignments = await h.sql(
+      `select a.shift_id from public.shift_assignments a join public.shifts s on s.id = a.shift_id
+       where a.employee_id = $1 and a.removed_at is null and s.status = 'scheduled'`,
+      [h.ids.ben],
+    );
+    for (const assignment of assignments) {
+      await h.call('manager', 'DELETE', `/api/manager/schedule/${assignment.shift_id}/assignments/${h.ids.ben}`);
+    }
   });
   afterAll(async () => h?.close());
 
@@ -336,6 +362,7 @@ describe('reporting windows', () => {
     const res = await h.call('ben', 'POST', `/api/shifts/${shift}/report`);
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe('window_not_open');
+    await h.call('manager', 'DELETE', `/api/manager/schedule/${shift}/assignments/${h.ids.ben}`);
   });
 
   it('allows an early draft but not an early final submission', async () => {
@@ -345,6 +372,7 @@ describe('reporting windows', () => {
     const res = await h.call('ben', 'POST', `/api/reports/${body.report_id}/submit`, { content: DEMO_SAMPLE_REPORT });
     expect(res.status).toBe(409);
     expect(res.body.error.code).toBe('window_not_open');
+    await h.call('manager', 'DELETE', `/api/manager/schedule/${shift}/assignments/${h.ids.ben}`);
   });
 
   it('closes the window after the grace period; a supervisor override allows a late submission', async () => {
@@ -380,8 +408,8 @@ describe('reporting windows', () => {
   it('lets the supervisor, and only the supervisor, manage the schedule', async () => {
     const shift = {
       label: 'Cover shift',
-      starts_at: new Date(Date.now() + 3600e3).toISOString(),
-      ends_at: new Date(Date.now() + 9 * 3600e3).toISOString(),
+      starts_at: new Date(Date.now() + 10 * 86400e3).toISOString(),
+      ends_at: new Date(Date.now() + 10 * 86400e3 + 8 * 3600e3).toISOString(),
     };
     expect((await h.call('admin', 'POST', '/api/manager/schedule', shift)).status).toBe(403);
     expect((await h.call('juan', 'POST', '/api/manager/schedule', shift)).status).toBe(403);
@@ -396,16 +424,72 @@ describe('reporting windows', () => {
     // Only workers of this department can be put on its shifts.
     expect((await h.call('manager', 'POST', `/api/manager/schedule/${created.body.id}/assignments`, { employee_id: h.ids.liza })).status).toBe(422);
     expect((await h.call('manager', 'POST', `/api/manager/schedule/${created.body.id}/assignments`, { employee_id: h.ids.ben })).status).toBe(201);
+    const overlap = await h.call('manager', 'POST', '/api/manager/schedule', {
+      label: 'Overlapping cover',
+      starts_at: new Date(new Date(shift.starts_at).getTime() + 3600e3).toISOString(),
+      ends_at: new Date(new Date(shift.ends_at).getTime() + 3600e3).toISOString(),
+    });
+    const overlapAssignment = await h.call('manager', 'POST', `/api/manager/schedule/${overlap.body.id}/assignments`, { employee_id: h.ids.ben });
+    expect(overlapAssignment.status).toBe(409);
+    expect(overlapAssignment.body.error.code).toBe('conflict');
     const list = await h.call('facmanager', 'GET', `/api/manager/schedule?from=2026-01-01&to=2030-01-01`);
     expect(list.body.some((s: { id: string }) => s.id === created.body.id)).toBe(false);
   });
 
+  it('stores operating hours and generates a shift pattern only on its selected weekdays', async () => {
+    expect((await h.call('juan', 'POST', '/api/manager/schedule/preset', { preset: 'warehouse_extended' })).status).toBe(403);
+    expect((await h.call('manager', 'POST', '/api/manager/schedule/preset', { preset: 'warehouse_extended' })).status).toBe(200);
+    const warehousePatterns = await h.call('manager', 'GET', '/api/manager/templates');
+    expect(warehousePatterns.body.filter((item: { is_active: boolean }) => item.is_active).map((item: { name: string }) => item.name)).toEqual([
+      'Opening', 'Mid', 'Closing',
+    ]);
+    expect((await h.call('juan', 'PATCH', '/api/manager/schedule/settings', {
+      operating_start_time: '07:00', operating_end_time: '22:00', operates_24_hours: false,
+    })).status).toBe(403);
+    expect((await h.call('manager', 'PATCH', '/api/manager/schedule/settings', {
+      operating_start_time: '07:00', operating_end_time: '22:00', operates_24_hours: false,
+    })).status).toBe(200);
+    const settings = await h.call('manager', 'GET', '/api/manager/schedule/settings');
+    expect(settings.body).toMatchObject({
+      operating_start_time: '07:00', operating_end_time: '22:00', operates_24_hours: false,
+    });
+
+    const pattern = await h.call('manager', 'POST', '/api/manager/templates', {
+      team_id: null,
+      name: 'Alternating opening',
+      start_time: '07:00',
+      end_time: '15:00',
+      window_open_minutes: 30,
+      grace_minutes: 30,
+      weekdays: [1, 3, 5],
+    });
+    expect(pattern.status).toBe(201);
+    const generated = await h.call('manager', 'POST', `/api/manager/templates/${pattern.body.id}/generate`, {
+      from: '2026-11-02', to: '2026-11-08', supervisor_id: h.ids.manager,
+    });
+    expect(generated.body.created).toBe(3);
+    const dates = await h.sql<{ shift_date: string }>(
+      `select shift_date::text as shift_date from public.shifts where template_id = $1 order by shift_date`,
+      [pattern.body.id],
+    );
+    expect(dates.map((row) => row.shift_date)).toEqual(['2026-11-02', '2026-11-04', '2026-11-06']);
+  });
+
   it('generates overnight shifts that end the next local day', async () => {
+    const template = await h.call('manager', 'POST', '/api/manager/templates', {
+      team_id: null, name: 'Local overnight', start_time: '22:00', end_time: '06:00',
+      window_open_minutes: 30, grace_minutes: 30, weekdays: [1, 2, 3, 4, 5, 6, 7],
+    });
+    expect(template.status).toBe(201);
+    expect((await h.call('manager', 'POST', `/api/manager/templates/${template.body.id}/generate`, {
+      from: '2026-12-01', to: '2026-12-01', supervisor_id: h.ids.manager,
+    })).body.created).toBe(1);
     const [s] = await h.sql<{ starts: string; ends: string; hours: number; date: string }>(
       `select to_char(starts_at at time zone timezone, 'YYYY-MM-DD HH24:MI') as starts,
               to_char(ends_at at time zone timezone, 'YYYY-MM-DD HH24:MI') as ends,
               extract(epoch from ends_at - starts_at) / 3600 as hours, shift_date::text as date
-         from public.shifts where label = 'Night' order by shift_date limit 1`,
+         from public.shifts where template_id = $1`,
+      [template.body.id],
     );
     expect(Number(s!.hours)).toBe(8);
     expect(s!.starts).toBe(`${s!.date} 22:00`);
@@ -548,5 +632,100 @@ describe('next-shift checklist with photo proof', () => {
     expect(handover.checklist[taskIds[1]!]).toMatchObject({ status: 'open' });
     const notes = await h.call('ana', 'GET', '/api/notifications');
     expect(notes.body.items.map((n: any) => n.kind)).toContain('issue_resolved');
+  });
+});
+
+describe('handover routing with overlapping shifts', () => {
+  let h: Harness;
+  let outgoing: string;
+  let incoming: string;
+  let midCrew: string;
+  let reportId: string;
+
+  beforeAll(async () => {
+    h = await setup();
+    outgoing = await demoOutgoingShift(h);
+    incoming = (await h.sql<{ id: string }>(`select id from public.shifts where label = 'Demo shift — Incoming' and status = 'scheduled'`))[0]!.id;
+  });
+  afterAll(async () => h?.close());
+
+  const incomingOf = async (shift: string) =>
+    (await h.sql<{ label: string; shift_date: string }>(
+      `select n.label, n.shift_date::text from public.shifts n where n.id in (select app.incoming_shifts($1)) order by n.starts_at`,
+      [shift],
+    )).map((s) => `${s.label} ${s.shift_date}`);
+
+  it('sends each pattern to every crew on duty when it ends, and the last one to the next morning', async () => {
+    const [day] = await h.sql<{ d: string }>(`select (max(shift_date) - 2)::text as d from public.shifts where label = 'Opening'`);
+    const [next] = await h.sql<{ d: string }>(`select ($1::date + 1)::text as d`, [day!.d]);
+    const shift = async (label: string) =>
+      (await h.sql(`select id from public.shifts where label = $1 and shift_date = $2::date`, [label, day!.d]))[0].id;
+    expect(await incomingOf(await shift('Opening'))).toEqual([`Mid ${day!.d}`, `Closing ${day!.d}`]);
+    expect(await incomingOf(await shift('Mid'))).toEqual([`Closing ${day!.d}`]);
+    expect(await incomingOf(await shift('Closing'))).toEqual([`Opening ${next!.d}`]);
+  });
+
+  it('delivers an approved handover to every crew on duty, not only the next one to start', async () => {
+    // Ana moves from the incoming crew to a mid crew that is already working at hand-off time.
+    expect((await h.call('manager', 'DELETE', `/api/manager/schedule/${incoming}/assignments/${h.ids.ana}`)).status).toBe(200);
+    midCrew = await h.services.db.asUser(h.ids.manager!, async (q) => {
+      const [s] = await q.query<{ id: string }>(
+        `select app.create_shift((select team_id from public.shifts where id = $1), 'Mid crew', now() - interval '2 hours', now() + interval '6 hours', 30, 30, null, true) as id`,
+        [outgoing],
+      );
+      await q.query('select app.assign_to_shift($1, $2)', [s!.id, h.ids.ana]);
+      return s!.id;
+    });
+    expect(await incomingOf(outgoing)).toHaveLength(2);
+
+    reportId = (await h.call('juan', 'POST', `/api/shifts/${outgoing}/report`)).body.report_id;
+    const submit = await h.call('juan', 'POST', `/api/reports/${reportId}/submit`, {
+      content: { completed_work: 'Unloaded PO 77812.', unresolved_issues: 'Aisle 4 light is out.', pending_tasks: 'Recount Aisle 7.' },
+    });
+    expect(submit.status).toBe(201);
+    await h.drain();
+
+    const detail = await h.call('manager', 'GET', `/api/manager/reports/${reportId}`);
+    expect(detail.body.incoming_shifts.map((s: any) => [s.label, s.assignees])).toEqual([
+      ['Mid crew', ['Ana Lim']],
+      ['Demo shift — Incoming', ['Ben Torres']],
+    ]);
+    const res = await h.call('manager', 'POST', `/api/manager/reports/${reportId}/decision`, {
+      decision: 'approved',
+      content: { summary: detail.body.runs[0].draft.summary, completed_tasks: [], unresolved_issues: [], pending_actions: [], notes_for_incoming: '' },
+      flag_resolutions: flagResolutionsFor(detail.body.runs[0].flags),
+      note: '',
+    });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ status: 'delivered', recipients: 2 });
+    const deliveries = await h.sql(`select recipient_id, shift_id from public.handover_deliveries where report_id = $1 and revoked_at is null`, [reportId]);
+    expect(deliveries).toEqual(
+      expect.arrayContaining([
+        { recipient_id: h.ids.ana, shift_id: midCrew },
+        { recipient_id: h.ids.ben, shift_id: incoming },
+      ]),
+    );
+    expect((await h.call('ana', 'GET', '/api/handovers/incoming')).body).toHaveLength(1);
+  });
+
+  it('delivers to a worker added to an on-duty crew after approval', async () => {
+    expect((await h.call('manager', 'DELETE', `/api/manager/schedule/${midCrew}/assignments/${h.ids.ana}`)).status).toBe(200);
+    expect((await h.call('ana', 'GET', '/api/handovers/incoming')).body).toEqual([]);
+    const again = await h.call('manager', 'POST', `/api/manager/schedule/${midCrew}/assignments`, { employee_id: h.ids.ana });
+    expect(again.status).toBe(201);
+    expect(again.body.handovers_delivered).toBe(1);
+  });
+
+  it('creates fresh demo shifts as often as the supervisor asks', async () => {
+    const first = await h.call('manager', 'POST', '/api/manager/demo/timeline');
+    expect(first.status).toBe(201);
+    const second = await h.call('manager', 'POST', '/api/manager/demo/timeline');
+    expect(second.status).toBe(201);
+    const active = await h.sql(
+      `select s.label from public.shift_assignments a join public.shifts s on s.id = a.shift_id
+        where a.removed_at is null and s.status = 'scheduled' and s.label like 'Demo shift%' order by s.label`,
+    );
+    expect(active.map((r: any) => r.label)).toEqual(['Demo shift — Incoming', 'Demo shift — Incoming', 'Demo shift — Outgoing']);
+    expect((await h.call('juan', 'GET', '/api/employee/dashboard')).body.current_shift).toMatchObject({ id: second.body.outgoing, window_state: 'open' });
   });
 });

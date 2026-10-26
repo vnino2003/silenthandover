@@ -67,7 +67,7 @@ export function managerRoutes() {
   r.get('/reports/:id', async (c) => {
     const id = idParam(c);
     const data = await asUser(c, async (q) => {
-      const report = await one<{ id: string; shift_id: string; current_revision: number; department_id: string }>(
+      const report = await one<{ id: string; shift_id: string; current_revision: number; department_id: string; employee_id: string }>(
         q,
         `select r.id, r.reference_code, r.status, r.analysis_state, r.current_revision, r.first_submitted_at, r.last_submitted_at,
                 r.is_late, r.shift_id, r.department_id, r.employee_id, p.full_name as employee_name, p.pseudonym as employee_pseudonym
@@ -112,22 +112,23 @@ export function managerRoutes() {
           order by created_at desc limit 100`,
         [report.department_id],
       );
-      const [next] = await q.query<{ id: string }>(
+      // Every crew on duty when this shift ends receives the handover (the author excluded).
+      const incoming = await q.query(
         `select n.id, n.label, n.starts_at,
                 coalesce((select jsonb_agg(p.full_name order by p.full_name) from public.shift_assignments a
                            join public.profiles p on p.id = a.employee_id
-                          where a.shift_id = n.id and a.removed_at is null), '[]'::jsonb) as assignees
-           from public.shifts n where n.id = app.next_shift($1)`,
-        [report.shift_id],
+                          where a.shift_id = n.id and a.removed_at is null and a.employee_id <> $2), '[]'::jsonb) as assignees
+           from public.shifts n where n.id in (select app.incoming_shifts($1)) order by n.starts_at`,
+        [report.shift_id, report.employee_id],
       );
       const deliveries = await q.query(
         `select d.id, p.full_name as recipient_name, d.delivered_at, k.acknowledged_at, k.note as acknowledgment_note
            from public.handover_deliveries d join public.profiles p on p.id = d.recipient_id
            left join public.handover_acknowledgments k on k.delivery_id = d.id
-          where d.report_id = $1 order by p.full_name`,
+          where d.report_id = $1 and d.revoked_at is null order by p.full_name`,
         [id],
       );
-      return { report, shift, revisions, runs, decisions, records, open_issues: openIssues, next_shift: next ?? null, deliveries };
+      return { report, shift, revisions, runs, decisions, records, open_issues: openIssues, incoming_shifts: incoming, deliveries };
     });
 
     // Access to the report is proven above (RLS + is_manager_of). Only then read the restricted
@@ -191,7 +192,7 @@ export function managerRoutes() {
                                             from public.handover_deliveries hd
                                             join public.handover_approvals ap on ap.id = hd.approval_id
                                             left join public.handover_acknowledgments k on k.delivery_id = hd.id
-                                           where hd.shift_id = s.id and hd.recipient_id = a.employee_id))
+                                           where hd.shift_id = s.id and hd.recipient_id = a.employee_id and hd.revoked_at is null))
                     order by p.full_name)
                    from public.shift_assignments a
                    join public.profiles p on p.id = a.employee_id

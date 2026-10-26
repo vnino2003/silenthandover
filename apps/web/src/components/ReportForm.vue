@@ -227,6 +227,14 @@ const saveLabel = computed(() => {
   if (saveState.value === 'saved' && savedAt.value) return `Saved ${time(savedAt.value)}`;
   return 'Saves automatically';
 });
+const coreProgress = computed(() => {
+  const completed = [
+    content.value.completed_work.trim().length >= 3,
+    problemsAnswer.value === 'no' || (problemsAnswer.value === 'yes' && (content.value.problems.length > 0 || content.value.unresolved_issues.trim().length >= 3)),
+    tasksAnswer.value === 'no' || (tasksAnswer.value === 'yes' && content.value.pending_tasks.trim().length >= 3),
+  ].filter(Boolean).length;
+  return { completed, total: 3, percent: Math.round((completed / 3) * 100) };
+});
 const issueNoteError = (id: string) => errors.value[`issue_updates.${content.value.issue_updates.findIndex((u) => u.issue_id === id)}.note`];
 const choice = (active: boolean) =>
   active ? 'border-accent bg-accent text-white font-medium shadow-sm before:mr-1.5 before:content-["✓"]' : 'border-line-strong bg-surface text-ink hover:bg-sunken';
@@ -247,6 +255,20 @@ const choice = (active: boolean) =>
       <UiButton size="sm" variant="ghost" @click="useSample">Use sample</UiButton>
     </div>
 
+    <div class="card mb-4 px-4 py-3.5 sm:px-5">
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <p class="text-[13.5px] font-semibold">Report progress</p>
+          <p class="mt-0.5 text-[12.5px] text-ink-3">Answer the three main questions. Earlier issues are optional unless you checked them.</p>
+        </div>
+        <span class="shrink-0 text-[13px] font-medium text-ink-2 tnum">{{ coreProgress.completed }}/{{ coreProgress.total }}</span>
+      </div>
+      <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-sunken" role="progressbar" :aria-valuenow="coreProgress.completed" :aria-valuemax="coreProgress.total" aria-label="Report completion">
+        <div class="h-full rounded-full bg-accent transition-all" :style="{ width: `${coreProgress.percent}%` }" />
+      </div>
+      <p class="mt-2 text-[12px] text-ink-3">Keep it factual and work-related. Personal information is removed before AI preparation.</p>
+    </div>
+
     <form class="space-y-4" novalidate @submit.prevent="requestSubmit">
       <!-- 1. Work completed -->
       <section class="card p-5" :data-error="Boolean(errors.completed_work)">
@@ -263,13 +285,13 @@ const choice = (active: boolean) =>
         <p v-if="errors.completed_work" class="mt-1.5 text-[13px] text-bad">{{ errors.completed_work }}</p>
       </section>
 
-      <!-- 2. Problems still open -->
+      <!-- 2. New unresolved tickets -->
       <section class="card p-5" :data-error="Boolean(errors.unresolved_issues)">
-        <h3 class="text-[16px] font-semibold"><span class="mr-2 text-ink-3 tnum">2</span>Any problems still open?</h3>
-        <p class="mt-1 text-[13.5px] text-ink-3">Stock that doesn’t match, damaged goods, broken equipment, anything unsafe.</p>
+        <h3 class="text-[16px] font-semibold"><span class="mr-2 text-ink-3 tnum">2</span>Open a ticket for the next shift?</h3>
+        <p class="mt-1 text-[13.5px] text-ink-3">Add only unresolved problems: stock mismatch, damage, equipment trouble, or anything unsafe. After supervisor approval, each becomes a tracked ticket.</p>
         <div class="mt-3 grid grid-cols-2 gap-2">
-          <button type="button" class="h-12 rounded-md border text-[15px] transition-colors" :class="choice(problemsAnswer === 'yes')" @click="answerProblems('yes')">Yes</button>
-          <button type="button" class="h-12 rounded-md border text-[15px] transition-colors" :class="choice(problemsAnswer === 'no')" @click="answerProblems('no')">No open problems</button>
+          <button type="button" class="h-12 rounded-md border text-[15px] transition-colors" :class="choice(problemsAnswer === 'yes')" @click="answerProblems('yes')">Add a ticket</button>
+          <button type="button" class="h-12 rounded-md border text-[15px] transition-colors" :class="choice(problemsAnswer === 'no')" @click="answerProblems('no')">No new tickets</button>
         </div>
 
         <template v-if="problemsAnswer === 'yes'">
@@ -288,7 +310,7 @@ const choice = (active: boolean) =>
           </ul>
 
           <div v-if="adding" class="mt-4 rounded-md border border-accent/40 bg-canvas p-4">
-            <p class="text-[13.5px] font-medium">What kind of problem?</p>
+            <p class="text-[13.5px] font-medium">New handover ticket</p>
             <div class="mt-2 flex flex-wrap gap-1.5">
               <button
                 v-for="c in PROBLEM_CATEGORIES"
@@ -311,11 +333,11 @@ const choice = (active: boolean) =>
             </label>
             <p v-if="errors.adding" class="mt-1 text-[13px] text-bad">{{ errors.adding }}</p>
             <div class="mt-3 flex gap-2">
-              <UiButton size="sm" variant="primary" @click="saveProblem">{{ adding.index === null ? 'Add problem' : 'Save' }}</UiButton>
+              <UiButton size="sm" variant="primary" @click="saveProblem">{{ adding.index === null ? 'Add ticket' : 'Save' }}</UiButton>
               <UiButton size="sm" variant="ghost" @click="adding = null">Cancel</UiButton>
             </div>
           </div>
-          <UiButton v-else class="mt-3" size="sm" @click="startProblem()">+ Add {{ content.problems.length ? 'another' : 'a' }} problem</UiButton>
+          <UiButton v-else class="mt-3" size="sm" @click="startProblem()">+ Add {{ content.problems.length ? 'another' : 'a' }} ticket</UiButton>
 
           <div class="mt-3">
             <button v-if="!showParagraph" type="button" class="text-[13px] text-ink-3 hover:text-ink" @click="showParagraph = true">Prefer to write it as a paragraph?</button>
@@ -325,11 +347,18 @@ const choice = (active: boolean) =>
         <p v-if="errors.unresolved_issues" class="mt-2 text-[13px] text-bad">{{ errors.unresolved_issues }}</p>
       </section>
 
-      <!-- 3. Earlier problems -->
-      <section v-if="openIssues.length" class="card p-5">
-        <h3 class="text-[16px] font-semibold"><span class="mr-2 text-ink-3 tnum">3</span>Problems from earlier shifts</h3>
-        <p class="mt-1 text-[13.5px] text-ink-3">Tap what you saw. Skip any you didn’t check. “Fixed” still needs your supervisor’s confirmation.</p>
-        <ul class="mt-3 divide-y divide-line">
+      <!-- Existing tickets stay out of the main path unless the employee checked one. -->
+      <details v-if="openIssues.length" class="card overflow-hidden">
+        <summary class="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4">
+          <span>
+            <span class="block text-[16px] font-semibold"><span class="mr-2 text-ink-3 tnum">3</span>Update an existing ticket <span class="font-normal text-ink-3">(optional)</span></span>
+            <span class="mt-1 block text-[13px] text-ink-3">Open this only if you personally checked an earlier issue.</span>
+          </span>
+          <span class="shrink-0 text-[12.5px] text-ink-3">{{ openIssues.length }} open</span>
+        </summary>
+        <div class="border-t border-line px-5 py-4">
+          <p class="text-[13.5px] text-ink-3">Choose what you observed. “Fixed” still needs your supervisor’s confirmation.</p>
+          <ul class="mt-3 divide-y divide-line">
           <li v-for="issue in openIssues" :key="issue.id" class="py-3 first:pt-0 last:pb-0">
             <p class="text-[14px] font-medium">{{ issue.title }} <span class="font-normal text-ink-3 tnum">· {{ issue.code }}</span></p>
             <div class="mt-2 grid grid-cols-3 gap-1.5">
@@ -354,8 +383,9 @@ const choice = (active: boolean) =>
             />
             <p v-if="issueNoteError(issue.id)" class="mt-1 text-[13px] text-bad">{{ issueNoteError(issue.id) }}</p>
           </li>
-        </ul>
-      </section>
+          </ul>
+        </div>
+      </details>
 
       <!-- 4. Next shift -->
       <section class="card p-5" :data-error="Boolean(errors.pending_tasks)">

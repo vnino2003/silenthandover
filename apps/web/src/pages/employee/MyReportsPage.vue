@@ -23,23 +23,33 @@ interface Row {
 }
 
 const { data, loading, error, reload } = useAsync(() => api.get<Row[]>('/reports/mine'));
-const filter = ref<ReportStatus | 'all'>('all');
-const rows = computed(() => (data.value ?? []).filter((r) => filter.value === 'all' || r.status === filter.value));
+type ReportFilter = ReportStatus | 'all' | 'action';
+const filter = ref<ReportFilter>('all');
+const actionStatuses: ReportStatus[] = ['draft', 'revision_requested'];
+const rows = computed(() =>
+  (data.value ?? []).filter((report) => filter.value === 'all' || (filter.value === 'action' ? actionStatuses.includes(report.status) : report.status === filter.value)),
+);
 const present = computed(() => [...new Set((data.value ?? []).map((r) => r.status))]);
+const actionCount = computed(() => (data.value ?? []).filter((report) => actionStatuses.includes(report.status)).length);
+const filterOptions = computed<{ value: ReportFilter; label: string }[]>(() => [
+  { value: 'all', label: 'All' },
+  ...(actionCount.value ? [{ value: 'action' as const, label: `Needs action · ${actionCount.value}` }] : []),
+  ...present.value.map((status) => ({ value: status, label: REPORT_STATUS_LABELS[status] })),
+]);
 </script>
 
 <template>
   <div class="mx-auto max-w-4xl">
     <PageHeader title="My reports" description="Every report you have written, with its review status and supervisor feedback." />
-    <div v-if="present.length > 1" class="mb-4 flex flex-wrap gap-1.5" role="group" aria-label="Filter by status">
+    <div v-if="filterOptions.length > 2" class="mb-4 flex flex-wrap gap-1.5" role="group" aria-label="Filter by status">
       <button
-        v-for="s in ['all', ...present] as const"
-        :key="s"
+        v-for="option in filterOptions"
+        :key="option.value"
         class="rounded-full border px-3 py-1 text-[13px]"
-        :class="filter === s ? 'border-ink bg-ink text-white' : 'border-line-strong text-ink-2 hover:bg-sunken'"
-        @click="filter = s"
+        :class="filter === option.value ? 'border-ink bg-ink text-white' : 'border-line-strong text-ink-2 hover:bg-sunken'"
+        @click="filter = option.value"
       >
-        {{ s === 'all' ? 'All' : REPORT_STATUS_LABELS[s] }}
+        {{ option.label }}
       </button>
     </div>
     <StateBlock :loading="loading" :error="error" :empty="!rows.length" empty-title="No reports yet" empty-text="Reports you start from the Today page appear here." @retry="reload()">

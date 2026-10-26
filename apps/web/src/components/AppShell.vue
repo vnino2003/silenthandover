@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
+import BrandMark from '@/components/BrandMark.vue';
 import { useAuth } from '@/stores/auth';
 import { useNotifications } from '@/stores/notifications';
 import { ROLE_LABELS } from '@sh/shared';
@@ -37,20 +38,17 @@ const NAV = {
 } as const;
 
 const nav = computed(() => (auth.role ? NAV[auth.role] : []));
+const employeeMobileNav = [
+  { to: '/', label: 'Today', exact: true },
+  { to: '/handover', label: 'Handover' },
+  { to: '/tasks', label: 'Issues' },
+  { to: '/reports', label: 'Reports' },
+] as const;
 const isActive = (item: { to: string; exact?: boolean }) => {
   // A report under review belongs to the review queue.
   if (item.to === '/manager' && route.path.startsWith('/manager/reports/')) return true;
   return item.exact ? route.path === item.to : route.path === item.to || route.path.startsWith(`${item.to}/`);
 };
-
-const devNotice = computed(() => {
-  const i = auth.config?.integrations;
-  if (!i) return null;
-  const parts: string[] = [];
-  if (i.ai.simulated) parts.push('AI drafts are simulated (no AI is called)');
-  if (i.email.simulated) parts.push('emails go to the dev outbox (nothing is sent)');
-  return parts.length ? `Development mode — ${parts.join('; ')}.` : null;
-});
 
 watch(() => route.fullPath, () => (menuOpen.value = false));
 onMounted(() => notes.start());
@@ -64,13 +62,9 @@ async function signOut() {
 
 <template>
   <div class="min-h-dvh">
-    <div v-if="devNotice" class="border-b border-warn/20 bg-warn-soft px-4 py-1.5 text-center text-[12.5px] text-warn">
-      {{ devNotice }}
-    </div>
-
     <!-- Mobile top bar -->
     <div class="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-line bg-canvas/95 px-4 backdrop-blur lg:hidden">
-      <RouterLink :to="auth.homePath" class="text-[15px] font-semibold tracking-[-0.01em]">Silent Handover</RouterLink>
+      <RouterLink :to="auth.homePath" class="text-[15px] font-semibold tracking-[-0.01em]" aria-label="Silent Handover home"><BrandMark :size="26" /></RouterLink>
       <div class="flex items-center gap-1">
         <RouterLink to="/notifications" class="relative rounded-md px-2.5 py-1.5 text-[14px] text-ink-2 hover:bg-sunken" aria-label="Notifications">
           Alerts
@@ -98,7 +92,7 @@ async function signOut() {
     <div class="mx-auto flex max-w-[1320px]">
       <!-- Desktop sidebar -->
       <aside class="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-line px-4 py-6 lg:flex">
-        <RouterLink :to="auth.homePath" class="px-2 text-[15px] font-semibold tracking-[-0.01em]">Silent Handover</RouterLink>
+        <RouterLink :to="auth.homePath" class="px-2 text-[15px] font-semibold tracking-[-0.01em]" aria-label="Silent Handover home"><BrandMark :size="30" /></RouterLink>
         <p class="mt-0.5 px-2 text-[12.5px] text-ink-3">
           {{ auth.profile?.department_name ?? 'System setup' }}
         </p>
@@ -136,9 +130,27 @@ async function signOut() {
         </div>
       </aside>
 
-      <main class="min-w-0 flex-1 px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
+      <main class="min-w-0 flex-1 px-4 pt-6 sm:px-6 lg:px-10 lg:py-8" :class="auth.role === 'employee' ? 'pb-24' : 'pb-8'">
         <RouterView />
       </main>
     </div>
+
+    <!-- Workers move between these four screens throughout a shift. Keep them one tap away on mobile. -->
+    <nav
+      v-if="auth.role === 'employee'"
+      class="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-line bg-surface/95 px-2 pt-1.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur lg:hidden"
+      aria-label="Employee navigation"
+    >
+      <RouterLink
+        v-for="item in employeeMobileNav"
+        :key="item.to"
+        :to="item.to"
+        class="rounded-md px-1 py-2 text-center text-[12px] font-medium"
+        :class="isActive(item) ? 'bg-accent-soft text-accent-ink' : 'text-ink-3'"
+        :aria-current="isActive(item) ? 'page' : undefined"
+      >
+        {{ item.label }}
+      </RouterLink>
+    </nav>
   </div>
 </template>

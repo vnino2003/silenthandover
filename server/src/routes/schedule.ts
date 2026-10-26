@@ -20,9 +20,10 @@ const TemplateBody = z.strictObject({
   grace_minutes: z.number().int().min(0).max(240),
   allow_early_draft: z.boolean().default(true),
   is_active: z.boolean().default(true),
+  weekdays: z.array(z.number().int().min(1).max(7)).min(1).max(7).default([1, 2, 3, 4, 5, 6, 7]),
 });
 
-const templateSql = 'select app.upsert_shift_template($1, $2, $3, $4::time, $5::time, $6, $7, $8, $9) as id';
+const templateSql = 'select app.upsert_shift_template($1, $2, $3, $4::time, $5::time, $6, $7, $8, $9, $10::smallint[]) as id';
 const templateParams = (id: string | null, b: z.infer<typeof TemplateBody>) => [
   id,
   b.team_id,
@@ -33,17 +34,69 @@ const templateParams = (id: string | null, b: z.infer<typeof TemplateBody>) => [
   b.grace_minutes,
   b.allow_early_draft,
   b.is_active,
+  b.weekdays,
 ];
 
 export function scheduleRoutes() {
   const r = new Hono<AppEnv>();
+
+  r.get('/schedule/settings', async (c) => {
+    const [settings] = await asUser(c, (q) =>
+      q.query<{
+        department_name: string;
+        timezone: string;
+        operating_start_time: string;
+        operating_end_time: string;
+        operates_24_hours: boolean;
+      }>(
+        `select name as department_name, timezone,
+                to_char(operating_start_time, 'HH24:MI') as operating_start_time,
+                to_char(operating_end_time, 'HH24:MI') as operating_end_time,
+                operates_24_hours
+           from public.departments where id = app.my_department()`,
+      ),
+    );
+    if (!settings) throw new ApiError(404, 'not_found', 'Department not found');
+    return c.json(settings);
+  });
+
+  r.patch('/schedule/settings', async (c) => {
+    const b = await parseBody(
+      c,
+      z.strictObject({
+        operating_start_time: time,
+        operating_end_time: time,
+        operates_24_hours: z.boolean(),
+      }),
+    );
+    await asUser(c, (q) =>
+      q.query('select app.update_schedule_settings($1::time, $2::time, $3)', [
+        b.operating_start_time,
+        b.operating_end_time,
+        b.operates_24_hours,
+      ]),
+    );
+    return c.json({ ok: true });
+  });
+
+  r.post('/schedule/preset', async (c) => {
+    const b = await parseBody(
+      c,
+      z.strictObject({ preset: z.enum(['warehouse_extended', 'office_weekdays', 'continuous_24h']) }),
+    );
+    const result = await asUser(c, async (q) =>
+      (await q.query<{ result: unknown }>('select app.apply_schedule_preset($1) as result', [b.preset]))[0]!.result,
+    );
+    return c.json(result);
+  });
 
   r.get('/templates', async (c) => {
     const rows = await asUser(c, (q) =>
       q.query(
         `select t.id, t.team_id, tm.name as team_name, t.name,
                 to_char(t.start_time, 'HH24:MI') as start_time, to_char(t.end_time, 'HH24:MI') as end_time,
-                t.end_time <= t.start_time as overnight, t.window_open_minutes, t.grace_minutes, t.allow_early_draft, t.is_active
+                t.end_time <= t.start_time as overnight, t.window_open_minutes, t.grace_minutes,
+                t.allow_early_draft, t.is_active, t.weekdays
            from public.shift_templates t
            left join public.teams tm on tm.id = t.team_id
           where t.department_id = app.my_department()

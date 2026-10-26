@@ -33,7 +33,7 @@ interface ReviewData {
   decisions: Decision[];
   records: { id: string; record_type: string; reference_code: string; title: string; details: string; recorded_at: string }[];
   open_issues: { id: string; code: string; title: string; status: string; severity: string; is_safety: boolean }[];
-  next_shift: { id: string; label: string; starts_at: string; assignees: string[] } | null;
+  incoming_shifts: { id: string; label: string; starts_at: string; assignees: string[] }[];
   deliveries: DeliveryRow[];
   analysis_input: { sanitized_text: string; redaction_counts: Record<string, number>; injection_findings: { rule: string; excerpt: string }[]; expires_at: string } | null;
 }
@@ -381,10 +381,12 @@ const redactionText = computed(() => {
 
               <div class="card flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
                 <div class="text-[13.5px]">
-                  <p v-if="data.next_shift" class="text-ink-2">
-                    Delivers to <span class="font-medium text-ink">{{ data.next_shift.assignees.length ? data.next_shift.assignees.join(', ') : 'no one yet' }}</span>
-                    · {{ data.next_shift.label }}, {{ time(data.next_shift.starts_at, data.shift.timezone) }}
-                  </p>
+                  <template v-if="data.incoming_shifts.length">
+                    <p v-for="s in data.incoming_shifts" :key="s.id" class="text-ink-2">
+                      Delivers to <span class="font-medium text-ink">{{ s.assignees.length ? s.assignees.join(', ') : 'no one yet' }}</span>
+                      · {{ s.label }}, {{ time(s.starts_at, data.shift.timezone) }}
+                    </p>
+                  </template>
                   <p v-else class="text-warn">No incoming shift is scheduled yet — it will be delivered when one is staffed.</p>
                   <p v-if="unresolvedFlags" class="mt-0.5 text-warn">Decide every verification flag before approving.</p>
                 </div>

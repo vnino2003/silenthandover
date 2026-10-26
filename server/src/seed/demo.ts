@@ -63,7 +63,7 @@ export async function seedDemo(
       depts.FAC = await val<string>(q, `select app.admin_upsert_department(null, 'FAC', 'Facilities', 'Asia/Manila') as v`);
     }
     // The demo shifts use their own team so their handover goes to the demo incoming shift,
-    // not to a regular Morning/Afternoon/Night shift that happens to start in between.
+    // not to a regular warehouse shift that happens to start in between.
     await q.query(`select app.admin_upsert_team(null, $1, $2)`, [depts.WH, DEMO_TEAM]);
     for (const a of accounts) {
       if (a.role === 'admin') continue;
@@ -73,21 +73,15 @@ export async function seedDemo(
 
   // Supervisor: the day-to-day schedule for their own department.
   await db.asUser(ids.manager!, async (q) => {
-    const templates: [string, string, string][] = [
-      ['Morning', '06:00', '14:00'],
-      ['Afternoon', '14:00', '22:00'],
-      ['Night', '22:00', '06:00'],
-    ];
-    for (const [name, start, end] of templates) {
-      const t = await val<string>(q, `select app.upsert_shift_template(null, null, $1, $2::time, $3::time, 30, 30, true, true) as v`, [name, start, end]);
-      await q.query(`select app.generate_shifts($1, ${today} - 1, ${today} + 6, $2)`, [t, ids.manager]);
-    }
+    await q.query(`select app.apply_schedule_preset('warehouse_extended')`);
+    const templates = await q.query<{ id: string }>(`select id from public.shift_templates where department_id = app.my_department() and is_active order by start_time`);
+    for (const template of templates) await q.query(`select app.generate_shifts($1, ${today} - 1, ${today} + 6, $2)`, [template.id, ids.manager]);
     // A regular future shift for Juan so the "upcoming" list is realistic.
-    const tomorrowMorning = await val<string>(
+    const tomorrowOpening = await val<string>(
       q,
-      `select id as v from public.shifts where department_id = app.my_department() and label = 'Morning' and shift_date = ${today} + 1`,
+      `select id as v from public.shifts where department_id = app.my_department() and label = 'Opening' and shift_date = ${today} + 1`,
     );
-    await q.query('select app.assign_to_shift($1, $2)', [tomorrowMorning, ids.juan]);
+    await q.query('select app.assign_to_shift($1, $2)', [tomorrowOpening, ids.juan]);
   });
 
   await createDemoTimeline(services, ids.manager!);
@@ -138,13 +132,25 @@ export async function createDemoTimeline(services: Services, supervisorId: strin
   return db.asUser(supervisorId, async (q) => {
     const [team] = await q.query<{ id: string }>(`select id from public.teams where department_id = app.my_department() and name = $1`, [DEMO_TEAM]);
     if (!team) throw new Error('Demo team not found — run the full seed first');
-    // Earlier demo shifts that would overlap the new pair would otherwise receive its handover.
+    // Earlier demo shifts that overlap the new pair would otherwise receive its handover, and
+    // their assignments would trip the overlap guard, so cancel every one of them.
     const overlapping = await q.query<{ id: string; supervisor_id: string | null }>(
       `select id, supervisor_id from public.shifts
-        where team_id = $1 and status = 'scheduled' and starts_at > date_trunc('minute', now()) - interval '7 hours 40 minutes'`,
+        where team_id = $1 and status = 'scheduled'
+          and ends_at > date_trunc('minute', now()) - interval '7 hours 40 minutes'
+          and starts_at < date_trunc('minute', now()) + interval '8 hours 20 minutes'`,
       [team.id],
     );
     for (const s of overlapping) await q.query(`select app.update_shift($1, $2, 'cancelled')`, [s.id, s.supervisor_id]);
+    // The demo workers may also be on regular shifts in the same hours; free them for the demo.
+    const clashes = await q.query<{ shift_id: string; employee_id: string }>(
+      `select a.shift_id, a.employee_id from public.shift_assignments a join public.shifts s on s.id = a.shift_id
+        where a.removed_at is null and s.status = 'scheduled'
+          and ((a.employee_id = $1 and tstzrange(s.starts_at, s.ends_at, '[)') && tstzrange(date_trunc('minute', now()) - interval '7 hours 40 minutes', date_trunc('minute', now()) + interval '20 minutes', '[)'))
+            or (a.employee_id = any($2) and tstzrange(s.starts_at, s.ends_at, '[)') && tstzrange(date_trunc('minute', now()) + interval '20 minutes', date_trunc('minute', now()) + interval '8 hours 20 minutes', '[)')))`,
+      [byEmail['juan.delacruz@demo.test'], [byEmail['ana.lim@demo.test'], byEmail['ben.torres@demo.test']]],
+    );
+    for (const c of clashes) await q.query('select app.unassign_from_shift($1, $2)', [c.shift_id, c.employee_id]);
     const outgoing = await val<string>(
       q,
       `select app.create_shift($1, 'Demo shift — Outgoing', date_trunc('minute', now()) - interval '7 hours 40 minutes',

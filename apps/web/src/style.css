@@ -59,6 +59,25 @@
   }
 }
 
+@media (pointer: fine) {
+  html,
+  body {
+    cursor: url('/cursor.svg') 7 5, auto;
+  }
+  a,
+  button,
+  summary,
+  select,
+  label {
+    cursor: url('/cursor.svg') 7 5, pointer;
+  }
+  input,
+  textarea,
+  [contenteditable='true'] {
+    cursor: text;
+  }
+}
+
 @utility tnum {
   font-variant-numeric: tabular-nums;
 }
