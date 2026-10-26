@@ -1,6 +1,5 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { createDemoTimeline } from '../seed/demo';
 import { ApiError } from '../http/errors';
 import { asUser, idParam, parseBody, parseQuery, svc, type AppEnv } from '../http/context';
 
@@ -207,13 +206,6 @@ export function scheduleRoutes() {
     const employeeId = idParam(c, 'employeeId');
     await asUser(c, (q) => q.query('select app.unassign_from_shift($1, $2)', [id, employeeId]));
     return c.json({ ok: true });
-  });
-
-  // LOCAL DEMO ONLY: a fresh outgoing/incoming shift pair whose reporting window is open now.
-  r.post('/demo/timeline', async (c) => {
-    const { config } = svc(c);
-    if (config.APP_MODE !== 'local' || !config.DEMO_MODE) throw new ApiError(404, 'not_found', 'Not found');
-    return c.json(await createDemoTimeline(svc(c), c.get('userId')), 201);
   });
 
   return r;

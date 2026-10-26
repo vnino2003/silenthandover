@@ -89,7 +89,7 @@ const cell = (patternId: string, iso: string) =>
   (shifts.data.value ?? []).find((s) => s.template_id === patternId && s.shift_date === iso && s.status === 'scheduled') ??
   (shifts.data.value ?? []).find((s) => s.template_id === patternId && s.shift_date === iso) ??
   null;
-/** Demo, overtime or older-pattern shifts that are not one of the regular rows. */
+/** Overtime or older-pattern shifts that are not one of the regular rows. */
 const otherShifts = computed(() => {
   const ids = new Set(patterns.value.map((p) => p.id));
   return (shifts.data.value ?? []).filter((s) => s.status === 'scheduled' && (!s.template_id || !ids.has(s.template_id)));
@@ -291,14 +291,12 @@ async function saveShiftSetup() {
   }
 }
 
-const demo = () => run('demo', () => api.post('/manager/demo/timeline'), 'Demo shifts ready — Juan’s reporting window is open now');
 </script>
 
 <template>
   <div class="mx-auto max-w-6xl">
     <PageHeader title="Schedule" description="Your department’s shifts for the week. Tap a shift to choose who works it.">
       <UiButton size="sm" variant="ghost" :disabled="types.loading.value" @click="openShiftSetup">Edit shifts</UiButton>
-      <UiButton v-if="auth.config?.demo" size="sm" :loading="busy === 'demo'" @click="demo">Create demo shifts</UiButton>
     </PageHeader>
 
     <!-- The day at a glance: who hands over to whom, and when -->
@@ -387,7 +385,7 @@ const demo = () => run('demo', () => api.post('/manager/demo/timeline'), 'Demo s
 
         <div v-if="otherShifts.length" class="mt-4">
           <h3 class="text-[13px] font-semibold text-ink-2">Other shifts this week</h3>
-          <p class="text-[12px] text-ink-3">Demo, overtime or older shifts outside the regular {{ patterns.map((p) => p.name).join(' / ') }} pattern.</p>
+          <p class="text-[12px] text-ink-3">Overtime or older shifts outside the regular {{ patterns.map((p) => p.name).join(' / ') }} pattern.</p>
           <div class="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             <button
               v-for="s in otherShifts"

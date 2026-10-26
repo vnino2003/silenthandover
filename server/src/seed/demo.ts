@@ -35,7 +35,9 @@ export interface SeedResult {
 
 export async function seedDemo(
   services: Services,
-  opts: { onlyIfEmpty: boolean; includeSecondDepartment?: boolean },
+  // sampleActivity: sample tickets, source records, a week's crew and an open reporting window.
+  // Used by the automated tests; a normal first start creates the setup only (live use).
+  opts: { onlyIfEmpty: boolean; includeSecondDepartment?: boolean; sampleActivity?: boolean },
 ): Promise<SeedResult | null> {
   const { db, auth } = services;
   const existing = await db.asService((q) => val<number>(q, 'select count(*)::int as v from public.profiles'));
@@ -62,9 +64,9 @@ export async function seedDemo(
     if (opts.includeSecondDepartment) {
       depts.FAC = await val<string>(q, `select app.admin_upsert_department(null, 'FAC', 'Facilities', 'Asia/Manila') as v`);
     }
-    // The demo shifts use their own team so their handover goes to the demo incoming shift,
+    // The sample shifts use their own team so their handover goes to the sample incoming shift,
     // not to a regular warehouse shift that happens to start in between.
-    await q.query(`select app.admin_upsert_team(null, $1, $2)`, [depts.WH, DEMO_TEAM]);
+    if (opts.sampleActivity) await q.query(`select app.admin_upsert_team(null, $1, $2)`, [depts.WH, DEMO_TEAM]);
     for (const a of accounts) {
       if (a.role === 'admin') continue;
       await q.query('select app.admin_create_profile($1, $2, $3, $4, $5, null, null)', [ids[a.key], a.full_name, a.email, a.role, depts[a.dept!]]);
@@ -77,8 +79,9 @@ export async function seedDemo(
     await q.query(`select app.apply_schedule_preset('two_shift')`);
     const templates = await q.query<{ id: string }>(`select id from public.shift_templates where department_id = app.my_department() and is_active order by start_time`);
     for (const template of templates) await q.query(`select app.generate_shifts($1, ${today} - 1, ${today} + 6, $2)`, [template.id, ids.manager]);
+    if (!opts.sampleActivity) return;
     // A realistic week from tomorrow: Juan on Morning, Ana and Ben on Afternoon.
-    // (Today is covered by the demo shifts below.)
+    // (Today is covered by the sample shifts below.)
     const crew = await q.query<{ id: string; label: string }>(
       `select id, label from public.shifts where department_id = app.my_department() and template_id is not null
           and shift_date between ${today} + 1 and ${today} + 6`,
@@ -88,9 +91,9 @@ export async function seedDemo(
     }
   });
 
-  await createDemoTimeline(services, ids.manager!);
+  if (opts.sampleActivity) await createDemoTimeline(services, ids.manager!);
 
-  await db.asUser(ids.manager!, async (q) => {
+  if (opts.sampleActivity) await db.asUser(ids.manager!, async (q) => {
     await q.query(
       `select app.add_operational_record('maintenance', 'MR-2291', 'Conveyor C3 belt tension adjusted', 'Tension set to spec by maintenance tech; belt tracking OK at test run.', now() - interval '3 hours')`,
     );
@@ -120,19 +123,20 @@ export async function seedDemo(
 }
 
 /**
- * LOCAL DEMO ONLY: wipes all activity — shifts and assignments, reports and their AI runs,
- * handovers, issues ("tickets"), photos and notifications — so a demo can start from a clean
- * slate. Accounts, departments, shift patterns, source records and the audit log stay.
+ * LOCAL MODE ONLY: wipes all activity — shifts and assignments, reports and their AI runs,
+ * handovers, issues ("tickets"), photos, notifications and source records — to start from a
+ * clean slate. Accounts, departments, shift patterns and the audit log stay; the sample
+ * team the tests use is removed too.
  * TRUNCATE is used because the history tables refuse row deletes by design; it is listed
  * without CASCADE so a table added later is never wiped by accident.
  */
-export async function clearDemoActivity(services: Services, actorId: string) {
+export async function resetActivity(services: Services, actorId: string) {
   const tables = [
     'public.issue_photos', 'public.issue_updates', 'public.issue_assignments', 'public.operational_issues',
     'public.handover_routes', 'public.handover_acknowledgments', 'public.handover_deliveries', 'public.handover_approvals',
     'public.ai_analysis_runs', 'internal.analysis_inputs', 'public.notification_deliveries', 'public.notifications',
     'public.automation_events', 'public.report_revisions', 'public.report_window_overrides', 'public.shift_reports',
-    'public.shift_assignments', 'public.shifts',
+    'public.shift_assignments', 'public.shifts', 'public.operational_records',
   ];
   return services.db.asService(async (q) => {
     const [counts] = await q.query<{ shifts: number; reports: number; issues: number }>(
@@ -141,7 +145,13 @@ export async function clearDemoActivity(services: Services, actorId: string) {
     );
     await q.query(`truncate ${tables.join(', ')}`);
     await q.query(
-      `insert into public.audit_logs (actor_id, actor_role, action, entity_type, details) values ($1, 'admin', 'demo.cleared', 'system', $2::jsonb)`,
+      `delete from public.teams t where t.name = $1
+          and not exists (select 1 from public.profiles p where p.team_id = t.id)
+          and not exists (select 1 from public.shift_templates st where st.team_id = t.id)`,
+      [DEMO_TEAM],
+    );
+    await q.query(
+      `insert into public.audit_logs (actor_id, actor_role, action, entity_type, details) values ($1, 'admin', 'activity.reset', 'system', $2::jsonb)`,
       [actorId, JSON.stringify(counts)],
     );
     return counts!;

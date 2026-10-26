@@ -1,5 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { DEMO_SAMPLE_REPORT } from '@sh/shared';
+import { createServices } from '../src/bootstrap';
+import { loadConfig } from '../src/config';
+import { createDemoTimeline, seedDemo } from '../src/seed/demo';
 import { adhocShift, demoIncomingShift, demoOutgoingShift, flagResolutionsFor, setup, type Harness } from './helpers';
 
 /**
@@ -748,11 +751,9 @@ describe('handover routing with overlapping shifts', () => {
     expect(again.body.handovers_delivered).toBe(1);
   });
 
-  it('creates fresh demo shifts as often as the supervisor asks', async () => {
-    const first = await h.call('manager', 'POST', '/api/manager/demo/timeline');
-    expect(first.status).toBe(201);
-    const second = await h.call('manager', 'POST', '/api/manager/demo/timeline');
-    expect(second.status).toBe(201);
+  it('creates a fresh sample shift pair as often as asked, without overlap errors', async () => {
+    await createDemoTimeline(h.services, h.ids.manager!);
+    const second = { body: await createDemoTimeline(h.services, h.ids.manager!) };
     const active = await h.sql(
       `select s.label from public.shift_assignments a join public.shifts s on s.id = a.shift_id
         where a.removed_at is null and s.status = 'scheduled' and s.label like '% (demo)' order by s.label`,
@@ -983,7 +984,7 @@ describe("each supervisor sets their own department's shifts", () => {
   });
 });
 
-describe('starting the local demo over', () => {
+describe('resetting all activity (local mode)', () => {
   let h: Harness;
   beforeAll(async () => {
     h = await setup();
@@ -991,8 +992,8 @@ describe('starting the local demo over', () => {
   afterAll(async () => h?.close());
 
   it('only lets an administrator clear it, and only with confirmation', async () => {
-    expect((await h.call('manager', 'POST', '/api/admin/demo/clear', { confirm: 'CLEAR' })).status).toBe(403);
-    expect((await h.call('admin', 'POST', '/api/admin/demo/clear', {})).status).toBe(422);
+    expect((await h.call('manager', 'POST', '/api/admin/activity/reset', { confirm: 'CLEAR' })).status).toBe(403);
+    expect((await h.call('admin', 'POST', '/api/admin/activity/reset', {})).status).toBe(422);
   });
 
   it('removes shifts, reports and tickets but keeps accounts and setup', async () => {
@@ -1006,16 +1007,21 @@ describe('starting the local demo over', () => {
     const before = await count();
     const draft = (await h.call('juan', 'POST', `/api/shifts/${await demoOutgoingShift(h)}/report`)).body.report_id;
     expect(draft).toBeTruthy();
-    const res = await h.call('admin', 'POST', '/api/admin/demo/clear', { confirm: 'CLEAR' });
+    const res = await h.call('admin', 'POST', '/api/admin/activity/reset', { confirm: 'CLEAR' });
     expect(res.status).toBe(200);
     expect(res.body.cleared).toMatchObject({ shifts: before.shifts, issues: before.issues, reports: 1 });
-    expect(await count()).toEqual({ ...before, shifts: 0, issues: 0, reports: 0, notifications: 0 });
-    const [audit] = await h.sql(`select actor_id, details from public.audit_logs where action = 'demo.cleared'`);
+    expect(await count()).toEqual({ ...before, shifts: 0, issues: 0, reports: 0, notifications: 0, records: 0 });
+    const [audit] = await h.sql(`select actor_id, details from public.audit_logs where action = 'activity.reset'`);
     expect(audit.actor_id).toBe(h.ids.admin);
     // Everything still works from the clean slate.
     expect((await h.call('juan', 'GET', '/api/employee/dashboard')).body.current_shift).toBeNull();
     expect((await h.call('manager', 'GET', '/api/manager/shift-board')).body.shifts).toEqual([]);
-    expect((await h.call('manager', 'POST', '/api/manager/demo/timeline')).status).toBe(201);
+    expect(await h.sql(`select id from public.teams where name = 'Demo'`)).toEqual([]);
+    const [morning] = (await h.call('manager', 'GET', '/api/manager/templates')).body.filter((t: any) => t.is_active);
+    const gen = await h.call('manager', 'POST', `/api/manager/templates/${morning.id}/generate`, { from: '2030-01-07', to: '2030-01-08', supervisor_id: null });
+    expect(gen.body.created).toBe(2);
+    // The removed demo route is gone for good.
+    expect((await h.call('manager', 'POST', '/api/manager/demo/timeline')).status).toBe(404);
   });
 });
 
@@ -1065,5 +1071,35 @@ describe('profile pictures', () => {
     const res = await h.call('ana', 'DELETE', '/api/me/photo');
     expect(res.body.photo_version).toBeNull();
     expect((await photo(await h.token('juan'), h.ids.ana!)).status).toBe(404);
+  });
+});
+
+describe('a normal first start (live use)', () => {
+  it('creates the accounts, the department and its two shifts — no sample tickets, records or demo shifts', async () => {
+    const config = loadConfig({ NODE_ENV: 'test', APP_MODE: 'local', DEMO_MODE: 'true', ENABLE_INTERNAL_SCHEDULER: 'false' });
+    const services = await createServices(config, { memory: true, quiet: true, manualKick: true });
+    try {
+      expect(await seedDemo(services, { onlyIfEmpty: true })).not.toBeNull();
+      const [counts] = await services.db.asService((q) =>
+        q.query<Record<string, number>>(
+          `select (select count(*)::int from public.profiles) as accounts,
+                  (select count(*)::int from public.operational_issues) as tickets,
+                  (select count(*)::int from public.operational_records) as records,
+                  (select count(*)::int from public.shift_assignments) as assignments,
+                  (select count(*)::int from public.shifts where template_id is null) as extra_shifts,
+                  (select count(*)::int from public.teams) as teams`,
+        ),
+      );
+      expect(counts).toEqual({ accounts: 5, tickets: 0, records: 0, assignments: 0, extra_shifts: 0, teams: 0 });
+      const patterns = await services.db.asService((q) =>
+        q.query(`select name, to_char(start_time, 'HH24:MI') as starts, to_char(end_time, 'HH24:MI') as ends from public.shift_templates where is_active order by start_time`),
+      );
+      expect(patterns).toEqual([
+        { name: 'Morning', starts: '06:00', ends: '14:00' },
+        { name: 'Afternoon', starts: '14:00', ends: '22:00' },
+      ]);
+    } finally {
+      await services.stop();
+    }
   });
 });

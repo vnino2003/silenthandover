@@ -52,12 +52,12 @@ const runTick = () =>
   }, 'Scheduled checks ran');
 
 const confirmClear = ref(false);
-const clearDemo = () =>
+const resetAll = () =>
   act('clear', async () => {
-    const r = await api.post<{ cleared: { shifts: number; reports: number; issues: number } }>('/admin/demo/clear', { confirm: 'CLEAR' });
+    const r = await api.post<{ cleared: { shifts: number; reports: number; issues: number } }>('/admin/activity/reset', { confirm: 'CLEAR' });
     confirmClear.value = false;
     toast.info(`Removed ${r.cleared.shifts} shifts, ${r.cleared.reports} reports and ${r.cleared.issues} tickets`);
-  }, 'Demo data cleared');
+  }, 'All activity reset');
 
 // ---- AI provider: the administrator pastes the key here; it is stored encrypted, never shown again.
 type Provider = 'simulator' | 'gemini' | 'grok';
@@ -73,7 +73,7 @@ interface AiSettingsView {
 }
 const PROVIDER_NOTE: Record<Provider, string> = {
   simulator: 'No AI is called. Drafts are made by a built-in rule-based simulator and clearly labeled as simulated.',
-  gemini: 'Has a free tier. On the free tier Google may use what is sent to improve its products — only sanitized text is sent, but use synthetic data for demos.',
+  gemini: 'Has a free tier. On the free tier Google may use what is sent to improve its products — names and contact details are removed first, but use a paid plan for real workplace data.',
   grok: 'Paid: needs credit on your xAI account.',
 };
 const aiTitle = computed(() => {
@@ -283,12 +283,12 @@ const counts = (rows: { status: string; count: number }[]) => rows.reduce<Record
       </template>
     </StateBlock>
 
-    <section v-if="auth.config?.demo" class="card mt-8 flex flex-col gap-3 border-bad/30 px-5 py-4 sm:flex-row sm:items-center sm:justify-between" aria-label="Demo data">
+    <section v-if="auth.config?.demo" class="card mt-8 flex flex-col gap-3 border-bad/30 px-5 py-4 sm:flex-row sm:items-center sm:justify-between" aria-label="Reset activity">
       <div>
-        <p class="text-[14px] font-semibold">Start the demo over</p>
-        <p class="text-[13px] text-ink-3">Removes every shift, report, ticket and notification. Accounts, departments and shift patterns stay. Local demo only.</p>
+        <p class="text-[14px] font-semibold">Reset all activity</p>
+        <p class="text-[13px] text-ink-3">Removes every shift, report, ticket, notification and source record. Accounts, departments and shift patterns stay. Local mode only.</p>
       </div>
-      <UiButton variant="danger" :loading="busy === 'clear'" @click="confirmClear = true">Clear demo data</UiButton>
+      <UiButton variant="danger" :loading="busy === 'clear'" @click="confirmClear = true">Reset activity</UiButton>
     </section>
     <UiDialog
       :open="Boolean(aiForm)"
@@ -362,11 +362,11 @@ const counts = (rows: { status: string; count: number }[]) => rows.reduce<Record
       </template>
     </UiDialog>
 
-    <UiDialog :open="confirmClear" title="Clear all demo activity?" description="This permanently removes every shift, report, handover, ticket and notification in this local demo." @close="confirmClear = false">
-      <p class="text-[13.5px] text-ink-2">Accounts, departments, shift patterns, source records and the audit log are kept.</p>
+    <UiDialog :open="confirmClear" title="Reset all activity?" description="This permanently removes every shift, report, handover, ticket and notification." @close="confirmClear = false">
+      <p class="text-[13.5px] text-ink-2">Accounts, departments, shift patterns and the audit log are kept.</p>
       <template #footer>
         <UiButton variant="ghost" @click="confirmClear = false">Cancel</UiButton>
-        <UiButton variant="danger" :loading="busy === 'clear'" @click="clearDemo">Clear everything</UiButton>
+        <UiButton variant="danger" :loading="busy === 'clear'" @click="resetAll">Reset everything</UiButton>
       </template>
     </UiDialog>
   </div>

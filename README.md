@@ -34,15 +34,16 @@ npm install
 npm run dev
 ```
 
-Open <http://localhost:5173>. The first start creates a local database and synthetic demo data
-(about 30 seconds). Sign in with one of the demo accounts below. All of them use the local test
+Open <http://localhost:5173>. The first start creates a local database with the accounts below, the
+Warehouse Inventory department and its two shifts — no sample tickets, records or demo shifts, so you
+work with live data from the start (about 30 seconds). Sign in with one of the accounts below. All of them use the local test
 password `demo-handover-2026` (synthetic data, local only — the sign-in page does not list them).
 
 The demo is one department, **Warehouse Inventory** (TESDA Track C: Admin & Inventory Operations).
 
 | Account | Email | Role | Does |
 |---|---|---|---|
-| Juan Dela Cruz | juan.delacruz@demo.test | Worker | Submits his end-of-shift report (his "Morning (demo)" window is open) |
+| Juan Dela Cruz | juan.delacruz@demo.test | Worker | Works a shift and submits his end-of-shift report in its reporting window |
 | Maria Santos | maria.santos@demo.test | Supervisor | Sets the shifts, builds the schedule, **approves every report**, verifies fixed issues |
 | Ana Lim, Ben Torres | ana.lim@demo.test, ben.torres@demo.test | Workers on the next shift | Read the approved handover and take over its checklist |
 | Alex Reyes | admin@demo.test | Admin (IT/HR) | One-time setup: accounts, departments, settings, integration health. Cannot read or approve reports |
@@ -53,8 +54,10 @@ person who wrote the report.
 **Adding departments later:** the admin adds a department and its supervisor under *Departments* and
 *Users*; that supervisor then builds their own schedule. Departments never see each other's reports.
 
-The demo shifts are created relative to the time you seed. When the outgoing window has passed, sign
-in as Maria and click **Schedule → Create demo shifts**.
+To try the flow: sign in as Maria, open **Schedule** and add Juan to the shift that is on now and Ana and
+Ben to the next one. Juan can start a draft during his shift and submit in the last 30 minutes (the
+reporting window). On the report form, **Generate example** fills in an example report to edit.
+The admin's **Reset activity** (local mode only) clears shifts, reports, tickets and source records to start over.
 
 ### How shifts work
 

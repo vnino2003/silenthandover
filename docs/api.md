@@ -73,7 +73,6 @@ Errors: `{ "error": { "code", "message", "fields"?, "request_id" } }`.
 | GET/POST | `/manager/templates` · PATCH `/:id` · POST `/:id/generate` | Shift types; generate `{ from, to, supervisor_id }` |
 | GET/POST | `/manager/schedule?from&to` · PATCH `/:id` | Shifts in your department; one-off shifts; cancel |
 | POST/DELETE | `/manager/schedule/:id/assignments[/:employeeId]` | Who is on duty. Assigning also delivers waiting handovers |
-| POST | `/manager/demo/timeline` | Local demo mode only |
 
 ## Admin
 

@@ -251,8 +251,8 @@ const choice = (active: boolean) =>
     </div>
 
     <div v-if="auth.config?.demo" class="mb-4 flex items-center justify-between gap-3 rounded-lg border border-dashed border-line-strong px-4 py-2.5 text-[13px] text-ink-2">
-      <span>Demo: fill in a synthetic messy report.</span>
-      <UiButton size="sm" variant="ghost" @click="useSample">Use sample</UiButton>
+      <span>Not sure what to write? Fill the form with an example report, then edit it.</span>
+      <UiButton size="sm" variant="ghost" @click="useSample">Generate example</UiButton>
     </div>
 
     <div class="card mb-4 px-4 py-3.5 sm:px-5">

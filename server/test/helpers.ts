@@ -22,7 +22,7 @@ export async function setup(env: Record<string, string> = {}, fetchImpl?: typeof
     ...env,
   });
   const services = await createServices(config, { memory: true, quiet: true, manualKick: true, fetchImpl });
-  await seedDemo(services, { onlyIfEmpty: false, includeSecondDepartment: true });
+  await seedDemo(services, { onlyIfEmpty: false, includeSecondDepartment: true, sampleActivity: true });
   const app = createApp(services);
   const ids: Record<string, string> = {};
   for (const row of await services.db.asService((q) => q.query<{ id: string; email: string }>('select id, email from public.profiles'))) {
