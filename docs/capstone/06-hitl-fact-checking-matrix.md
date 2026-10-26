@@ -40,7 +40,7 @@ Stored immutably in `handover_approvals` and summarized in `audit_logs`:
 | Decision | Who | Enforced by |
 |---|---|---|
 | Approve / reject / request revision | Manager of the report's department, not the author | `app.decide_report` |
-| Mark an issue resolved | Manager only, with a note; employees can only submit for verification | `app.transition_issue` |
+| Mark an issue or task resolved | Manager only, with a note. Workers mark it done with a note and optional photo proof; the supervisor compares the photo and confirms or sends it back | `app.transition_issue`, `app.add_issue_photo` |
 | Merge a report item into an existing issue | Reviewer chooses explicitly; AI may only suggest | Review workspace + `app.decide_report` |
 | Late submission | Manager grants a time-limited override with a reason | `app.grant_window_override` |
 | Acknowledge a handover | Incoming employee; never changes issue status | `app.acknowledge_handover` |

@@ -7,6 +7,7 @@ import { AnalysisPipeline, createDevAnalysisAdapter, createN8nAnalysisAdapter } 
 import {
   createDevTransport,
   createN8nTransport,
+  createN8nSmsTransport,
   createResendTransport,
   NotificationDispatcher,
   type EmailTransport,
@@ -73,7 +74,8 @@ export async function createServices(config: Config, opts: BootstrapOptions = {}
       : config.EMAIL_TRANSPORT === 'n8n'
         ? createN8nTransport(config, fetchImpl)
         : createDevTransport();
-  const notifications = new NotificationDispatcher(db, config, transport, logger);
+  const smsTransport = config.SMS_TRANSPORT === 'n8n' ? createN8nSmsTransport(config, fetchImpl) : null;
+  const notifications = new NotificationDispatcher(db, config, transport, smsTransport, logger);
 
   // Background work runs one pass at a time; a kick during a pass schedules one more pass.
   let running = false;

@@ -16,7 +16,7 @@ TESDA AI Automation Capstone — see [`docs/capstone/`](docs/capstone/README.md)
 | PII sanitization, injection detection, schema validation, grounding checks | Implemented, tested |
 | AI drafting | **Development simulator** (labeled in the UI). The n8n + model path is implemented and tested against a simulated n8n; **not yet verified against a live n8n or model** |
 | Email | **Dev outbox** (recorded as "simulated"). Resend (direct or via n8n) implemented, **not yet verified live** |
-| SMS | Interface only; deliveries are recorded as "skipped — no provider connected" |
+| SMS | Optional authenticated n8n transport implemented; off by default and not yet verified with a live provider |
 | Supabase (Auth + hosted Postgres) | Implemented; **not yet run against a Supabase project** |
 | Deployment | Instructions and container files only; nothing deployed |
 
@@ -67,14 +67,27 @@ in as Maria and click **Schedule → Create demo shifts**.
 
 ### Demo walkthrough
 
-1. **Juan** → *Submit shift report* → *Use sample* → *Submit report*.
+1. **Juan** → *Submit shift report*. Answer the short questions: what you finished; any problems
+   still open (*Yes* → *Add a problem*: type, where, what happened); problems from earlier shifts
+   (*Still there / Being fixed / Fixed*); anything for the next shift. Or tap *Use sample*. *Send report*.
 2. **Maria** → *Review queue* → open the report. Compare the original with the draft, open *Sent to AI
    (sanitized)*, click a flag's quote to highlight its evidence, choose a decision for every flag,
    confirm the suggested issue links, *Approve handover*.
-3. **Ana** → *Incoming handover* → *I've read this handover*. Then *Open issues* → an issue →
-   *Submit for verification*.
-4. **Maria** → *Issues* → *Verify as resolved*.
-5. **Alex** → *Integrations* → automation events, deliveries, and the dev outbox.
+3. **Ana** → *Incoming handover*. Her **checklist** shows every open problem and task from Juan's
+   shift. *Mark done* → what she did + an optional photo as proof → it waits for the supervisor.
+   *I've read this handover* to acknowledge.
+4. **Maria** → *Issues* → *Needs verification* → open it, see the photo → *Confirm done* (or *Send back*).
+5. Anything not finished stays on the list for the next shift, and Ana's own report can add new problems.
+6. **Alex** → *Integrations* → automation events, deliveries, and the dev outbox.
+
+### The handover loop
+
+```
+Worker reports problems + tasks ─▶ Supervisor checks & approves ─▶ Next shift gets it (app + email)
+        ▲                                                                   │
+        │                                     Checklist: Mark done + photo  ▼
+        └──── still-open items carry over ◀── Supervisor confirms done ◀────┘
+```
 
 ## Commands
 

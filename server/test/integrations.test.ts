@@ -6,6 +6,7 @@ const N8N_ENV = {
   AI_ADAPTER: 'n8n',
   N8N_ANALYSIS_WEBHOOK_URL: 'https://n8n.test/webhook/analysis',
   N8N_DELIVERY_WEBHOOK_URL: 'https://n8n.test/webhook/delivery',
+  N8N_SMS_WEBHOOK_URL: 'https://n8n.test/webhook/sms',
   N8N_WEBHOOK_SECRET: WEBHOOK_SECRET,
 };
 
@@ -294,6 +295,40 @@ describe('Workflow B — email delivery', () => {
       const sms = await h.sql(`select status, last_error from public.notification_deliveries where channel = 'sms'`);
       expect(sms.length).toBeGreaterThan(0);
       expect(sms.every((s: any) => s.status === 'skipped' && s.last_error === 'No SMS provider connected')).toBe(true);
+    } finally {
+      await h.close();
+    }
+  });
+
+  it('hands opted-in SMS notifications to a dedicated authenticated n8n workflow', async () => {
+    const n8n = fakeFetch(() => new Response('{}', { status: 200 }));
+    const h = await setup(
+      {
+        SMS_TRANSPORT: 'n8n',
+        N8N_SMS_WEBHOOK_URL: N8N_ENV.N8N_SMS_WEBHOOK_URL,
+        N8N_WEBHOOK_SECRET: WEBHOOK_SECRET,
+      },
+      n8n.impl,
+    );
+    try {
+      await h.call('admin', 'PUT', '/api/admin/settings/sms_enabled', { value: true });
+      await h.call('juan', 'PATCH', '/api/me/preferences', { notify_email: true, notify_sms: true, phone: '+63 917 000 0000' });
+      await submitSample(h);
+      await h.drain();
+
+      const call = n8n.calls.find((item) => item.url === N8N_ENV.N8N_SMS_WEBHOOK_URL)!;
+      expect(call).toBeDefined();
+      expect((call.init.headers as Record<string, string>)['X-Silent-Handover-Secret']).toBe(WEBHOOK_SECRET);
+      expect(call.body.from).toBe('Silent Handover');
+      expect(call.body.callback_url).toBe('http://localhost:8787/api/integrations/n8n/delivery-result');
+      expect(call.body.deliveries).toHaveLength(1);
+      expect(call.body.deliveries[0]).toMatchObject({ channel: 'sms', to: '+63 917 000 0000' });
+      expect(call.body.deliveries[0].text).toContain('http://localhost:5173/');
+
+      const delivery = call.body.deliveries[0];
+      const result = { delivery_id: delivery.delivery_id, attempt: delivery.attempt, status: 'sent', provider: 'sms-provider' };
+      expect((await callback(h, 'delivery-result', { results: [result] })).body.results).toEqual(['recorded']);
+      expect((await callback(h, 'delivery-result', { results: [result] })).body.results).toEqual(['ignored']);
     } finally {
       await h.close();
     }

@@ -9,11 +9,19 @@ import type { ReportDraftContent } from './report';
 export const DEMO_SAMPLE_REPORT: ReportDraftContent = {
   completed_work:
     'Unloaded 2 trucks (PO 77812 and PO 77815), 46 pallets total but scanner showed 44 so pls recheck. Cycle count aisle 7 done, 48 pallets ok. Fixed the conveyor C3 jam myself, should be fine na. Ana Lim helped with staging until 1pm.',
-  unresolved_issues:
-    'Forklift FL-02 brakes still soft, I tagged it out again pero someone keeps using it. Leak sa roof near Dock 3, small puddle beside the charging station - medyo delikado kasi may electrical. Dock 3 door sensor still stops halfway.',
+  problems: [
+    { category: 'equipment', location: 'Forklift FL-02', what: 'Brakes still soft, I tagged it out again pero someone keeps using it.' },
+    {
+      category: 'safety',
+      location: 'Charging station',
+      what: 'Leak sa roof near Dock 3, small puddle beside the charging station - medyo delikado kasi may electrical.',
+    },
+    { category: 'equipment', location: 'Dock 3', what: 'Door sensor still stops halfway.' },
+  ],
+  unresolved_issues: '',
   no_unresolved_issues: false,
   pending_tasks:
-    'Wrap and label the 6 pallets for Northstar Pharmacy dispatch, truck ETA 4pm. Return the borrowed pallet jack to Bay 2. Call maintenance about FL-02, Kuya Ramon number is 0917 555 0142.',
+    'Wrap and label the 6 pallets for Northstar Pharmacy dispatch, truck ETA 4pm.\nReturn the borrowed pallet jack to Bay 2.\nCall maintenance about FL-02, Kuya Ramon number is 0917 555 0142.',
   no_pending_tasks: false,
   operational_concerns:
     'Ben Torres said he has fever and might not come in tomorrow so incoming might be short 1 person. Mang Tony from the trucking company was asking about the late PO.',

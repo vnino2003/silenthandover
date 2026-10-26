@@ -445,3 +445,108 @@ describe('reporting windows', () => {
     expect(res.status).toBe(422);
   });
 });
+
+describe('next-shift checklist with photo proof', () => {
+  let h: Harness;
+  let reportId: string;
+  let taskIds: string[] = [];
+  let photoId: string;
+  const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+
+  beforeAll(async () => {
+    h = await setup();
+    const shift = await demoOutgoingShift(h);
+    reportId = (await h.call('juan', 'POST', `/api/shifts/${shift}/report`)).body.report_id;
+  });
+  afterAll(async () => h?.close());
+
+  it('requires an answer about open problems, and accepts them one at a time', async () => {
+    const empty = await h.call('juan', 'POST', `/api/reports/${reportId}/submit`, {
+      content: { completed_work: 'Counted aisle 7', problems: [], no_pending_tasks: true },
+    });
+    expect(empty.status).toBe(422);
+    expect(empty.body.error.fields.unresolved_issues).toBeTruthy();
+    const blank = await h.call('juan', 'POST', `/api/reports/${reportId}/submit`, {
+      content: { completed_work: 'Counted aisle 7', problems: [{ category: 'equipment', location: '', what: '' }], no_pending_tasks: true },
+    });
+    expect(blank.body.error.fields['problems.0.what']).toBeTruthy();
+    const ok = await h.call('juan', 'POST', `/api/reports/${reportId}/submit`, { content: DEMO_SAMPLE_REPORT });
+    expect(ok.status).toBe(201);
+    await h.drain();
+    const [input] = await h.sql('select sanitized_text from internal.analysis_inputs where report_id = $1', [reportId]);
+    expect(input.sanitized_text).toContain('Safety hazard at Charging station: Leak sa roof');
+    expect(input.sanitized_text).toContain('Equipment at Dock 3: Door sensor still stops halfway.');
+  });
+
+  it('turns every task for the next shift into a tracked checklist item on approval', async () => {
+    const detail = await h.call('manager', 'GET', `/api/manager/reports/${reportId}`);
+    const run = detail.body.runs[0];
+    const res = await h.call('manager', 'POST', `/api/manager/reports/${reportId}/decision`, {
+      decision: 'approved',
+      content: {
+        summary: 'Forklift FL-02 tagged out; leak near the charging station; three tasks for the next shift.',
+        completed_tasks: [],
+        unresolved_issues: [{ title: 'Leak near charging station', description: '', severity: 'high', is_safety_concern: true, link_issue_id: null, initial_status: 'open' }],
+        pending_actions: run.draft.pending_actions.map((p: { description: string }) => ({ description: p.description })),
+        notes_for_incoming: '',
+      },
+      flag_resolutions: flagResolutionsFor(run.flags),
+      note: '',
+    });
+    expect(res.body.status).toBe('delivered');
+    const [approval] = await h.sql('select approved_content from public.handover_approvals where report_id = $1', [reportId]);
+    taskIds = approval.approved_content.pending_actions.map((p: { issue_id: string }) => p.issue_id);
+    expect(taskIds).toHaveLength(3);
+    const tasks = await h.sql(`select kind, status, code from public.operational_issues where id = any($1)`, [taskIds]);
+    expect(tasks.every((t: any) => t.kind === 'task' && t.status === 'open' && /^ISS-\d{6}$/.test(t.code))).toBe(true);
+  });
+
+  it('shows the incoming worker a checklist with live status', async () => {
+    const [handover] = (await h.call('ana', 'GET', '/api/handovers/incoming')).body;
+    for (const id of taskIds) expect(handover.checklist[id]).toMatchObject({ kind: 'task', status: 'open', photo_count: 0 });
+    const problemId = handover.approved_content.unresolved_issues[0].issue_id;
+    expect(handover.checklist[problemId]).toMatchObject({ kind: 'problem', is_safety: true });
+  });
+
+  it('lets the worker mark a task done with a photo, which only their department can see', async () => {
+    const res = await h.call('ana', 'POST', `/api/issues/${taskIds[0]}/transition`, {
+      to: 'resolution_submitted',
+      note: 'Wrapped and labelled all 6 pallets.',
+      photo: { content_type: 'image/png', data_base64: PNG },
+    });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ status: 'resolution_submitted' });
+    photoId = res.body.photo_id;
+    const own = await h.app.request(`/api/issue-photos/${photoId}`, { headers: { Authorization: `Bearer ${await h.token('ben')}` } });
+    expect(own.status).toBe(200);
+    expect(own.headers.get('content-type')).toBe('image/png');
+    expect(Buffer.from(await own.arrayBuffer()).toString('base64')).toBe(PNG);
+    expect((await h.call('facmanager', 'GET', `/api/issue-photos/${photoId}`)).status).toBe(404);
+    expect((await h.call('admin', 'GET', `/api/issue-photos/${photoId}`)).status).toBe(403);
+    const detail = await h.call('manager', 'GET', `/api/issues/${taskIds[0]}`);
+    const update = detail.body.updates.find((u: any) => u.to_status === 'resolution_submitted');
+    expect(detail.body.photos).toEqual([expect.objectContaining({ id: photoId, update_id: update.id })]);
+    await expect(h.sql(`delete from public.issue_photos where id = $1`, [photoId])).rejects.toThrow(/SH:immutable/);
+  });
+
+  it('rejects photos that are not images', async () => {
+    const res = await h.call('ana', 'POST', `/api/issues/${taskIds[1]}/transition`, {
+      to: 'resolution_submitted',
+      note: 'Returned the pallet jack.',
+      photo: { content_type: 'image/gif', data_base64: PNG },
+    });
+    expect(res.status).toBe(422);
+  });
+
+  it('counts as done only after the supervisor confirms it', async () => {
+    const selfConfirm = await h.call('ana', 'POST', `/api/issues/${taskIds[0]}/transition`, { to: 'resolved', note: 'done' });
+    expect(selfConfirm.status).toBe(403);
+    const confirm = await h.call('manager', 'POST', `/api/issues/${taskIds[0]}/transition`, { to: 'resolved', note: 'Checked the photo and the dispatch log.' });
+    expect(confirm.status).toBe(200);
+    const [handover] = (await h.call('ana', 'GET', '/api/handovers/incoming')).body;
+    expect(handover.checklist[taskIds[0]!]).toMatchObject({ status: 'resolved', photo_count: 1 });
+    expect(handover.checklist[taskIds[1]!]).toMatchObject({ status: 'open' });
+    const notes = await h.call('ana', 'GET', '/api/notifications');
+    expect(notes.body.items.map((n: any) => n.kind)).toContain('issue_resolved');
+  });
+});

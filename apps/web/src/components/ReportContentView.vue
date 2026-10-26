@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { REPORT_SECTIONS, type ReportDraftContent } from '@sh/shared';
+import { problemLine, REPORT_SECTIONS, type ReportDraftContent } from '@sh/shared';
 
 /** Read-only rendering of an employee's own words, with optional evidence highlighting. */
 const props = defineProps<{
@@ -12,7 +12,11 @@ const props = defineProps<{
 const sections = computed(() =>
   REPORT_SECTIONS.map((s) => {
     let text = props.content[s.key] ?? '';
-    if (s.key === 'unresolved_issues' && props.content.no_unresolved_issues) text = 'None — confirmed by the employee.';
+    if (s.key === 'unresolved_issues') {
+      // Same one-problem-per-line text the AI received, so evidence quotes highlight correctly.
+      text = [...(props.content.problems ?? []).map(problemLine), text.trim()].filter(Boolean).join('\n');
+      if (props.content.no_unresolved_issues) text = 'None — confirmed by the employee.';
+    }
     if (s.key === 'pending_tasks' && props.content.no_pending_tasks) text = 'None — confirmed by the employee.';
     return { ...s, text };
   }).filter((s) => s.text.trim()),

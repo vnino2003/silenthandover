@@ -51,7 +51,7 @@ Administrators set the system up (accounts, departments, settings) but **cannot 
 
 ## Integrations
 
-* The browser never calls n8n. The API calls n8n webhooks with a header secret
+* The browser never calls n8n. The API calls AI, email and optional SMS n8n webhooks with a header secret
   (`N8N_WEBHOOK_SECRET`); production requires HTTPS URLs.
 * n8n calls back with a different secret (`N8N_CALLBACK_SECRET`, compared in constant time). Callbacks
   can only report results for work the API dispatched: the event id **and** attempt number must match a
@@ -61,6 +61,8 @@ Administrators set the system up (accounts, departments, settings) but **cannot 
   (`requires_human_review` must be `true`), grounded against the source, and stored only as a draft.
 * Email is idempotent per delivery (provider `Idempotency-Key`) and contains a title and a sign-in link
   only. Links carry no tokens.
+* SMS is opt-in per user and disabled system-wide by default. When enabled, the API sends it only to a
+  separately configured authenticated n8n webhook; provider credentials remain in n8n.
 
 ## Prompt injection
 

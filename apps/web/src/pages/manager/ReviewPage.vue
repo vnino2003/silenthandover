@@ -312,7 +312,7 @@ const redactionText = computed(() => {
                     <h3 class="text-[14px] font-medium">Unresolved issues</h3>
                     <button class="text-[13px] link" @click="addIssue">Add issue</button>
                   </div>
-                  <p class="mt-0.5 text-[13px] text-ink-3">Each becomes a tracked issue, or updates an existing one you link. Nothing is merged automatically.</p>
+                  <p class="mt-0.5 text-[13px] text-ink-3">Each becomes a tracked problem, or updates one you link. Tasks below become the next shift’s checklist. Nothing is merged automatically.</p>
                   <ul class="mt-3 space-y-3">
                     <li v-for="(i, n) in issues" :key="n" class="rounded-md border border-line p-3.5">
                       <div class="grid gap-2 sm:grid-cols-[1fr_130px]">
@@ -346,7 +346,7 @@ const redactionText = computed(() => {
                   <p v-if="!issues.length" class="mt-2 text-[13px] text-ink-3">No unresolved issues in this handover.</p>
                 </div>
 
-                <div v-for="list in [{ key: 'pending', title: 'Pending actions', items: pending }, { key: 'completed', title: 'Completed tasks', items: completed }] as const" :key="list.key">
+                <div v-for="list in [{ key: 'pending', title: 'Tasks for the next shift', items: pending }, { key: 'completed', title: 'Completed tasks', items: completed }] as const" :key="list.key">
                   <div class="flex items-baseline justify-between">
                     <h3 class="text-[14px] font-medium">{{ list.title }}</h3>
                     <button class="text-[13px] link" @click="list.items.push({ description: '', meta: blankMeta() })">Add</button>

@@ -6,7 +6,7 @@ Run everything with:
 npm test
 ```
 
-**Last recorded run: 26 Oct 2026 — 82 automated tests, 82 passed** (server 74, shared 8), plus
+**Last recorded run: 26 Oct 2026 — 89 automated tests, 89 passed** (server 81, shared 8), plus
 TypeScript checks (`npm run typecheck`) and production builds (`npm run build`) passing.
 
 ## How the tests work
@@ -50,11 +50,12 @@ Status key: **Pass** = automated test passing · **Browser** = also verified by 
 | Email provider failure | Workflow B › records provider failures, retries, and alerts administrators | Pass (simulated Resend) |
 | Incoming acknowledgment | workflow › lets incoming staff read and acknowledge the approved handover — once | Pass, Browser |
 | Unresolved issue persistence | workflow › keeps unresolved issues open for the next shift; continuity › escalates stale issues once | Pass, Browser |
-| Resolution verification | workflow › requires an authorized person to verify a resolution; rejects transitions the state machine does not allow | Pass |
+| Resolution verification | workflow › requires an authorized person to verify a resolution; rejects transitions the state machine does not allow; checklist › counts as done only after the supervisor confirms it | Pass, Browser |
+| Next-shift checklist and photo proof | checklist › requires an answer about open problems, and accepts them one at a time; turns every task for the next shift into a tracked checklist item; shows the incoming worker a checklist with live status; lets the worker mark a task done with a photo, which only their department can see; rejects photos that are not images | Pass, Browser |
 
 Additional checks: immutable revisions and audit log, admin cannot read report content, column-level
 privacy for colleagues' contact details, incoming staff cannot read raw reports, SMS never reported as
-sent, database and UI issue-transition tables match, delimiter escaping in the prompt, provider-ready
+sent without a provider, optional SMS n8n dispatch and callback idempotency, database and UI issue-transition tables match, delimiter escaping in the prompt, provider-ready
 JSON schema, missing-report alerts.
 
 ## Manual verification in the browser (26 Oct 2026, local mode)
@@ -73,6 +74,7 @@ no report content in email), event history. Checked the mobile layout at 375 px 
 | n8n Workflows A, B, C executing for real | No n8n instance connected in this repository | `n8n/README.md` §5 |
 | Live model behaviour on the six-element prompt (v1.0 and v1.1) | Needs an API key | `npm run prompt:eval -- --version 1.0` (and `1.1`) |
 | Resend delivering real email | Needs a Resend account and verified domain | `EMAIL_TRANSPORT=resend` or Workflow B |
+| SMS provider delivery through n8n | Needs an SMS provider account and a provider-specific n8n workflow | Set `SMS_TRANSPORT=n8n` and follow `n8n/README.md` |
 | Supabase mode (Supabase Auth JWT verification, pooled Postgres, admin user creation) | No Supabase project connected | `docs/deployment.md` |
 | Load / concurrency testing | Out of scope for the prototype | — |
 | Screen-reader audit | Only basic checks done (labels, focus trap in dialogs, focus-visible styles) | — |

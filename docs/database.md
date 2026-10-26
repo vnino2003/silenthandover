@@ -9,6 +9,8 @@ PostgreSQL schema in `supabase/migrations/` (applied in filename order):
 | `…0300_workflow_functions.sql` | Reports, review decision, delivery, acknowledgment, issues, notifications |
 | `…0400_admin_internal_functions.sql` | Administrator functions; `internal.*` automation functions and the scheduled tick |
 | `…0500_grants_and_defaults.sql` | Function privileges, default settings, email templates |
+| `…0600_supervisor_scheduling.sql` | Shift templates, shifts and assignments managed by the department's supervisor |
+| `…0700_next_shift_checklist.sql` | Tasks from approved handovers, issue photos, transition returns its history entry |
 
 ## Tables
 
@@ -20,7 +22,7 @@ PostgreSQL schema in `supabase/migrations/` (applied in filename order):
 | AI | `automation_events` (idempotency key, attempts, backoff), `ai_analysis_runs` (prompt version, engine, simulated flag, validated draft, flags, validation errors) |
 | Human gate | `handover_approvals` (decision, approved content, per-flag resolutions, reviewer — immutable; one approval per report) |
 | Delivery | `handover_deliveries` (approval → incoming employee), `handover_acknowledgments` (immutable) |
-| Continuity | `operational_issues` (ISS-codes, status machine), `issue_updates` (immutable history), `issue_assignments`, `operational_records` (maintenance/inventory/dispatch/policy) |
+| Continuity | `operational_issues` (ISS-codes, status machine; `kind` = `problem` or `task`), `issue_updates` (immutable history), `issue_photos` (photo proof attached to a history entry, ≤ 3 MB, immutable), `issue_assignments`, `operational_records` (maintenance/inventory/dispatch/policy) |
 | Notifications | `notifications` (in-app, unique per recipient + event), `notification_deliveries` (email/SMS attempts, provider responses, idempotency key), `notification_templates` |
 | System | `app_settings`, `audit_logs` (append-only) |
 | Restricted | `internal.analysis_inputs` — sanitized text sent to the AI, reversible name mapping, redaction counts, injection findings; expires after `pii_retention_days` |

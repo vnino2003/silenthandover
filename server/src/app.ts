@@ -60,7 +60,7 @@ export function createApp(services: Services) {
       integrations: {
         ai: { adapter: analysis.adapterName, simulated: analysis.adapterName === 'dev', prompt_version: config.PROMPT_VERSION },
         email: { transport: notifications.transportName, simulated: notifications.transportName === 'dev' },
-        sms: { connected: false },
+        sms: { connected: notifications.smsTransportName !== 'none', transport: notifications.smsTransportName },
       },
     });
   });

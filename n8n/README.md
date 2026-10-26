@@ -11,6 +11,9 @@
 | B. Approved handover delivery | `workflows/B-approval-delivery.json` | API, when emails are queued (approvals, review requests, …) | Sends each email with Resend; reports each result |
 | C. Continuity checks | `workflows/C-continuity-scheduled-checks.json` | Schedule (5 min) | Asks the API to run timeouts, escalations, missing-report alerts, retention |
 
+SMS is optional and provider-neutral. Configure a separate n8n webhook that accepts the SMS contract
+below, sends through your chosen provider node, and posts each result to the existing delivery callback.
+
 n8n never writes to the database and never approves anything. It only reports results for work the API
 dispatched; the API accepts a result only if the event id **and** attempt number match what it sent.
 
@@ -52,11 +55,23 @@ AI_ADAPTER=n8n
 EMAIL_TRANSPORT=n8n
 N8N_ANALYSIS_WEBHOOK_URL=https://n8n.example.com/webhook/silent-handover-analysis
 N8N_DELIVERY_WEBHOOK_URL=https://n8n.example.com/webhook/silent-handover-delivery
+SMS_TRANSPORT=n8n
+N8N_SMS_WEBHOOK_URL=https://n8n.example.com/webhook/silent-handover-sms
+SMS_FROM=Silent Handover
 N8N_WEBHOOK_SECRET=...
 N8N_CALLBACK_SECRET=...
 ```
 
 Restart the API. The admin **Integrations** page then shows "n8n workflow" instead of "Development simulator".
+
+### Optional SMS workflow contract
+
+The SMS webhook receives `{ deliveries, from, callback_url }`. Each delivery contains
+`delivery_id`, `attempt`, `channel: "sms"`, `to`, `text`, and `idempotency_key`. Authenticate the
+webhook with the same `X-Silent-Handover-Secret` credential, use `idempotency_key` with the provider
+when supported, and post `{ results: [{ delivery_id, attempt, status, provider, provider_message_id?, error? }] }`
+to the fixed `/api/integrations/n8n/delivery-result` URL using the callback bearer credential. Do not
+use a callback URL supplied by an untrusted client.
 
 ## 5. Verify before using real data
 

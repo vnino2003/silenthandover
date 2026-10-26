@@ -42,7 +42,7 @@ Errors: `{ "error": { "code", "message", "fields"?, "request_id" } }`.
 | GET | `/reports/:id` | Your report: draft, revisions, decisions and notes, approved version, deliveries |
 | PUT | `/reports/:id/draft` | `{ content }` autosave (draft or revision requested) |
 | POST | `/reports/:id/submit` | `{ content }` final submission → `{ report_id, revision_no, event_id, is_late }` |
-| GET | `/handovers/incoming` | Approved handovers delivered to you |
+| GET | `/handovers/incoming` | Approved handovers delivered to you, each with `checklist`: live status of every problem and task in it |
 | POST | `/handovers/:deliveryId/acknowledge` | `{ note }` — idempotent |
 
 ## Issues (employee and manager, own department)
@@ -52,8 +52,9 @@ Errors: `{ "error": { "code", "message", "fields"?, "request_id" } }`.
 | GET | `/issues?scope=active\|mine\|verification\|all` | |
 | GET | `/issues/:id` | Issue + full history |
 | POST | `/issues` | `{ title, description, severity, is_safety }` — employees create `reported`, managers `open` |
-| POST | `/issues/:id/transition` | `{ to, note }` — state machine in `docs/architecture.md` |
-| POST | `/issues/:id/notes` | `{ note }` |
+| POST | `/issues/:id/transition` | `{ to, note, photo? }` — state machine in `docs/architecture.md`. `photo` = `{ content_type: image/jpeg\|png\|webp, data_base64 }`, ≤ 3 MB |
+| GET | `/issue-photos/:id` | The photo itself, if the issue is in your department |
+| POST | `/issues/:id/notes` | `{ note, photo? }` |
 | POST | `/issues/:id/assign` | Manager. `{ assignee_id \| null }` |
 
 ## Manager (own department)
@@ -99,3 +100,7 @@ Errors: `{ "error": { "code", "message", "fields"?, "request_id" } }`.
 
 **Workflow B** (`N8N_DELIVERY_WEBHOOK_URL`):
 `{ deliveries: [{ delivery_id, attempt, channel, to, subject, text, idempotency_key }], from, callback_url }`
+
+**Optional SMS workflow** (`N8N_SMS_WEBHOOK_URL`):
+`{ deliveries: [{ delivery_id, attempt, channel: "sms", to, text, idempotency_key }], from, callback_url }`.
+It uses the same authenticated delivery-result callback and idempotency checks as email.

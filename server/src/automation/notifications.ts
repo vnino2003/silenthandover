@@ -27,6 +27,11 @@ export interface EmailTransport {
   send(messages: OutboundMessage[]): Promise<DeliveryResult[] | null>;
 }
 
+export interface SmsTransport {
+  readonly name: 'n8n';
+  send(messages: OutboundMessage[]): Promise<DeliveryResult[] | null>;
+}
+
 interface ClaimedRow {
   delivery_id: string;
   attempt: number;
@@ -54,12 +59,17 @@ export class NotificationDispatcher {
   constructor(
     private readonly db: Db,
     private readonly config: Pick<Config, 'APP_BASE_URL'>,
-    private readonly transport: EmailTransport,
+    private readonly emailTransport: EmailTransport,
+    private readonly smsTransport: SmsTransport | null,
     private readonly log: (m: string, e?: Record<string, unknown>) => void = () => {},
   ) {}
 
   get transportName() {
-    return this.transport.name;
+    return this.emailTransport.name;
+  }
+
+  get smsTransportName() {
+    return this.smsTransport?.name ?? 'none';
   }
 
   async runDue(limit = 25): Promise<number> {
@@ -73,10 +83,22 @@ export class NotificationDispatcher {
 
     const results: DeliveryResult[] = [];
     const email: OutboundMessage[] = [];
+    const sms: OutboundMessage[] = [];
     for (const r of rows) {
       if (r.channel === 'sms') {
-        // SMS is designed for but not connected; say so instead of pretending.
-        results.push({ deliveryId: r.delivery_id, attempt: r.attempt, status: 'skipped', provider: 'none', error: 'No SMS provider connected' });
+        if (!this.smsTransport) {
+          results.push({ deliveryId: r.delivery_id, attempt: r.attempt, status: 'skipped', provider: 'none', error: 'No SMS provider connected' });
+        } else {
+          sms.push({
+            deliveryId: r.delivery_id,
+            attempt: r.attempt,
+            channel: 'sms',
+            to: r.address,
+            subject: '',
+            text: `${r.title}\n${r.body}\n${this.config.APP_BASE_URL}${r.link ?? '/'}`.slice(0, 1000),
+            idempotencyKey: r.idempotency_key,
+          });
+        }
         continue;
       }
       const t = tpl.get(r.kind) ?? fallback;
@@ -99,13 +121,25 @@ export class NotificationDispatcher {
     }
     if (email.length) {
       try {
-        const sent = await this.transport.send(email);
+        const sent = await this.emailTransport.send(email);
         if (sent) results.push(...sent);
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Transport error';
         this.log('email transport failed', { error: message, count: email.length });
         for (const m of email) {
-          results.push({ deliveryId: m.deliveryId, attempt: m.attempt, status: 'failed', provider: this.transport.name, error: message });
+          results.push({ deliveryId: m.deliveryId, attempt: m.attempt, status: 'failed', provider: this.emailTransport.name, error: message });
+        }
+      }
+    }
+    if (sms.length && this.smsTransport) {
+      try {
+        const sent = await this.smsTransport.send(sms);
+        if (sent) results.push(...sent);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Transport error';
+        this.log('sms transport failed', { error: message, count: sms.length });
+        for (const m of sms) {
+          results.push({ deliveryId: m.deliveryId, attempt: m.attempt, status: 'failed', provider: this.smsTransport.name, error: message });
         }
       }
     }
@@ -196,6 +230,34 @@ export function createN8nTransport(config: Config, fetchImpl: typeof fetch = fet
             idempotency_key: m.idempotencyKey,
           })),
           from: config.EMAIL_FROM,
+          callback_url: `${config.PUBLIC_API_URL}/api/integrations/n8n/delivery-result`,
+        }),
+        signal: AbortSignal.timeout(config.N8N_REQUEST_TIMEOUT_MS),
+      });
+      if (!res.ok) throw new Error(`n8n responded ${res.status}`);
+      return null;
+    },
+  };
+}
+
+/** Optional SMS workflow. n8n owns the provider credential and reports results through the existing callback. */
+export function createN8nSmsTransport(config: Config, fetchImpl: typeof fetch = fetch): SmsTransport {
+  return {
+    name: 'n8n',
+    async send(messages) {
+      const res = await fetchImpl(config.N8N_SMS_WEBHOOK_URL!, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Silent-Handover-Secret': config.N8N_WEBHOOK_SECRET! },
+        body: JSON.stringify({
+          deliveries: messages.map((m) => ({
+            delivery_id: m.deliveryId,
+            attempt: m.attempt,
+            channel: m.channel,
+            to: m.to,
+            text: m.text,
+            idempotency_key: m.idempotencyKey,
+          })),
+          from: config.SMS_FROM,
           callback_url: `${config.PUBLIC_API_URL}/api/integrations/n8n/delivery-result`,
         }),
         signal: AbortSignal.timeout(config.N8N_REQUEST_TIMEOUT_MS),

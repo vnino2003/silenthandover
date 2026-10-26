@@ -25,9 +25,11 @@ defineProps<{ content: NonNullable<Decision['approved_content']> }>();
     </section>
 
     <section v-if="content.pending_actions.length">
-      <h4 class="eyebrow">Pending actions for the incoming shift</h4>
+      <h4 class="eyebrow">Tasks for the next shift</h4>
       <ul class="mt-2 list-disc space-y-1 pl-5 text-[14px]">
-        <li v-for="(a, n) in content.pending_actions" :key="n">{{ a.description }}</li>
+        <li v-for="(a, n) in content.pending_actions" :key="n">
+          {{ a.description }}<span v-if="a.issue_code" class="ml-2 text-[12.5px] text-ink-3 tnum">{{ a.issue_code }}</span>
+        </li>
       </ul>
     </section>
 

@@ -47,7 +47,7 @@ export const ISSUE_STATUS_LABELS: Record<IssueStatus, string> = {
   pending_verification: 'Pending Verification',
   open: 'Open',
   in_progress: 'In Progress',
-  resolution_submitted: 'Resolution Submitted',
+  resolution_submitted: 'Waiting for check',
   resolved: 'Resolved',
   closed: 'Closed',
 };

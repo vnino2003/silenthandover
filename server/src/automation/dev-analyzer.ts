@@ -1,4 +1,4 @@
-import type { AiHandoverDraft, IssueSeverity } from '@sh/shared';
+import { PROBLEM_CATEGORY_LABELS, type AiHandoverDraft, type IssueSeverity } from '@sh/shared';
 import { SECTION_HEADERS } from './report-text';
 
 /**
@@ -42,9 +42,17 @@ function suggestIssue(text: string, open: OpenIssueRef[]): string | null {
   return best?.code ?? null;
 }
 
-/** A short title: the first clause of the sentence. */
+const firstClause = (s: string) => s.split(/,\s|;\s|\s[-–—]\s|\.\s|\s(?:pero|but|so)\s/)[0]!.replace(/[.!]+$/, '').trim();
+const PROBLEM_LINE = new RegExp(`^(?:${Object.values(PROBLEM_CATEGORY_LABELS).map((l) => l.replace(/[/]/g, '\\/')).join('|')})(?: at (.+?))?: (.+)$`);
+
+/** A short title: what happened (first clause), plus where for problems entered one at a time. */
 function titleOf(s: string): string {
-  const first = s.split(/,\s|;\s|\s[-–—]\s|\.\s|\s(?:pero|but|so)\s/)[0]!.replace(/[.!]+$/, '').trim();
+  const m = PROBLEM_LINE.exec(s);
+  if (m) {
+    const what = firstClause(m[2]!) || m[2]!;
+    return clip(m[1] ? `${what} · ${m[1]}` : what, 90);
+  }
+  const first = firstClause(s);
   return clip(first.length >= 12 ? first : s.replace(/[.!]+$/, ''), 90);
 }
 

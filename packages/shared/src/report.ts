@@ -9,9 +9,35 @@ export const IssueUpdateInput = z.strictObject({
 });
 export type IssueUpdateInput = z.infer<typeof IssueUpdateInput>;
 
+export const PROBLEM_CATEGORIES = ['stock', 'equipment', 'delivery', 'safety', 'other'] as const;
+export type ProblemCategory = (typeof PROBLEM_CATEGORIES)[number];
+export const PROBLEM_CATEGORY_LABELS: Record<ProblemCategory, string> = {
+  stock: 'Stock / count',
+  equipment: 'Equipment',
+  delivery: 'Delivery',
+  safety: 'Safety hazard',
+  other: 'Other',
+};
+
+/** One open problem, entered as a short structured item instead of a paragraph. */
+export const ProblemInput = z.strictObject({
+  category: z.enum(PROBLEM_CATEGORIES),
+  location: longText(120).default(''),
+  what: longText(600),
+});
+export type ProblemInput = z.infer<typeof ProblemInput>;
+
+/** "Safety hazard at Dock 3: water near the charging station" — how a problem reads everywhere. */
+export function problemLine(p: ProblemInput): string {
+  const where = p.location.trim() ? ` at ${p.location.trim()}` : '';
+  return `${PROBLEM_CATEGORY_LABELS[p.category]}${where}: ${p.what.trim()}`;
+}
+
 /** Shape stored while a report is a draft. Everything optional so autosave never fails. */
 export const ReportDraftContent = z.strictObject({
   completed_work: longText(4000).default(''),
+  /** Open problems added one at a time. Free text below is still accepted (older reports, longer notes). */
+  problems: z.array(ProblemInput).max(30).default([]),
   unresolved_issues: longText(4000).default(''),
   no_unresolved_issues: z.boolean().default(false),
   pending_tasks: longText(4000).default(''),
@@ -33,19 +59,25 @@ export const ReportSubmission = ReportDraftContent.superRefine((v, ctx) => {
   if (v.completed_work.length < 3) {
     ctx.addIssue({ code: 'custom', path: ['completed_work'], message: 'Describe the work you completed this shift' });
   }
-  if (!v.no_unresolved_issues && v.unresolved_issues.length < 3) {
+  const hasProblems = v.problems.length > 0 || v.unresolved_issues.length >= 3;
+  if (!v.no_unresolved_issues && !hasProblems) {
     ctx.addIssue({
       code: 'custom',
       path: ['unresolved_issues'],
-      message: 'Describe the problems still open, or tick “No open problems”',
+      message: 'Add the problems still open, or choose “No open problems”',
     });
   }
-  if (v.no_unresolved_issues && v.unresolved_issues.length > 0) {
+  if (v.no_unresolved_issues && (v.problems.length > 0 || v.unresolved_issues.length > 0)) {
     ctx.addIssue({
       code: 'custom',
       path: ['unresolved_issues'],
-      message: 'You ticked “No open problems” — clear this field or untick the box',
+      message: 'You chose “No open problems” but also listed some — remove them or change your answer',
     });
+  }
+  for (const [i, p] of v.problems.entries()) {
+    if (p.what.length < 3) {
+      ctx.addIssue({ code: 'custom', path: ['problems', i, 'what'], message: 'Say what happened' });
+    }
   }
   if (!v.no_pending_tasks && v.pending_tasks.length < 3) {
     ctx.addIssue({ code: 'custom', path: ['pending_tasks'], message: 'List what the next shift must do, or tick “Nothing for the next shift”' });
@@ -57,9 +89,10 @@ export const ReportSubmission = ReportDraftContent.superRefine((v, ctx) => {
       message: 'You ticked “Nothing for the next shift” — clear this field or untick the box',
     });
   }
+  // A one-line note is only required when the worker says something was fixed.
   for (const [i, u] of v.issue_updates.entries()) {
-    if (u.note.length < 3) {
-      ctx.addIssue({ code: 'custom', path: ['issue_updates', i, 'note'], message: 'Add a short update for this issue' });
+    if (u.claimed_status === 'addressed' && u.note.length < 3) {
+      ctx.addIssue({ code: 'custom', path: ['issue_updates', i, 'note'], message: 'Say what was done to fix it' });
     }
   }
 });

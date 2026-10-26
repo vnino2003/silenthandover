@@ -14,7 +14,7 @@ interface Integrations {
   adapters: {
     ai: { adapter: 'dev' | 'n8n'; simulated: boolean; webhook_configured: boolean; prompt_version: string };
     email: { transport: string; simulated: boolean; from: string };
-    sms: { connected: boolean; note: string };
+    sms: { connected: boolean; transport: 'none' | 'n8n'; webhook_configured: boolean; from: string; note: string };
     callbacks: { enabled: boolean };
     scheduler: { internal: boolean; interval_ms: number };
   };
@@ -88,8 +88,9 @@ const counts = (rows: { status: string; count: number }[]) => rows.reduce<Record
           </div>
           <div class="card p-4">
             <p class="eyebrow">SMS</p>
-            <p class="mt-1.5 text-[15px] font-medium">Not connected</p>
-            <p class="mt-0.5 text-[13px] text-ink-2">{{ data.adapters.sms.note }}</p>
+            <p class="mt-1.5 text-[15px] font-medium">{{ data.adapters.sms.connected ? 'n8n workflow' : 'Not connected' }}</p>
+            <p class="mt-0.5 text-[13px]" :class="data.adapters.sms.connected ? 'text-ink-2' : 'text-ink-3'">{{ data.adapters.sms.note }}</p>
+            <p v-if="data.adapters.sms.connected" class="mt-2 text-[12.5px] text-ink-3">Sender: {{ data.adapters.sms.from }}</p>
           </div>
           <div class="card p-4">
             <p class="eyebrow">n8n callbacks</p>

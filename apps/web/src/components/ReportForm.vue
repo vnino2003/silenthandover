@@ -1,9 +1,17 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
-import { DEMO_SAMPLE_REPORT, EMPTY_REPORT, ReportDraftContent, ReportSubmission, type IssueUpdateInput } from '@sh/shared';
+import {
+  DEMO_SAMPLE_REPORT,
+  EMPTY_REPORT,
+  PROBLEM_CATEGORIES,
+  PROBLEM_CATEGORY_LABELS,
+  ReportDraftContent,
+  ReportSubmission,
+  type IssueUpdateInput,
+  type ProblemInput,
+} from '@sh/shared';
 import UiButton from '@/components/ui/UiButton.vue';
 import UiDialog from '@/components/ui/UiDialog.vue';
-import UiField from '@/components/ui/UiField.vue';
 import { api, ApiError, errorMessage } from '@/lib/api';
 import { time } from '@/lib/format';
 import { useAuth } from '@/stores/auth';
@@ -33,12 +41,12 @@ const content = ref<ReportDraftContent>(parse(props.initial));
 const errors = ref<Record<string, string>>({});
 const saveState = ref<'idle' | 'saving' | 'saved' | 'error'>('idle');
 const savedAt = ref<string | null>(null);
-const showMore = ref(Boolean(content.value.operational_concerns || content.value.handover_notes || content.value.evidence_refs));
-const showIssues = ref(content.value.issue_updates.length > 0);
 const confirming = ref(false);
 const submitting = ref(false);
+const showMore = ref(Boolean(content.value.operational_concerns || content.value.handover_notes || content.value.evidence_refs));
+const showParagraph = ref(Boolean(content.value.unresolved_issues));
 
-// A local copy protects against losing text if the network drops before the server save.
+// ---- Autosave, with a copy on this device in case the network drops ----------------
 const backup = ref<{ content: ReportDraftContent; at: string } | null>(null);
 try {
   const raw = localStorage.getItem(backupKey);
@@ -74,7 +82,6 @@ async function save() {
     if (err instanceof ApiError && err.status === 409) toast.error(err.message);
   }
 }
-
 watch(
   content,
   () => {
@@ -93,7 +100,6 @@ onBeforeUnmount(() => {
   if (timer) clearTimeout(timer);
   void save();
 });
-
 function restoreBackup() {
   if (backup.value) content.value = backup.value.content;
   backup.value = null;
@@ -106,18 +112,73 @@ function discardBackup() {
     /* ignore */
   }
 }
-
 function useSample() {
   content.value = structuredClone(DEMO_SAMPLE_REPORT);
   showMore.value = true;
 }
 
-const updatesById = computed(() => new Map(content.value.issue_updates.map((u) => [u.issue_id, u])));
-function toggleIssue(id: string, on: boolean) {
-  if (on) content.value.issue_updates.push({ issue_id: id, note: '', claimed_status: 'still_open' } satisfies IssueUpdateInput);
-  else content.value.issue_updates = content.value.issue_updates.filter((u) => u.issue_id !== id);
+// ---- Question 2: problems still open ------------------------------------------------
+const problemsAnswer = computed<'yes' | 'no' | null>(() =>
+  content.value.no_unresolved_issues ? 'no' : content.value.problems.length || content.value.unresolved_issues || adding.value ? 'yes' : null,
+);
+const adding = ref<(ProblemInput & { index: number | null }) | null>(null);
+function answerProblems(answer: 'yes' | 'no') {
+  if (answer === 'no') {
+    const listed = content.value.problems.length;
+    if (listed && !window.confirm(`Remove the ${listed} problem${listed > 1 ? 's' : ''} you added?`)) return;
+    content.value.problems = [];
+    content.value.unresolved_issues = '';
+    content.value.no_unresolved_issues = true;
+    adding.value = null;
+  } else {
+    content.value.no_unresolved_issues = false;
+    if (!content.value.problems.length) startProblem();
+  }
+}
+function startProblem(index: number | null = null) {
+  const p = index === null ? { category: 'equipment' as const, location: '', what: '' } : content.value.problems[index]!;
+  adding.value = { ...p, index };
+}
+function saveProblem() {
+  const a = adding.value!;
+  if (a.what.trim().length < 3) {
+    errors.value = { ...errors.value, adding: 'Say what happened' };
+    return;
+  }
+  const item: ProblemInput = { category: a.category, location: a.location.trim(), what: a.what.trim() };
+  if (a.index === null) content.value.problems.push(item);
+  else content.value.problems[a.index] = item;
+  content.value.no_unresolved_issues = false;
+  adding.value = null;
+  delete errors.value.adding;
+  delete errors.value.unresolved_issues;
 }
 
+// ---- Question 3: earlier problems -----------------------------------------------------
+const updatesById = computed(() => new Map(content.value.issue_updates.map((u) => [u.issue_id, u])));
+function setIssueStatus(id: string, status: IssueUpdateInput['claimed_status']) {
+  const existing = updatesById.value.get(id);
+  if (existing?.claimed_status === status) {
+    content.value.issue_updates = content.value.issue_updates.filter((u) => u.issue_id !== id);
+  } else if (existing) existing.claimed_status = status;
+  else content.value.issue_updates.push({ issue_id: id, claimed_status: status, note: '' });
+}
+const ISSUE_CHOICES: { value: IssueUpdateInput['claimed_status']; label: string }[] = [
+  { value: 'still_open', label: 'Still there' },
+  { value: 'in_progress', label: 'Being fixed' },
+  { value: 'addressed', label: 'Fixed' },
+];
+
+// ---- Question 4: for the next shift ---------------------------------------------------
+const tasksAnswer = computed<'yes' | 'no' | null>(() => (content.value.no_pending_tasks ? 'no' : content.value.pending_tasks || tasksOpen.value ? 'yes' : null));
+const tasksOpen = ref(false);
+function answerTasks(answer: 'yes' | 'no') {
+  content.value.no_pending_tasks = answer === 'no';
+  tasksOpen.value = answer === 'yes';
+  if (answer === 'no') content.value.pending_tasks = '';
+}
+
+// ---- Submit ------------------------------------------------------------------------------
 function validate(): boolean {
   const r = ReportSubmission.safeParse(content.value);
   errors.value = {};
@@ -126,18 +187,17 @@ function validate(): boolean {
     const key = issue.path.join('.');
     if (!errors.value[key]) errors.value[key] = issue.message;
   }
-  if (Object.keys(errors.value).some((k) => k.startsWith('issue_updates'))) showIssues.value = true;
+  document.querySelector('[data-error="true"]')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   return false;
 }
-
 function requestSubmit() {
+  if (adding.value) saveProblem();
   if (!validate()) {
-    toast.error('Some required details are missing');
+    toast.error('A few answers are missing');
     return;
   }
   confirming.value = true;
 }
-
 async function submit() {
   submitting.value = true;
   try {
@@ -150,12 +210,10 @@ async function submit() {
       /* ignore */
     }
     confirming.value = false;
-    toast.ok('Report submitted. Your supervisor will verify it before it is handed over.');
+    toast.ok('Report sent. Your supervisor will check it before the next shift gets it.');
     emit('submitted');
   } catch (err) {
-    if (err instanceof ApiError && err.fields) {
-      errors.value = err.fields;
-    }
+    if (err instanceof ApiError && err.fields) errors.value = err.fields;
     confirming.value = false;
     toast.error(errorMessage(err));
   } finally {
@@ -165,10 +223,13 @@ async function submit() {
 
 const saveLabel = computed(() => {
   if (saveState.value === 'saving') return 'Saving…';
-  if (saveState.value === 'error') return 'Not saved — will retry';
+  if (saveState.value === 'error') return 'Not saved yet — will retry';
   if (saveState.value === 'saved' && savedAt.value) return `Saved ${time(savedAt.value)}`;
-  return 'Changes save automatically';
+  return 'Saves automatically';
 });
+const issueNoteError = (id: string) => errors.value[`issue_updates.${content.value.issue_updates.findIndex((u) => u.issue_id === id)}.note`];
+const choice = (active: boolean) =>
+  active ? 'border-accent bg-accent text-white font-medium shadow-sm before:mr-1.5 before:content-["✓"]' : 'border-line-strong bg-surface text-ink hover:bg-sunken';
 </script>
 
 <template>
@@ -182,141 +243,181 @@ const saveLabel = computed(() => {
     </div>
 
     <div v-if="auth.config?.demo" class="mb-4 flex items-center justify-between gap-3 rounded-lg border border-dashed border-line-strong px-4 py-2.5 text-[13px] text-ink-2">
-      <span>Demo: fill the form with a synthetic messy report (names, a phone number, a repair claim and an injection attempt).</span>
+      <span>Demo: fill in a synthetic messy report.</span>
       <UiButton size="sm" variant="ghost" @click="useSample">Use sample</UiButton>
     </div>
 
-    <form class="space-y-6" novalidate @submit.prevent="requestSubmit">
-      <UiField
-        v-slot="{ id, invalid, describedby }"
-        label="Work completed"
-        hint="Deliveries unloaded, orders picked, counts done. Include quantities and PO or reference numbers exactly as recorded."
-        :error="errors.completed_work"
-      >
-        <textarea :id="id" v-model="content.completed_work" class="field-input min-h-28" rows="4" :aria-invalid="invalid" :aria-describedby="describedby" />
-      </UiField>
-
-      <UiField
-        v-slot="{ id, invalid, describedby }"
-        label="Problems still open"
-        hint="Stock that doesn’t match, damaged goods, equipment faults, hazards. Say where, what you saw, and what you did."
-        :error="errors.unresolved_issues"
-      >
+    <form class="space-y-4" novalidate @submit.prevent="requestSubmit">
+      <!-- 1. Work completed -->
+      <section class="card p-5" :data-error="Boolean(errors.completed_work)">
+        <h3 class="text-[16px] font-semibold"><span class="mr-2 text-ink-3 tnum">1</span>What did you finish this shift?</h3>
+        <p class="mt-1 text-[13.5px] text-ink-3">Deliveries unloaded, orders picked, counts done. Include numbers if you have them.</p>
         <textarea
-          :id="id"
-          v-model="content.unresolved_issues"
-          class="field-input min-h-24"
+          v-model="content.completed_work"
+          class="field-input mt-3 min-h-24"
           rows="3"
-          :disabled="content.no_unresolved_issues"
-          :aria-invalid="invalid"
-          :aria-describedby="describedby"
+          placeholder="e.g. Unloaded 2 trucks (PO 77812, 77815). Cycle count aisle 7 done."
+          aria-label="What did you finish this shift?"
+          :aria-invalid="Boolean(errors.completed_work)"
         />
-        <label class="mt-2 flex items-center gap-2 text-[14px] text-ink-2">
-          <input v-model="content.no_unresolved_issues" type="checkbox" class="size-4 accent-accent" @change="content.no_unresolved_issues && (content.unresolved_issues = '')" />
-          No open problems
-        </label>
-      </UiField>
+        <p v-if="errors.completed_work" class="mt-1.5 text-[13px] text-bad">{{ errors.completed_work }}</p>
+      </section>
 
-      <UiField v-slot="{ id, invalid, describedby }" label="For the next shift" hint="Dispatches, restocking and follow-ups the next shift must pick up." :error="errors.pending_tasks">
+      <!-- 2. Problems still open -->
+      <section class="card p-5" :data-error="Boolean(errors.unresolved_issues)">
+        <h3 class="text-[16px] font-semibold"><span class="mr-2 text-ink-3 tnum">2</span>Any problems still open?</h3>
+        <p class="mt-1 text-[13.5px] text-ink-3">Stock that doesn’t match, damaged goods, broken equipment, anything unsafe.</p>
+        <div class="mt-3 grid grid-cols-2 gap-2">
+          <button type="button" class="h-12 rounded-md border text-[15px] transition-colors" :class="choice(problemsAnswer === 'yes')" @click="answerProblems('yes')">Yes</button>
+          <button type="button" class="h-12 rounded-md border text-[15px] transition-colors" :class="choice(problemsAnswer === 'no')" @click="answerProblems('no')">No open problems</button>
+        </div>
+
+        <template v-if="problemsAnswer === 'yes'">
+          <ul v-if="content.problems.length" class="mt-4 space-y-2">
+            <li v-for="(p, i) in content.problems" :key="i" class="flex items-start gap-3 rounded-md border border-line px-3.5 py-2.5" :class="{ 'border-bad/40 bg-bad-soft/40': p.category === 'safety' }">
+              <div class="min-w-0 flex-1">
+                <p class="text-[12.5px] font-medium" :class="p.category === 'safety' ? 'text-bad' : 'text-ink-2'">
+                  {{ PROBLEM_CATEGORY_LABELS[p.category] }}<template v-if="p.location"> · {{ p.location }}</template>
+                </p>
+                <p class="text-[14px]">{{ p.what }}</p>
+                <p v-if="errors[`problems.${i}.what`]" class="text-[13px] text-bad">{{ errors[`problems.${i}.what`] }}</p>
+              </div>
+              <button type="button" class="text-[13px] text-ink-3 hover:text-ink" @click="startProblem(i)">Edit</button>
+              <button type="button" class="text-[13px] text-ink-3 hover:text-bad" @click="content.problems.splice(i, 1)">Remove</button>
+            </li>
+          </ul>
+
+          <div v-if="adding" class="mt-4 rounded-md border border-accent/40 bg-canvas p-4">
+            <p class="text-[13.5px] font-medium">What kind of problem?</p>
+            <div class="mt-2 flex flex-wrap gap-1.5">
+              <button
+                v-for="c in PROBLEM_CATEGORIES"
+                :key="c"
+                type="button"
+                class="rounded-full border px-3 py-1.5 text-[13.5px]"
+                :class="adding.category === c ? (c === 'safety' ? 'border-bad bg-bad text-white' : 'border-ink bg-ink text-white') : 'border-line-strong bg-surface text-ink-2 hover:bg-sunken'"
+                @click="adding.category = c"
+              >
+                {{ PROBLEM_CATEGORY_LABELS[c] }}
+              </button>
+            </div>
+            <label class="mt-3 block text-[13.5px] font-medium">
+              Where? <span class="font-normal text-ink-3">(optional)</span>
+              <input v-model="adding.location" class="field-input mt-1" maxlength="120" placeholder="e.g. Dock 3, Aisle 7, Forklift FL-02" />
+            </label>
+            <label class="mt-3 block text-[13.5px] font-medium">
+              What happened?
+              <textarea v-model="adding.what" class="field-input mt-1" rows="2" maxlength="600" placeholder="e.g. Brakes feel soft, tagged it out" :aria-invalid="Boolean(errors.adding)" />
+            </label>
+            <p v-if="errors.adding" class="mt-1 text-[13px] text-bad">{{ errors.adding }}</p>
+            <div class="mt-3 flex gap-2">
+              <UiButton size="sm" variant="primary" @click="saveProblem">{{ adding.index === null ? 'Add problem' : 'Save' }}</UiButton>
+              <UiButton size="sm" variant="ghost" @click="adding = null">Cancel</UiButton>
+            </div>
+          </div>
+          <UiButton v-else class="mt-3" size="sm" @click="startProblem()">+ Add {{ content.problems.length ? 'another' : 'a' }} problem</UiButton>
+
+          <div class="mt-3">
+            <button v-if="!showParagraph" type="button" class="text-[13px] text-ink-3 hover:text-ink" @click="showParagraph = true">Prefer to write it as a paragraph?</button>
+            <textarea v-else v-model="content.unresolved_issues" class="field-input mt-1" rows="3" placeholder="Anything else about the open problems" aria-label="More about the open problems" />
+          </div>
+        </template>
+        <p v-if="errors.unresolved_issues" class="mt-2 text-[13px] text-bad">{{ errors.unresolved_issues }}</p>
+      </section>
+
+      <!-- 3. Earlier problems -->
+      <section v-if="openIssues.length" class="card p-5">
+        <h3 class="text-[16px] font-semibold"><span class="mr-2 text-ink-3 tnum">3</span>Problems from earlier shifts</h3>
+        <p class="mt-1 text-[13.5px] text-ink-3">Tap what you saw. Skip any you didn’t check. “Fixed” still needs your supervisor’s confirmation.</p>
+        <ul class="mt-3 divide-y divide-line">
+          <li v-for="issue in openIssues" :key="issue.id" class="py-3 first:pt-0 last:pb-0">
+            <p class="text-[14px] font-medium">{{ issue.title }} <span class="font-normal text-ink-3 tnum">· {{ issue.code }}</span></p>
+            <div class="mt-2 grid grid-cols-3 gap-1.5">
+              <button
+                v-for="c in ISSUE_CHOICES"
+                :key="c.value"
+                type="button"
+                class="h-10 rounded-md border text-[13.5px]"
+                :class="choice(updatesById.get(issue.id)?.claimed_status === c.value)"
+                @click="setIssueStatus(issue.id, c.value)"
+              >
+                {{ c.label }}
+              </button>
+            </div>
+            <input
+              v-if="updatesById.get(issue.id)"
+              v-model="updatesById.get(issue.id)!.note"
+              class="field-input mt-2"
+              maxlength="1000"
+              :placeholder="updatesById.get(issue.id)!.claimed_status === 'addressed' ? 'What did you do to fix it?' : 'Anything to add? (optional)'"
+              :aria-invalid="Boolean(issueNoteError(issue.id))"
+            />
+            <p v-if="issueNoteError(issue.id)" class="mt-1 text-[13px] text-bad">{{ issueNoteError(issue.id) }}</p>
+          </li>
+        </ul>
+      </section>
+
+      <!-- 4. Next shift -->
+      <section class="card p-5" :data-error="Boolean(errors.pending_tasks)">
+        <h3 class="text-[16px] font-semibold"><span class="mr-2 text-ink-3 tnum">{{ openIssues.length ? 4 : 3 }}</span>Anything the next shift must do?</h3>
+        <p class="mt-1 text-[13.5px] text-ink-3">Each one becomes a checklist item for them.</p>
+        <div class="mt-3 grid grid-cols-2 gap-2">
+          <button type="button" class="h-12 rounded-md border text-[15px]" :class="choice(tasksAnswer === 'yes')" @click="answerTasks('yes')">Yes</button>
+          <button type="button" class="h-12 rounded-md border text-[15px]" :class="choice(tasksAnswer === 'no')" @click="answerTasks('no')">Nothing</button>
+        </div>
         <textarea
-          :id="id"
+          v-if="tasksAnswer === 'yes'"
           v-model="content.pending_tasks"
-          class="field-input min-h-24"
+          class="field-input mt-3"
           rows="3"
-          :disabled="content.no_pending_tasks"
-          :aria-invalid="invalid"
-          :aria-describedby="describedby"
+          placeholder="One per line, e.g.&#10;Wrap 6 pallets for dispatch, truck at 4pm&#10;Return pallet jack to Bay 2"
+          aria-label="What the next shift must do"
+          :aria-invalid="Boolean(errors.pending_tasks)"
         />
-        <label class="mt-2 flex items-center gap-2 text-[14px] text-ink-2">
-          <input v-model="content.no_pending_tasks" type="checkbox" class="size-4 accent-accent" @change="content.no_pending_tasks && (content.pending_tasks = '')" />
-          Nothing for the next shift
-        </label>
-      </UiField>
+        <p v-if="errors.pending_tasks" class="mt-1.5 text-[13px] text-bad">{{ errors.pending_tasks }}</p>
+      </section>
 
-      <div class="rounded-lg border border-line">
-        <button type="button" class="flex w-full items-center justify-between px-4 py-3 text-left" :aria-expanded="showMore" @click="showMore = !showMore">
+      <!-- Optional extras -->
+      <section class="card">
+        <button type="button" class="flex w-full items-center justify-between px-5 py-4 text-left" :aria-expanded="showMore" @click="showMore = !showMore">
           <span>
-            <span class="block text-[14px] font-medium">Equipment, safety and other notes</span>
-            <span class="block text-[13px] text-ink-3">Forklifts, conveyors, spills — plus any notes or photo references</span>
+            <span class="block text-[15px] font-medium">Anything else? <span class="font-normal text-ink-3">(optional)</span></span>
+            <span class="block text-[13px] text-ink-3">Equipment or safety worries, notes, photo references</span>
           </span>
           <span class="text-[13px] text-ink-3">{{ showMore ? 'Hide' : 'Add' }}</span>
         </button>
-        <div v-if="showMore" class="space-y-5 border-t border-line px-4 py-4">
-          <UiField v-slot="{ id }" label="Equipment &amp; safety concerns" hint="Forklifts, conveyors, scanners, spills, blocked exits — even if unconfirmed." optional>
-            <textarea :id="id" v-model="content.operational_concerns" class="field-input" rows="3" />
-          </UiField>
-          <UiField v-slot="{ id }" label="Other notes" hint="Anything else the next shift should know." optional>
-            <textarea :id="id" v-model="content.handover_notes" class="field-input" rows="3" />
-          </UiField>
-          <UiField v-slot="{ id }" label="Evidence references" hint="Photo, work order or log references." optional>
-            <input :id="id" v-model="content.evidence_refs" class="field-input" />
-          </UiField>
+        <div v-if="showMore" class="space-y-3 border-t border-line px-5 py-4">
+          <label class="block text-[13.5px] font-medium">Equipment or safety worries
+            <textarea v-model="content.operational_concerns" class="field-input mt-1" rows="2" placeholder="Even if you’re not sure" />
+          </label>
+          <label class="block text-[13.5px] font-medium">Other notes
+            <textarea v-model="content.handover_notes" class="field-input mt-1" rows="2" />
+          </label>
+          <label class="block text-[13.5px] font-medium">Photo or work-order references
+            <input v-model="content.evidence_refs" class="field-input mt-1" maxlength="500" />
+          </label>
         </div>
-      </div>
+      </section>
 
-      <div v-if="openIssues.length" class="rounded-lg border border-line">
-        <button type="button" class="flex w-full items-center justify-between px-4 py-3 text-left" :aria-expanded="showIssues" @click="showIssues = !showIssues">
-          <span>
-            <span class="block text-[14px] font-medium">Updates on open issues</span>
-            <span class="block text-[13px] text-ink-3">{{ openIssues.length }} open in your department · {{ content.issue_updates.length }} updated in this report</span>
-          </span>
-          <span class="text-[13px] text-ink-3">{{ showIssues ? 'Hide' : 'Show' }}</span>
-        </button>
-        <ul v-if="showIssues" class="divide-y divide-line border-t border-line">
-          <li v-for="issue in openIssues" :key="issue.id" class="px-4 py-3">
-            <label class="flex items-start gap-3">
-              <input
-                type="checkbox"
-                class="mt-1 size-4 accent-accent"
-                :checked="updatesById.has(issue.id)"
-                @change="toggleIssue(issue.id, ($event.target as HTMLInputElement).checked)"
-              />
-              <span class="min-w-0">
-                <span class="block text-[14px] font-medium">{{ issue.title }}</span>
-                <span class="block text-[12.5px] text-ink-3 tnum">{{ issue.code }} · {{ issue.status.replace(/_/g, ' ') }}</span>
-              </span>
-            </label>
-            <div v-if="updatesById.get(issue.id)" class="mt-3 grid gap-3 pl-7 sm:grid-cols-[180px_1fr]">
-              <select v-model="updatesById.get(issue.id)!.claimed_status" class="field-input" aria-label="Status you observed">
-                <option value="still_open">Still open</option>
-                <option value="in_progress">Being worked on</option>
-                <option value="addressed">I think it’s addressed</option>
-              </select>
-              <div>
-                <input
-                  v-model="updatesById.get(issue.id)!.note"
-                  class="field-input"
-                  placeholder="What did you see or do?"
-                  :aria-invalid="Boolean(errors[`issue_updates.${content.issue_updates.findIndex((u) => u.issue_id === issue.id)}.note`])"
-                />
-                <p v-if="updatesById.get(issue.id)!.claimed_status === 'addressed'" class="mt-1 text-[12.5px] text-ink-3">
-                  A supervisor still has to verify it before it is marked resolved.
-                </p>
-              </div>
-            </div>
-          </li>
-        </ul>
-      </div>
-
-      <div class="sticky bottom-0 -mx-4 flex flex-col gap-3 border-t border-line bg-canvas/95 px-4 py-3 backdrop-blur sm:mx-0 sm:flex-row sm:items-center sm:justify-between sm:rounded-lg sm:border sm:bg-surface">
+      <div class="sticky bottom-0 -mx-4 flex flex-col gap-2 border-t border-line bg-canvas/95 px-4 py-3 backdrop-blur sm:mx-0 sm:flex-row sm:items-center sm:justify-between sm:rounded-lg sm:border sm:bg-surface">
         <p class="text-[13px] text-ink-3" :class="{ 'text-bad': saveState === 'error' }" aria-live="polite">{{ saveLabel }}</p>
         <div class="flex flex-col gap-1 sm:items-end">
-          <UiButton type="submit" variant="primary" size="lg" :disabled="!canSubmit" :loading="submitting">
-            {{ isRevision ? 'Submit revision' : 'Submit report' }}
+          <UiButton type="submit" variant="primary" size="lg" :disabled="!canSubmit" :loading="submitting" block>
+            {{ isRevision ? 'Send revision' : 'Send report' }}
           </UiButton>
           <p v-if="!canSubmit && submitBlockedReason" class="text-[12.5px] text-ink-3">{{ submitBlockedReason }}</p>
         </div>
       </div>
     </form>
 
-    <UiDialog :open="confirming" title="Submit this report?" @close="confirming = false">
+    <UiDialog :open="confirming" title="Send this report?" @close="confirming = false">
       <p class="text-[14px] text-ink-2">
-        After you submit, you can’t edit it unless your supervisor asks for a revision. Before analysis, names and personal details
-        are replaced or removed. Nothing is handed over until your supervisor verifies it.
+        You can’t edit it after sending unless your supervisor asks for changes. Names and personal details are removed before the
+        draft is prepared, and nothing reaches the next shift until your supervisor checks it.
       </p>
       <template #footer>
         <UiButton variant="ghost" @click="confirming = false">Keep editing</UiButton>
-        <UiButton variant="primary" :loading="submitting" @click="submit">Submit</UiButton>
+        <UiButton variant="primary" :loading="submitting" @click="submit">Send</UiButton>
       </template>
     </UiDialog>
   </div>

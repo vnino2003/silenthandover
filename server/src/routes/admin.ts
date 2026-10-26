@@ -175,7 +175,16 @@ export function adminRoutes() {
           prompt_version: config.PROMPT_VERSION,
         },
         email: { transport: notifications.transportName, simulated: notifications.transportName === 'dev', from: config.EMAIL_FROM },
-        sms: { connected: false, note: 'SMS provider interface exists; no provider is connected.' },
+        sms: {
+          connected: notifications.smsTransportName !== 'none',
+          transport: notifications.smsTransportName,
+          webhook_configured: Boolean(config.N8N_SMS_WEBHOOK_URL),
+          from: config.SMS_FROM,
+          note:
+            notifications.smsTransportName === 'none'
+              ? 'Optional SMS is off. In-app and email notifications continue normally.'
+              : 'SMS is handed to a dedicated authenticated n8n workflow.',
+        },
         callbacks: { enabled: Boolean(config.N8N_CALLBACK_SECRET) },
         scheduler: { internal: config.ENABLE_INTERNAL_SCHEDULER, interval_ms: config.SCHEDULER_INTERVAL_MS },
       },

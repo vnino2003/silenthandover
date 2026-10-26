@@ -16,7 +16,7 @@ export interface AppConfig {
   integrations: {
     ai: { adapter: 'dev' | 'n8n'; simulated: boolean; prompt_version: string };
     email: { transport: 'dev' | 'resend' | 'n8n'; simulated: boolean };
-    sms: { connected: boolean };
+    sms: { connected: boolean; transport: 'none' | 'n8n' };
   };
 }
 
@@ -62,6 +62,7 @@ export interface ShiftView {
 export interface IssueRow {
   id: string;
   code: string;
+  kind?: 'problem' | 'task';
   title: string;
   description?: string;
   severity: IssueSeverity;
@@ -82,7 +83,13 @@ export interface Decision {
   note: string;
   decided_at: string;
   revision_no: number;
-  approved_content: (ApprovedHandover & { unresolved_issues: (ApprovedHandover['unresolved_issues'][number] & { issue_code?: string })[] }) | null;
+  /** As stored after approval: every problem and task carries the tracked issue it became. */
+  approved_content:
+    | (Omit<ApprovedHandover, 'unresolved_issues' | 'pending_actions'> & {
+        unresolved_issues: (ApprovedHandover['unresolved_issues'][number] & { issue_id?: string; issue_code?: string })[];
+        pending_actions: (ApprovedHandover['pending_actions'][number] & { issue_id?: string; issue_code?: string })[];
+      })
+    | null;
   reviewer_name: string;
   flag_resolutions?: { flag_index: number; resolution: string; note: string }[];
 }

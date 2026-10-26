@@ -58,6 +58,14 @@ export const api = {
   del: <T>(path: string) => request<T>('DELETE', path),
 };
 
+/** Binary download with the session token (for <img> sources that need authentication). */
+export async function fetchBlob(path: string): Promise<Blob> {
+  const token = await tokenSource();
+  const res = await fetch(`${BASE}/api${path}`, { headers: token ? { Authorization: `Bearer ${token}` } : {} });
+  if (!res.ok) throw new ApiError(res.status, 'error', 'Could not load the file');
+  return res.blob();
+}
+
 export function errorMessage(err: unknown): string {
   return err instanceof ApiError ? err.message : 'Something went wrong';
 }

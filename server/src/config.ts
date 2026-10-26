@@ -39,6 +39,11 @@ const EnvSchema = z.object({
   RESEND_API_KEY: z.string().optional(),
   EMAIL_FROM: z.string().default('Silent Handover <handover@example.com>'),
 
+  // Optional SMS delivery through a separate self-hosted n8n workflow.
+  SMS_TRANSPORT: z.enum(['none', 'n8n']).default('none'),
+  N8N_SMS_WEBHOOK_URL: z.url().optional(),
+  SMS_FROM: z.string().trim().min(1).max(40).default('Silent Handover'),
+
   ENABLE_INTERNAL_SCHEDULER: bool.default(true),
   SCHEDULER_INTERVAL_MS: z.coerce.number().int().min(1000).default(30000),
 });
@@ -66,6 +71,9 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
   if (c.EMAIL_TRANSPORT === 'n8n' && (!c.N8N_DELIVERY_WEBHOOK_URL || !c.N8N_WEBHOOK_SECRET || !c.N8N_CALLBACK_SECRET)) {
     problems.push('EMAIL_TRANSPORT=n8n needs N8N_DELIVERY_WEBHOOK_URL, N8N_WEBHOOK_SECRET and N8N_CALLBACK_SECRET');
   }
+  if (c.SMS_TRANSPORT === 'n8n' && (!c.N8N_SMS_WEBHOOK_URL || !c.N8N_WEBHOOK_SECRET || !c.N8N_CALLBACK_SECRET)) {
+    problems.push('SMS_TRANSPORT=n8n needs N8N_SMS_WEBHOOK_URL, N8N_WEBHOOK_SECRET and N8N_CALLBACK_SECRET');
+  }
   if (c.NODE_ENV === 'production') {
     if (c.APP_MODE === 'local') problems.push('APP_MODE=local is for development only');
     if (c.N8N_ANALYSIS_WEBHOOK_URL && !c.N8N_ANALYSIS_WEBHOOK_URL.startsWith('https://')) {
@@ -73,6 +81,9 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     }
     if (c.N8N_DELIVERY_WEBHOOK_URL && !c.N8N_DELIVERY_WEBHOOK_URL.startsWith('https://')) {
       problems.push('N8N_DELIVERY_WEBHOOK_URL must use HTTPS in production');
+    }
+    if (c.N8N_SMS_WEBHOOK_URL && !c.N8N_SMS_WEBHOOK_URL.startsWith('https://')) {
+      problems.push('N8N_SMS_WEBHOOK_URL must use HTTPS in production');
     }
   }
   if (problems.length) throw new Error(`Invalid environment configuration:\n  ${problems.join('\n  ')}`);

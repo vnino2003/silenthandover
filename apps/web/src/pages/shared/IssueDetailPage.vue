@@ -2,6 +2,8 @@
 import { computed, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { allowedIssueTransitions, ISSUE_STATUS_LABELS, type IssueStatus } from '@sh/shared';
+import IssuePhoto from '@/components/IssuePhoto.vue';
+import MarkDoneDialog from '@/components/MarkDoneDialog.vue';
 import PageHeader from '@/components/ui/PageHeader.vue';
 import SeverityTag from '@/components/ui/SeverityTag.vue';
 import StateBlock from '@/components/ui/StateBlock.vue';
@@ -19,6 +21,7 @@ import { useToast } from '@/stores/toast';
 interface Detail {
   issue: IssueRow & { description: string; created_by_name: string | null; resolved_by_name: string | null; resolved_at: string | null; created_at: string };
   updates: { id: string; kind: string; from_status: IssueStatus | null; to_status: IssueStatus | null; note: string; created_at: string; author_name: string | null; author_role: string | null }[];
+  photos: { id: string; update_id: string | null; created_at: string; uploaded_by_name: string | null }[];
 }
 
 const route = useRoute();
@@ -31,9 +34,9 @@ const { data, loading, error, reload } = useAsync(() => api.get<Detail>(`/issues
 const staff = useAsync(() => (isManager.value ? api.get<{ id: string; full_name: string; role: string }[]>('/department/staff') : Promise.resolve([])));
 
 const ACTION_LABEL: Partial<Record<IssueStatus, string>> = {
-  in_progress: 'Mark in progress',
-  resolution_submitted: 'Submit for verification',
-  resolved: 'Verify as resolved',
+  in_progress: 'I’m working on it',
+  resolution_submitted: 'Mark as done',
+  resolved: 'Confirm done',
   closed: 'Close',
   open: 'Open',
   pending_verification: 'Needs verification',
@@ -45,13 +48,24 @@ const actions = computed(() => {
   if (!issue || !auth.role) return [];
   return allowedIssueTransitions(issue.status, auth.role).map((to) => ({
     to,
-    label: issue.status === 'resolution_submitted' && to === 'in_progress' ? 'Send back — not resolved' : issue.status === 'closed' || issue.status === 'resolved' ? (to === 'open' ? 'Reopen' : ACTION_LABEL[to]!) : ACTION_LABEL[to]!,
+    label: issue.status === 'resolution_submitted' && to === 'in_progress' ? 'Send back — not done yet' : issue.status === 'closed' || issue.status === 'resolved' ? (to === 'open' ? 'Reopen' : ACTION_LABEL[to]!) : ACTION_LABEL[to]!,
   }));
 });
 const managerOnlyHint = computed(() => {
   const s = data.value?.issue.status;
-  return !isManager.value && s === 'resolution_submitted' ? 'Waiting for a supervisor to verify the resolution.' : null;
+  return !isManager.value && s === 'resolution_submitted' ? 'Waiting for your supervisor to confirm it’s done.' : null;
 });
+const photosFor = (updateId: string) => data.value?.photos.filter((p) => p.update_id === updateId) ?? [];
+// Marking something done opens the note-and-photo dialog instead of the plain note dialog.
+const markingDone = ref(false);
+function choose(a: { to: IssueStatus; label: string }) {
+  if (a.to === 'resolution_submitted') markingDone.value = true;
+  else pending.value = a;
+}
+async function afterDone() {
+  markingDone.value = false;
+  await reload(true);
+}
 
 const pending = ref<{ to: IssueStatus; label: string } | null>(null);
 const note = ref('');
@@ -145,7 +159,7 @@ const KIND_LABEL: Record<string, string> = {
               :key="a.to"
               :variant="a.to === 'resolved' || a.to === 'resolution_submitted' ? 'primary' : 'secondary'"
               size="sm"
-              @click="pending = a"
+              @click="choose(a)"
             >
               {{ a.label }}
             </UiButton>
@@ -165,6 +179,9 @@ const KIND_LABEL: Record<string, string> = {
                 <template v-if="u.from_status">{{ ISSUE_STATUS_LABELS[u.from_status] }} → </template><span class="font-medium">{{ ISSUE_STATUS_LABELS[u.to_status] }}</span>
               </p>
               <p v-if="u.note" class="mt-0.5 text-[14px] whitespace-pre-wrap text-ink-2">{{ u.note }}</p>
+              <div v-if="photosFor(u.id).length" class="mt-2 flex flex-wrap gap-2">
+                <IssuePhoto v-for="p in photosFor(u.id)" :key="p.id" :photo-id="p.id" :alt="`Photo from ${p.uploaded_by_name ?? 'staff'}`" />
+              </div>
             </li>
           </ol>
           <form v-if="!['closed'].includes(data.issue.status)" class="mt-5 flex flex-col gap-2 sm:flex-row" @submit.prevent="addNote">
@@ -174,6 +191,8 @@ const KIND_LABEL: Record<string, string> = {
         </section>
       </template>
     </StateBlock>
+
+    <MarkDoneDialog :issue="markingDone && data ? data.issue : null" @close="markingDone = false" @done="afterDone" />
 
     <UiDialog
       :open="Boolean(pending)"

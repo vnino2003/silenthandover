@@ -101,7 +101,7 @@ draft ──submit──▶ submitted ──dispatch──▶ processing ──A
   for every employee assigned to the **next shift** of the same department, creates in-app notifications and
   `notification_deliveries` rows for email, and queues a `handover_delivery` automation event.
 * The report becomes `delivered` as soon as the in-app handover deliveries exist (the website is the primary channel; acknowledgment happens there).
-* The API dispatches email separately: `n8n` (Resend inside n8n), `resend` (direct), or `dev` (recorded as `simulated` in the dev outbox — never shown as sent). The `handover_delivery` automation event completes when every email row is terminal; failures are retried and then raised to administrators.
+* The API dispatches email separately: `n8n` (Resend inside n8n), `resend` (direct), or `dev` (recorded as `simulated` in the dev outbox — never shown as sent). Optional SMS uses its own authenticated n8n webhook and is off by default; with no provider, SMS rows are truthfully marked `skipped`. The `handover_delivery` automation event completes when every external-delivery row is terminal; failures are retried and then raised to administrators.
 * If the next shift has no one assigned yet, deliveries are created when someone is assigned.
 * Incoming employees acknowledge in the web app. Acknowledgment never changes an issue's status.
 

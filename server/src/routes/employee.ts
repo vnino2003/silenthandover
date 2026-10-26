@@ -221,7 +221,23 @@ export function employeeRoutes() {
           order by (k.id is null) desc, d.delivered_at desc limit 30`,
       ),
     );
-    return c.json(rows);
+    // Live status of every problem and task in these handovers: the incoming shift's checklist.
+    const ids = rows.flatMap((r) => {
+      const content = (r as { approved_content: { unresolved_issues?: { issue_id?: string }[]; pending_actions?: { issue_id?: string }[] } }).approved_content;
+      return [...(content.unresolved_issues ?? []), ...(content.pending_actions ?? [])].map((i) => i.issue_id).filter((x): x is string => Boolean(x));
+    });
+    const items = ids.length
+      ? await asUser(c, (q) =>
+          q.query<{ id: string }>(
+            `select i.id, i.code, i.kind, i.title, i.status, i.severity, i.is_safety,
+                    (select count(*)::int from public.issue_photos ph where ph.issue_id = i.id) as photo_count
+               from public.operational_issues i where i.id = any($1::uuid[])`,
+            [ids],
+          ),
+        )
+      : [];
+    const byId = Object.fromEntries(items.map((i) => [i.id, i]));
+    return c.json(rows.map((r) => ({ ...r, checklist: byId })));
   });
 
   r.post('/handovers/:id/acknowledge', async (c) => {

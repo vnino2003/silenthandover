@@ -92,7 +92,7 @@ async function raise() {
               <td class="px-5 py-3">
                 <RouterLink :to="`${base}/${i.id}`" class="font-medium hover:underline" @click.stop>{{ i.title }}</RouterLink>
                 <p class="text-[12.5px] text-ink-3 tnum">
-                  {{ i.code }}<span v-if="i.escalated_at" class="ml-2 font-medium text-warn">Escalated</span>
+                  <span v-if="i.kind === 'task'" class="mr-1.5 rounded-sm bg-info-soft px-1.5 py-px text-[11px] font-medium text-info">Task</span>{{ i.code }}<span v-if="i.escalated_at" class="ml-2 font-medium text-warn">Escalated</span>
                 </p>
                 <div class="mt-1.5 flex flex-wrap items-center gap-2 sm:hidden">
                   <SeverityTag :severity="i.severity" :safety="i.is_safety" /><StatusBadge :issue="i.status" />
