@@ -1,0 +1,26 @@
+{
+  "name": "silent-handover",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Silent Handover — AI-assisted workplace risk and task continuity automation (TESDA AI Automation Capstone).",
+  "workspaces": [
+    "packages/shared",
+    "server",
+    "apps/web"
+  ],
+  "scripts": {
+    "dev": "concurrently -k -n api,web -c cyan,magenta \"npm:dev -w server\" \"npm:dev -w apps/web\"",
+    "build": "npm run build -w server && npm run build -w apps/web",
+    "typecheck": "npm run typecheck -w packages/shared && npm run typecheck -w server && npm run typecheck -w apps/web",
+    "test": "npm run test -w packages/shared && npm run test -w server",
+    "seed": "npm run seed -w server --",
+    "prompt:eval": "npm run prompt:eval -w server --"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.6",
+    "typescript": "5.9.3"
+  },
+  "engines": {
+    "node": ">=20.12"
+  }
+}

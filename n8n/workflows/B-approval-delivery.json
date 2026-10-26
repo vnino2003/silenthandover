@@ -1,0 +1,253 @@
+{
+  "name": "Silent Handover — B. Approved handover delivery (email)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "silent-handover-delivery",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "b2e1d6c3-2c2f-4d4b-8b21-000000000001",
+      "name": "Webhook (from API)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "7e8f3b54-0b7a-4a1f-9b62-silent-delivery",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_ME",
+          "name": "Silent Handover — inbound webhook secret"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { accepted: true, count: $json.body.deliveries.length } }}",
+        "options": {
+          "responseCode": 202
+        }
+      },
+      "id": "b2e1d6c3-2c2f-4d4b-8b21-000000000002",
+      "name": "Accept (202)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Fixed configuration: results always go to API_BASE_URL, never to a URL from the payload.\nconst API_BASE_URL = 'https://api.example.com'; // ← your Silent Handover API\nconst body = $input.first().json.body;\nreturn body.deliveries\n  .filter((d) => d.channel === 'email')\n  .map((d) => ({ json: { ...d, from: body.from, callback_url: `${API_BASE_URL}/api/integrations/n8n/delivery-result` } }));"
+      },
+      "id": "b2e1d6c3-2c2f-4d4b-8b21-000000000003",
+      "name": "One item per email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.resend.com/emails",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Idempotency-Key",
+              "value": "={{ $json.idempotency_key }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ from: $json.from, to: [$json.to], subject: $json.subject, text: $json.text }) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "b2e1d6c3-2c2f-4d4b-8b21-000000000004",
+      "name": "Send with Resend",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        660,
+        300
+      ],
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_ME",
+          "name": "Resend API key (Authorization: Bearer re_...)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const src = $('One item per email').item.json;\nreturn { json: { results: [{ delivery_id: src.delivery_id, attempt: src.attempt, status: 'sent', provider: 'resend', provider_message_id: $json.id ?? null, response: { id: $json.id ?? null } }], callback_url: src.callback_url } };"
+      },
+      "id": "b2e1d6c3-2c2f-4d4b-8b21-000000000005",
+      "name": "Sent",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const src = $('One item per email').item.json;\nconst err = $json.error ?? $json;\nconst message = (typeof err === 'string' ? err : err.message ?? JSON.stringify(err)).slice(0, 500);\nreturn { json: { results: [{ delivery_id: src.delivery_id, attempt: src.attempt, status: 'failed', provider: 'resend', error: message }], callback_url: src.callback_url } };"
+      },
+      "id": "b2e1d6c3-2c2f-4d4b-8b21-000000000006",
+      "name": "Failed",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        900,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.callback_url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ results: $json.results }) }}",
+        "options": {
+          "timeout": 15000
+        }
+      },
+      "id": "b2e1d6c3-2c2f-4d4b-8b21-000000000007",
+      "name": "Report result to API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1140,
+        300
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "REPLACE_ME",
+          "name": "Silent Handover — callback bearer"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Workflow B — Approved handover delivery\n\nTriggered by the API after a supervisor **approves** a handover (and for other notifications). The API has already checked the approver's permission and recorded the approval.\n\n- Emails contain a title and a sign-in link only — never report content.\n- Each email carries the delivery's idempotency key, so Resend drops duplicates.\n- Every result (sent / failed + provider response) is reported back and stored in `notification_deliveries`; failures are retried by the API with backoff and surface on the admin Integrations page.\n- SMS items are not sent here: no SMS provider is connected.",
+        "height": 320,
+        "width": 520
+      },
+      "id": "b2e1d6c3-2c2f-4d4b-8b21-000000000008",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -120
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook (from API)": {
+      "main": [
+        [
+          {
+            "node": "Accept (202)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Accept (202)": {
+      "main": [
+        [
+          {
+            "node": "One item per email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One item per email": {
+      "main": [
+        [
+          {
+            "node": "Send with Resend",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send with Resend": {
+      "main": [
+        [
+          {
+            "node": "Sent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sent": {
+      "main": [
+        [
+          {
+            "node": "Report result to API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Failed": {
+      "main": [
+        [
+          {
+            "node": "Report result to API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "all"
+  },
+  "active": false,
+  "pinData": {}
+}

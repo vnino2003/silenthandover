@@ -1,0 +1,137 @@
+{
+  "name": "Silent Handover — A. AI report processing",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "silent-handover-analysis",
+        "authentication": "headerAuth",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "a1f0c5d2-1b1e-4c3a-9a10-000000000001",
+      "name": "Webhook (from API)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 300],
+      "webhookId": "5d6c2a43-9a6f-4f0e-8a51-silent-analysis",
+      "credentials": {
+        "httpHeaderAuth": { "id": "REPLACE_ME", "name": "Silent Handover — inbound webhook secret" }
+      }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { accepted: true, event_id: $json.body.event_id } }}",
+        "options": { "responseCode": 202 }
+      },
+      "id": "a1f0c5d2-1b1e-4c3a-9a10-000000000002",
+      "name": "Accept (202)",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [220, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Configuration lives here, not in the payload. The callback always goes to API_BASE_URL.\nconst API_BASE_URL = 'https://api.example.com'; // ← your Silent Handover API\nconst MODEL = 'REPLACE_WITH_CURRENT_MODEL'; // ← e.g. your provider's current JSON-schema-capable model\n\nconst body = $input.first().json.body;\nfor (const key of ['event_id', 'attempt', 'report_id', 'prompt_version', 'system_prompt', 'user_prompt', 'response_schema']) {\n  if (body[key] === undefined) throw new Error(`Missing ${key}`);\n}\nreturn [{ json: {\n  event_id: body.event_id,\n  attempt: body.attempt,\n  report_id: body.report_id,\n  prompt_version: body.prompt_version,\n  system_prompt: body.system_prompt,\n  user_prompt: body.user_prompt,\n  response_schema: body.response_schema,\n  model: MODEL,\n  callback_url: `${API_BASE_URL}/api/integrations/n8n/analysis-result`,\n  started_at: Date.now(),\n} }];"
+      },
+      "id": "a1f0c5d2-1b1e-4c3a-9a10-000000000003",
+      "name": "Prepare",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [440, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.openai.com/v1/chat/completions",
+        "authentication": "predefinedCredentialType",
+        "nodeCredentialType": "openAiApi",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: $json.model, temperature: 0, messages: [ { role: 'system', content: $json.system_prompt }, { role: 'user', content: $json.user_prompt } ], response_format: { type: 'json_schema', json_schema: { name: 'handover_draft', strict: true, schema: $json.response_schema } } }) }}",
+        "options": { "timeout": 90000 }
+      },
+      "id": "a1f0c5d2-1b1e-4c3a-9a10-000000000004",
+      "name": "Generative AI (six-element bounded prompt)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [660, 300],
+      "onError": "continueErrorOutput",
+      "credentials": {
+        "openAiApi": { "id": "REPLACE_ME", "name": "OpenAI account" }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pass the raw model text back unchanged. The API validates it against the schema;\n// n8n does not decide whether the output is acceptable.\nconst prep = $('Prepare').first().json;\nconst res = $input.first().json;\nconst message = res.choices?.[0]?.message ?? {};\nif (message.refusal || !message.content) {\n  return [{ json: { event_id: prep.event_id, attempt: prep.attempt, status: 'error', error: message.refusal ? `Model refused: ${String(message.refusal).slice(0, 300)}` : 'Empty model response', model: res.model ?? prep.model, latency_ms: Date.now() - prep.started_at } }];\n}\nreturn [{ json: {\n  event_id: prep.event_id,\n  attempt: prep.attempt,\n  status: 'ok',\n  output: message.content,\n  model: res.model ?? prep.model,\n  usage: res.usage ?? {},\n  latency_ms: Date.now() - prep.started_at,\n} }];"
+      },
+      "id": "a1f0c5d2-1b1e-4c3a-9a10-000000000005",
+      "name": "Result",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "const prep = $('Prepare').first().json;\nconst err = $input.first().json.error ?? $input.first().json;\nconst message = typeof err === 'string' ? err : (err.message ?? JSON.stringify(err)).slice(0, 500);\nreturn [{ json: { event_id: prep.event_id, attempt: prep.attempt, status: 'error', error: message, model: prep.model, latency_ms: Date.now() - prep.started_at } }];"
+      },
+      "id": "a1f0c5d2-1b1e-4c3a-9a10-000000000006",
+      "name": "Provider error",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 420]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $('Prepare').first().json.callback_url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json) }}",
+        "options": { "timeout": 20000 }
+      },
+      "id": "a1f0c5d2-1b1e-4c3a-9a10-000000000007",
+      "name": "Callback to API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1140, 300],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 3000,
+      "credentials": {
+        "httpHeaderAuth": { "id": "REPLACE_ME", "name": "Silent Handover — callback bearer" }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Workflow A — AI report processing\n\n1. **Intake** — the API (never the browser) calls this webhook with a header secret.\n2. **Queue** — responds 202 at once; the API tracks the event and its idempotency key.\n3. **Generative AI node** — sends the versioned six-element prompt built by the API. The employee text is already sanitized and wrapped in `<raw_input>`.\n4. **Result** — the raw model text goes back to the API, which validates the JSON schema, runs grounding checks and stores a *draft*.\n5. Nothing here approves, sends or changes a status. A supervisor approves in the web app.\n\nCredentials: inbound header auth (`X-Silent-Handover-Secret` = N8N_WEBHOOK_SECRET), OpenAI API key, callback header auth (`Authorization` = `Bearer <N8N_CALLBACK_SECRET>`). Set API_BASE_URL and MODEL in **Prepare**.",
+        "height": 380,
+        "width": 520
+      },
+      "id": "a1f0c5d2-1b1e-4c3a-9a10-000000000008",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [0, -160]
+    }
+  ],
+  "connections": {
+    "Webhook (from API)": { "main": [[{ "node": "Accept (202)", "type": "main", "index": 0 }]] },
+    "Accept (202)": { "main": [[{ "node": "Prepare", "type": "main", "index": 0 }]] },
+    "Prepare": { "main": [[{ "node": "Generative AI (six-element bounded prompt)", "type": "main", "index": 0 }]] },
+    "Generative AI (six-element bounded prompt)": {
+      "main": [
+        [{ "node": "Result", "type": "main", "index": 0 }],
+        [{ "node": "Provider error", "type": "main", "index": 0 }]
+      ]
+    },
+    "Result": { "main": [[{ "node": "Callback to API", "type": "main", "index": 0 }]] },
+    "Provider error": { "main": [[{ "node": "Callback to API", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1", "saveDataSuccessExecution": "none", "saveDataErrorExecution": "all" },
+  "active": false,
+  "pinData": {}
+}

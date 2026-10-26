@@ -1,0 +1,103 @@
+# Silent Handover
+
+**AI-assisted workplace risk and task continuity.** Employees submit end-of-shift reports in a
+server-enforced window; personal data is removed; a bounded AI prompt drafts a structured handover;
+a supervisor verifies every claim and approves it; the incoming shift receives the approved version
+and acknowledges it; unresolved issues persist across shifts until an authorized person verifies them.
+
+TESDA AI Automation Capstone — see [`docs/capstone/`](docs/capstone/README.md).
+
+## What is real and what is simulated
+
+| Part | Status in this repository |
+|---|---|
+| Web app — Employee, Manager, Admin portals | Implemented, verified in the browser |
+| Database schema, RLS, workflow rules (PostgreSQL) | Implemented, 81 automated tests passing |
+| PII sanitization, injection detection, schema validation, grounding checks | Implemented, tested |
+| AI drafting | **Development simulator** (labeled in the UI). The n8n + model path is implemented and tested against a simulated n8n; **not yet verified against a live n8n or model** |
+| Email | **Dev outbox** (recorded as "simulated"). Resend (direct or via n8n) implemented, **not yet verified live** |
+| SMS | Interface only; deliveries are recorded as "skipped — no provider connected" |
+| Supabase (Auth + hosted Postgres) | Implemented; **not yet run against a Supabase project** |
+| Deployment | Instructions and container files only; nothing deployed |
+
+All data is synthetic.
+
+## Quick start (no accounts needed)
+
+Requirements: Node.js 20.12+ (tested on 24).
+
+```bash
+npm install
+```
+
+```bash
+npm run dev
+```
+
+Open <http://localhost:5173>. The first start creates a local database and synthetic demo data
+(about 30 seconds). The sign-in page lists the demo accounts; click one to sign in. All of them use the
+local test password `demo-handover-2026`.
+
+| Account | Role | Use it to |
+|---|---|---|
+| Juan Dela Cruz | Employee, Warehouse Operations | Submit a report (his "Demo Line — Outgoing" window is open) |
+| Maria Santos | Manager, Warehouse Operations | Review, verify flags, approve |
+| Ana Lim, Ben Torres | Employees on the incoming shift | Read and acknowledge the handover |
+| Alex Reyes | Administrator | Users, shifts, settings, integration health |
+| Rico Navarro, Liza Ramos | Facilities department | Show that departments can't see each other |
+
+The demo shifts are created relative to the time you seed. When the outgoing window has passed, sign
+in as the administrator and click **Integrations → Create demo shift pair**.
+
+### Demo walkthrough
+
+1. **Juan** → *Submit shift report* → *Use sample* → *Submit report*.
+2. **Maria** → *Review queue* → open the report. Compare the original with the draft, open *Sent to AI
+   (sanitized)*, click a flag's quote to highlight its evidence, choose a decision for every flag,
+   confirm the suggested issue links, *Approve handover*.
+3. **Ana** → *Incoming handover* → *I've read this handover*. Then *Open issues* → an issue →
+   *Submit for verification*.
+4. **Maria** → *Issues* → *Verify as resolved*.
+5. **Alex** → *Integrations* → automation events, deliveries, and the dev outbox.
+
+## Commands
+
+| Command | Does |
+|---|---|
+| `npm run dev` | API on :8787 and web on :5173 (Vite proxies `/api`) |
+| `npm test` | All automated tests |
+| `npm run typecheck` | TypeScript for shared, server and web |
+| `npm run build` | Production builds (`server/dist`, `apps/web/dist`) |
+| `npm run seed -- --reset` | Local mode: delete the local database and reseed |
+| `npm run prompt:eval -- --version 1.0` | Prompt regression run against a live model (`OPENAI_API_KEY`, `OPENAI_MODEL`) |
+
+## Configuration
+
+Copy [`server/.env.example`](server/.env.example) to `server/.env` to change anything. The defaults run
+everything locally: `APP_MODE=local`, `AI_ADAPTER=dev`, `EMAIL_TRANSPORT=dev`.
+
+* **Supabase + production:** [`docs/deployment.md`](docs/deployment.md)
+* **n8n workflows:** [`n8n/README.md`](n8n/README.md)
+
+## Project layout
+
+```
+apps/web            Vue 3 + TypeScript + Vite + Tailwind + Pinia + Vue Router
+server              Node.js API (Hono): auth, validation, sanitization, n8n adapters, scheduler
+packages/shared     Zod schemas, statuses, the versioned six-element prompt
+supabase/migrations PostgreSQL schema, RLS policies, workflow functions
+n8n                 Importable workflows A (AI), B (delivery), C (continuity), docker-compose
+docs                Architecture, database, security, API, testing, deployment, capstone documents
+```
+
+## Documentation
+
+[Architecture](docs/architecture.md) · [Database](docs/database.md) · [Security](docs/security.md) ·
+[API](docs/api.md) · [Testing](docs/testing.md) · [Deployment](docs/deployment.md) ·
+[Capstone documents](docs/capstone/README.md)
+
+## Troubleshooting
+
+* **"Can't connect" on first load** — the API is still starting; wait a few seconds and retry.
+* **"The local database is in use by another process"** — another API is running; stop it first.
+* **Start over** — stop the dev server and run `npm run seed -- --reset`.

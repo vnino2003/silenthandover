@@ -1,0 +1,53 @@
+{
+  "name": "Silent Handover — C. Continuity checks (every 5 minutes)",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "minutes", "minutesInterval": 5 }] }
+      },
+      "id": "c3f2e7d4-3d3a-4e5c-9c32-000000000001",
+      "name": "Every 5 minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.example.com/api/integrations/n8n/tick",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "{}",
+        "options": { "timeout": 30000 }
+      },
+      "id": "c3f2e7d4-3d3a-4e5c-9c32-000000000002",
+      "name": "Run checks in API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [240, 300],
+      "credentials": {
+        "httpHeaderAuth": { "id": "REPLACE_ME", "name": "Silent Handover — callback bearer" }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Workflow C — Unresolved issue continuity\n\nThe database does the work (`internal.scheduled_tick()`):\n- AI requests with no result after the timeout are failed and retried, then sent to manual review.\n- Active issues with no update for N hours are escalated to supervisors (once per period of inactivity).\n- Reporting windows that closed without a submission alert the supervisor.\n- Analysis inputs past their retention period are deleted.\n\nIssues are never closed because a later report did not mention them. Replace the URL with your API. Use this instead of the API's internal scheduler when the API runs serverless (set ENABLE_INTERNAL_SCHEDULER=false).",
+        "height": 330,
+        "width": 480
+      },
+      "id": "c3f2e7d4-3d3a-4e5c-9c32-000000000003",
+      "name": "Sticky Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [0, -100]
+    }
+  ],
+  "connections": {
+    "Every 5 minutes": { "main": [[{ "node": "Run checks in API", "type": "main", "index": 0 }]] }
+  },
+  "settings": { "executionOrder": "v1" },
+  "active": false,
+  "pinData": {}
+}

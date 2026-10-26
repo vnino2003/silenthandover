@@ -1,0 +1,109 @@
+@import 'tailwindcss';
+@import '@fontsource-variable/inter';
+
+/*
+ * Silent Handover design tokens.
+ * Warm neutral surfaces, one restrained accent, status colours used only for status.
+ */
+@theme {
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  --color-canvas: #f7f7f5;
+  --color-surface: #ffffff;
+  --color-sunken: #f1f0ed;
+  --color-line: #e6e4df;
+  --color-line-strong: #d3d0c9;
+  --color-ink: #1b1a18;
+  --color-ink-2: #4a4843;
+  --color-ink-3: #77746c;
+
+  --color-accent: #1f5e57;
+  --color-accent-hover: #184b45;
+  --color-accent-soft: #e5eeec;
+  --color-accent-ink: #164540;
+
+  --color-ok: #17663a;
+  --color-ok-soft: #e7f4ec;
+  --color-warn: #a45a07;
+  --color-warn-soft: #fcf1e1;
+  --color-bad: #b42318;
+  --color-bad-soft: #fdecea;
+  --color-info: #2457c5;
+  --color-info-soft: #eaf0fd;
+  --color-violet: #6a3bc9;
+  --color-violet-soft: #f1ecfc;
+
+  --radius-sm: 5px;
+  --radius-md: 7px;
+  --radius-lg: 10px;
+
+  --shadow-pop: 0 1px 2px rgb(27 26 24 / 0.06), 0 8px 24px -6px rgb(27 26 24 / 0.16);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    font-feature-settings: 'cv11', 'ss01';
+  }
+  body {
+    @apply bg-canvas text-ink font-sans antialiased;
+    font-size: 15px;
+    line-height: 1.5;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+  ::selection {
+    background: var(--color-accent-soft);
+  }
+}
+
+@utility tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+@layer components {
+  .field-input {
+    @apply w-full rounded-md border border-line-strong bg-surface px-3 py-2 text-[15px] text-ink placeholder:text-ink-3
+      transition-colors hover:border-ink-3 focus:border-accent focus:outline-none focus:ring-2 focus:ring-accent/15
+      disabled:cursor-not-allowed disabled:bg-sunken disabled:text-ink-3;
+  }
+  .field-input[aria-invalid='true'] {
+    @apply border-bad focus:ring-bad/15;
+  }
+  .card {
+    @apply rounded-lg border border-line bg-surface;
+  }
+  .eyebrow {
+    @apply text-[12px] font-medium uppercase tracking-[0.06em] text-ink-3;
+  }
+  .link {
+    @apply text-accent underline-offset-2 hover:underline;
+  }
+}
+
+mark.evidence {
+  background: #fff2b8;
+  color: inherit;
+  border-radius: 2px;
+  box-shadow: 0 0 0 2px #fff2b8;
+}
+
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.15s ease;
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
