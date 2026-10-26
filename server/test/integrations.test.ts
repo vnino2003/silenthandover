@@ -1,5 +1,6 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { DEMO_SAMPLE_REPORT, type AiHandoverDraft } from '@sh/shared';
+import { simulateAnalysis } from '../src/automation/dev-analyzer';
 import { adhocShift, CALLBACK_SECRET, demoOutgoingShift, setup, WEBHOOK_SECRET, type FetchCall, type Harness } from './helpers';
 
 const N8N_ENV = {
@@ -353,5 +354,92 @@ describe('scheduled continuity checks', () => {
     } finally {
       await h.close();
     }
+  });
+});
+
+describe('AI provider connected by the administrator', () => {
+  const GEMINI_KEY = 'AIzaTEST-not-a-real-key-0123456789wxyz';
+  const GROK_KEY = 'xai-TEST-not-a-real-key-0123456789abcd';
+  let h: Harness;
+  let mode: 'ok' | 'unauthorized' = 'ok';
+  const fake = fakeFetch((call) => {
+    if (mode === 'unauthorized') return Response.json({ error: { message: 'API key not valid' } }, { status: 401 });
+    const user: string = call.url.includes('generativelanguage') ? call.body.contents[0].parts[0].text : call.body.messages[1].content;
+    const ref = /report_id: (\S+)/.exec(user)?.[1] ?? 'TEST';
+    const raw = /<raw_input>\n([\s\S]*)\n<\/raw_input>/.exec(user)?.[1] ?? '';
+    const text = ref === 'TEST' ? '{"ok": true}' : JSON.stringify(simulateAnalysis(ref, raw, []));
+    return call.url.includes('generativelanguage')
+      ? Response.json({ candidates: [{ content: { parts: [{ text }] } }], usageMetadata: { totalTokenCount: 1234 } })
+      : Response.json({ choices: [{ message: { content: text } }], usage: { total_tokens: 1234 } });
+  });
+
+  beforeAll(async () => {
+    h = await setup({}, fake.impl);
+  });
+  afterAll(async () => h?.close());
+
+  it('lets only the administrator see or change it, and starts on the simulator', async () => {
+    expect((await h.call('manager', 'GET', '/api/admin/ai')).status).toBe(403);
+    expect((await h.call('manager', 'PUT', '/api/admin/ai', { provider: 'gemini', api_key: GEMINI_KEY })).status).toBe(403);
+    const view = await h.call('admin', 'GET', '/api/admin/ai');
+    expect(view.body).toMatchObject({ provider: 'simulator', has_key: false, encryption_available: true });
+    expect((await h.call(null, 'GET', '/api/config')).body.integrations.ai).toMatchObject({ simulated: true, provider: null });
+  });
+
+  it('stores the key encrypted and never sends it back', async () => {
+    expect((await h.call('admin', 'PUT', '/api/admin/ai', { provider: 'gemini' })).status).toBe(422);
+    const saved = await h.call('admin', 'PUT', '/api/admin/ai', { provider: 'gemini', model: null, api_key: GEMINI_KEY });
+    expect(saved.status).toBe(200);
+    expect(saved.body).toMatchObject({ provider: 'gemini', has_key: true, key_hint: 'wxyz' });
+    expect(JSON.stringify(saved.body)).not.toContain(GEMINI_KEY);
+    expect(JSON.stringify((await h.call('admin', 'GET', '/api/admin/ai')).body)).not.toContain(GEMINI_KEY);
+    const [row] = await h.sql('select api_key_ciphertext from internal.ai_provider_config');
+    expect(row.api_key_ciphertext).toMatch(/^v1\./);
+    expect(row.api_key_ciphertext).not.toContain(GEMINI_KEY);
+    const audit = await h.sql(`select details from public.audit_logs where action = 'ai.settings_updated'`);
+    expect(audit.at(-1).details).toEqual({ provider: 'gemini', model: null, key: 'replaced' });
+    expect(JSON.stringify(audit)).not.toContain(GEMINI_KEY);
+    // Signed-in users cannot read the table at all, not even the ciphertext.
+    await expect(h.sqlAs('admin', 'select * from internal.ai_provider_config')).rejects.toThrow();
+  });
+
+  it('sends the sanitized report to Gemini with the saved key', async () => {
+    expect((await h.call(null, 'GET', '/api/config')).body.integrations.ai).toMatchObject({ simulated: false, provider: 'gemini', model: 'gemini-2.5-flash' });
+    const { reportId } = await submitSample(h);
+    await h.drain();
+    const call = fake.calls.find((c) => c.url.includes('generativelanguage'))!;
+    expect(call.url).toContain('/models/gemini-2.5-flash:generateContent');
+    expect((call.init.headers as Record<string, string>)['x-goog-api-key']).toBe(GEMINI_KEY);
+    expect(call.url).not.toContain(GEMINI_KEY);
+    expect(call.body.systemInstruction.parts[0].text).toContain('# Prompt version');
+    expect(call.body.generationConfig.responseMimeType).toBe('application/json');
+    expect(JSON.stringify(call.body)).not.toContain('Ana Lim');
+    const [run] = await h.sql(`select engine, model, is_simulated, status from public.ai_analysis_runs where report_id = $1`, [reportId]);
+    expect(run).toEqual({ engine: 'gemini', model: 'gemini-2.5-flash', is_simulated: false, status: 'succeeded' });
+    expect((await h.sql('select status from public.shift_reports where id = $1', [reportId]))[0].status).toBe('pending_review');
+  });
+
+  it('tests the connection and explains a wrong key without echoing it', async () => {
+    const ok = await h.call('admin', 'POST', '/api/admin/ai/test', { provider: 'gemini' });
+    expect(ok.status).toBe(200);
+    mode = 'unauthorized';
+    const bad = await h.call('admin', 'POST', '/api/admin/ai/test', { provider: 'gemini' });
+    mode = 'ok';
+    expect(bad.status).toBe(502);
+    expect(bad.body.error.message).toContain('check the API key');
+    expect(JSON.stringify(bad.body)).not.toContain(GEMINI_KEY);
+  });
+
+  it('switches to Grok with its own key, and back to the simulator', async () => {
+    // A saved Gemini key is not reused for another provider.
+    expect((await h.call('admin', 'PUT', '/api/admin/ai', { provider: 'grok' })).status).toBe(422);
+    const tried = await h.call('admin', 'POST', '/api/admin/ai/test', { provider: 'grok', api_key: GROK_KEY });
+    expect(tried.status).toBe(200);
+    const grokCall = fake.calls.findLast((c) => c.url.includes('api.x.ai'))!;
+    expect((grokCall.init.headers as Record<string, string>).Authorization).toBe(`Bearer ${GROK_KEY}`);
+    expect((await h.call('admin', 'PUT', '/api/admin/ai', { provider: 'grok', api_key: GROK_KEY })).body).toMatchObject({ provider: 'grok', key_hint: 'abcd' });
+    const off = await h.call('admin', 'PUT', '/api/admin/ai', { provider: 'simulator', api_key: null });
+    expect(off.body).toMatchObject({ provider: 'simulator', has_key: false });
+    expect((await h.call(null, 'GET', '/api/config')).body.integrations.ai.simulated).toBe(true);
   });
 });

@@ -3,6 +3,7 @@ import type { z } from 'zod';
 import type { Role } from '@sh/shared';
 import type { AuthProvider } from '../auth/auth';
 import type { AnalysisPipeline } from '../automation/analysis';
+import type { AiSettings } from '../automation/ai-provider';
 import type { NotificationDispatcher } from '../automation/notifications';
 import type { Config } from '../config';
 import type { Db, Queryable } from '../db/types';
@@ -31,7 +32,11 @@ export interface Services {
   db: Db;
   auth: AuthProvider;
   analysis: AnalysisPipeline;
+  /** The AI provider and encrypted key the administrator saved. */
+  aiSettings: AiSettings;
   notifications: NotificationDispatcher;
+  /** Outbound HTTP (replaced in tests). */
+  fetchImpl: typeof fetch;
   /** Process queued automation work soon (non-blocking). */
   kick: () => void;
   log: (msg: string, extra?: Record<string, unknown>) => void;

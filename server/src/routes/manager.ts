@@ -188,6 +188,7 @@ export function managerRoutes() {
                 coalesce((
                   select jsonb_agg(jsonb_build_object(
                     'employee_id', a.employee_id, 'employee_name', p.full_name,
+                    'photo_version', (select floor(extract(epoch from ph.updated_at))::bigint from public.profile_photos ph where ph.profile_id = a.employee_id),
                     'report_id', r.id, 'report_status', r.status, 'reference_code', r.reference_code, 'is_late', r.is_late,
                     'override_expires_at', (select max(o.expires_at) from public.report_window_overrides o
                                              where o.shift_id = s.id and o.employee_id = a.employee_id and o.expires_at > now()),

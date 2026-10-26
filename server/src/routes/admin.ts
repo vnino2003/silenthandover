@@ -5,6 +5,7 @@ import { maskAddress } from '../automation/notifications';
 import { ApiError } from '../http/errors';
 import { asUser, idParam, parseBody, parseQuery, requireRole, svc, type AppEnv } from '../http/context';
 import { clearDemoActivity } from '../seed/demo';
+import { AI_PROVIDERS, callProvider, ProviderError } from '../automation/ai-provider';
 
 const optionalUuid = z.uuid().nullable().default(null);
 
@@ -26,6 +27,55 @@ export function adminRoutes() {
   r.use('*', async (c, next) => {
     requireRole(c, 'admin');
     await next();
+  });
+
+  // ---- AI provider -------------------------------------------------------------
+  // The administrator picks Gemini or Grok and pastes the API key here. The key is encrypted
+  // before it is stored and is never sent back: responses only say whether one is saved.
+  r.get('/ai', async (c) => {
+    const { aiSettings, config } = svc(c);
+    return c.json({ ...(await aiSettings.view()), adapter: config.AI_ADAPTER, providers: AI_PROVIDERS });
+  });
+
+  const AiBody = z.strictObject({
+    provider: z.enum(['simulator', 'gemini', 'grok']),
+    model: z.string().trim().min(2).max(100).regex(/^[A-Za-z0-9._:-]+$/, 'Use the model name exactly as the provider lists it').nullable().default(null),
+    // A new key replaces the saved one; null removes it; leaving it out keeps it.
+    api_key: z.string().trim().min(16, 'That does not look like a full API key').max(300).nullable().optional(),
+  });
+
+  r.put('/ai', async (c) => {
+    const b = await parseBody(c, AiBody);
+    const { aiSettings } = svc(c);
+    const view = await aiSettings.view();
+    if (b.api_key && !view.encryption_available) {
+      throw new ApiError(409, 'encryption_unavailable', 'Set SECRETS_ENCRYPTION_KEY on the server before saving an API key');
+    }
+    if (b.provider !== 'simulator' && !b.api_key && !(view.has_key && view.provider === b.provider && b.api_key === undefined)) {
+      throw new ApiError(422, 'validation', 'Paste the API key for this provider', { api_key: 'Required' });
+    }
+    await aiSettings.save({ provider: b.provider, model: b.provider === 'simulator' ? null : b.model, apiKey: b.api_key }, c.get('userId'));
+    return c.json(await aiSettings.view());
+  });
+
+  // Sends a tiny request with the saved key (or one being tried before saving) to prove it works.
+  r.post('/ai/test', async (c) => {
+    const b = await parseBody(c, AiBody.extend({ provider: z.enum(['gemini', 'grok']) }));
+    const { aiSettings, config, fetchImpl } = svc(c);
+    const saved = b.api_key ? null : await aiSettings.active();
+    const apiKey = b.api_key ?? (saved?.provider === b.provider ? saved.apiKey : null);
+    if (!apiKey) throw new ApiError(422, 'validation', 'Paste the API key to test it', { api_key: 'Required' });
+    const model = b.model ?? AI_PROVIDERS[b.provider].defaultModel;
+    try {
+      const reply = await callProvider(fetchImpl, b.provider, model, apiKey, {
+        system: 'You are a connection test. Reply with JSON only.',
+        user: 'Return exactly {"ok": true}.',
+      }, Math.min(config.AI_REQUEST_TIMEOUT_MS, 30000));
+      return c.json({ ok: true, provider: b.provider, model, latency_ms: reply.latencyMs });
+    } catch (err) {
+      if (err instanceof ProviderError) throw new ApiError(502, 'provider_error', err.message);
+      throw err;
+    }
   });
 
   // ---- Demo ------------------------------------------------------------------
@@ -179,8 +229,7 @@ export function adminRoutes() {
     return c.json({
       adapters: {
         ai: {
-          adapter: analysis.adapterName,
-          simulated: analysis.adapterName === 'dev',
+          ...(await analysis.status()),
           webhook_configured: Boolean(config.N8N_ANALYSIS_WEBHOOK_URL),
           prompt_version: config.PROMPT_VERSION,
         },

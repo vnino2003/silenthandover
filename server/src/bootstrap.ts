@@ -3,7 +3,8 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createLocalAuth, createSupabaseAuth } from './auth/auth';
-import { AnalysisPipeline, createDevAnalysisAdapter, createN8nAnalysisAdapter } from './automation/analysis';
+import { AiSettings } from './automation/ai-provider';
+import { AnalysisPipeline, createAdminAnalysisAdapter, createDevAnalysisAdapter, createN8nAnalysisAdapter } from './automation/analysis';
 import {
   createDevTransport,
   createN8nTransport,
@@ -18,6 +19,7 @@ import { createPgliteDb } from './db/pglite';
 import { createPostgresDb } from './db/postgres';
 import type { Db } from './db/types';
 import type { Services } from './http/context';
+import { createSecretBox, decodeSecretsKey } from './security/secrets';
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const DEFAULT_LOCAL_DIR = resolve(here, '../.data');
@@ -27,11 +29,11 @@ export const log = (msg: string, extra?: Record<string, unknown>) => {
   console.log(JSON.stringify({ t: new Date().toISOString(), msg, ...extra }));
 };
 
-function localSecret(dir: string): string {
-  const file = join(dir, 'local-jwt-secret');
+function localSecret(dir: string, name = 'local-jwt-secret', bytes = 48): string {
+  const file = join(dir, name);
   if (existsSync(file)) return readFileSync(file, 'utf8').trim();
   mkdirSync(dir, { recursive: true });
-  const secret = randomBytes(48).toString('base64url');
+  const secret = randomBytes(bytes).toString('base64url');
   writeFileSync(file, secret, { mode: 0o600 });
   return secret;
 }
@@ -64,8 +66,22 @@ export async function createServices(config: Config, opts: BootstrapOptions = {}
       ? createLocalAuth(db, config.LOCAL_JWT_SECRET ?? (opts.memory ? randomBytes(48).toString('base64url') : localSecret(localDir)))
       : createSupabaseAuth(config);
 
+  // Secrets entered in the app are encrypted with this key. Without one (Supabase mode with no
+  // SECRETS_ENCRYPTION_KEY) the admin page cannot store an AI key and the simulator keeps running.
+  const secretsKey = config.SECRETS_ENCRYPTION_KEY
+    ? decodeSecretsKey(config.SECRETS_ENCRYPTION_KEY)
+    : config.APP_MODE === 'local'
+      ? opts.memory
+        ? randomBytes(32)
+        : decodeSecretsKey(localSecret(localDir, 'local-secrets-key', 32))
+      : null;
+  const aiSettings = new AiSettings(db, secretsKey ? createSecretBox(secretsKey) : null);
   const adapter =
-    config.AI_ADAPTER === 'n8n' ? createN8nAnalysisAdapter(config, fetchImpl) : createDevAnalysisAdapter(config.DEV_ANALYSIS_DELAY_MS, logger);
+    config.AI_ADAPTER === 'n8n'
+      ? createN8nAnalysisAdapter(config, fetchImpl)
+      : config.AI_ADAPTER === 'dev'
+        ? createDevAnalysisAdapter(config.DEV_ANALYSIS_DELAY_MS, logger)
+        : createAdminAnalysisAdapter(aiSettings, { fetchImpl, timeoutMs: config.AI_REQUEST_TIMEOUT_MS, devDelayMs: config.DEV_ANALYSIS_DELAY_MS, log: logger });
   const analysis = new AnalysisPipeline(db, config, adapter, logger);
 
   const transport: EmailTransport =
@@ -125,6 +141,8 @@ export async function createServices(config: Config, opts: BootstrapOptions = {}
     db,
     auth,
     analysis,
+    aiSettings,
+    fetchImpl,
     notifications,
     kick,
     log: logger,

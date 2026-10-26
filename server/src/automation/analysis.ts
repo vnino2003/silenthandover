@@ -1,6 +1,7 @@
 import { AiHandoverDraft, buildHandoverPrompt, ReportDraftContent, type PromptVersion, type RenderedPrompt } from '@sh/shared';
 import type { Config } from '../config';
 import type { Db, Queryable } from '../db/types';
+import { AI_PROVIDERS, callProvider, type AiSettings } from './ai-provider';
 import { simulateAnalysis } from './dev-analyzer';
 import { groundDraft, type GroundingRecord } from './grounding';
 import { detectInjection, type InjectionFinding } from './injection';
@@ -28,8 +29,17 @@ export interface CompletionMeta {
 }
 
 export interface AnalysisAdapter {
-  readonly name: 'dev' | 'n8n';
+  readonly name: 'dev' | 'n8n' | 'admin';
   dispatch(job: AnalysisJob, pipeline: AnalysisPipeline): Promise<void>;
+  /** What actually runs right now (the admin adapter depends on the saved settings). */
+  status?(): Promise<AnalysisStatus>;
+}
+
+export interface AnalysisStatus {
+  adapter: 'dev' | 'n8n' | 'admin';
+  provider: string | null;
+  model: string | null;
+  simulated: boolean;
 }
 
 type Logger = (msg: string, extra?: Record<string, unknown>) => void;
@@ -52,6 +62,10 @@ export class AnalysisPipeline {
 
   get adapterName() {
     return this.adapter.name;
+  }
+
+  async status(): Promise<AnalysisStatus> {
+    return this.adapter.status?.() ?? { adapter: this.adapter.name, provider: null, model: null, simulated: this.adapter.name === 'dev' };
   }
 
   /** Claims due analysis events and dispatches them. Safe to call often. */
@@ -262,6 +276,39 @@ export function createDevAnalysisAdapter(delayMs: number, log: Logger = () => {}
       };
       if (delayMs <= 0) return run();
       setTimeout(() => run().catch((e) => log('dev analysis failed', { error: String(e) })), delayMs);
+    },
+  };
+}
+
+/**
+ * Admin-configured adapter (the default): calls the provider the administrator connected on the
+ * admin page (Gemini or Grok) with the stored, encrypted key. Until a provider and key are saved,
+ * it runs the clearly labeled simulator instead. A provider failure is thrown, so the event is
+ * retried with backoff and, after the last attempt, goes to the supervisor for manual review.
+ */
+export function createAdminAnalysisAdapter(
+  settings: AiSettings,
+  opts: { fetchImpl?: typeof fetch; timeoutMs: number; devDelayMs: number; log?: Logger },
+): AnalysisAdapter {
+  const simulator = createDevAnalysisAdapter(opts.devDelayMs, opts.log);
+  return {
+    name: 'admin',
+    async dispatch(job, pipeline) {
+      const active = await settings.active();
+      if (!active) return simulator.dispatch(job, pipeline);
+      const reply = await callProvider(opts.fetchImpl ?? fetch, active.provider, active.model, active.apiKey, job.prompt, opts.timeoutMs);
+      await pipeline.complete(job.eventId, job.attempt, reply.text, {
+        engine: active.provider,
+        model: active.model,
+        isSimulated: false,
+        latencyMs: reply.latencyMs,
+        usage: reply.usage,
+      });
+    },
+    async status() {
+      const v = await settings.view();
+      const live = v.provider !== 'simulator' && v.has_key && v.encryption_available;
+      return { adapter: 'admin', provider: live ? v.provider : null, model: live ? (v.model ?? AI_PROVIDERS[v.provider as 'gemini' | 'grok'].defaultModel) : null, simulated: !live };
     },
   };
 }

@@ -43,8 +43,9 @@ export function createApp(services: Services) {
   });
 
   // Public configuration: what the browser needs to sign in, and truthful integration status.
-  app.get('/api/config', (c) => {
+  app.get('/api/config', async (c) => {
     const { config, auth, analysis, notifications } = svc(c);
+    const ai = await analysis.status();
     return c.json({
       mode: config.APP_MODE,
       auth:
@@ -55,7 +56,7 @@ export function createApp(services: Services) {
       // Account details are not sent: the sign-in page shows no account list.
       demo: config.APP_MODE === 'local' && config.DEMO_MODE ? { enabled: true } : null,
       integrations: {
-        ai: { adapter: analysis.adapterName, simulated: analysis.adapterName === 'dev', prompt_version: config.PROMPT_VERSION },
+        ai: { adapter: ai.adapter, provider: ai.provider, model: ai.model, simulated: ai.simulated, prompt_version: config.PROMPT_VERSION },
         email: { transport: notifications.transportName, simulated: notifications.transportName === 'dev' },
         sms: { connected: notifications.smsTransportName !== 'none', transport: notifications.smsTransportName },
       },

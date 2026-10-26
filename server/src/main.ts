@@ -21,7 +21,7 @@ const server = serve({ fetch: app.fetch, port: config.PORT }, (info) => {
   log('api listening', {
     port: info.port,
     mode: config.APP_MODE,
-    ai: config.AI_ADAPTER === 'dev' ? 'dev simulator (no AI calls)' : 'n8n',
+    ai: config.AI_ADAPTER === 'dev' ? 'dev simulator (no AI calls)' : config.AI_ADAPTER === 'n8n' ? 'n8n' : 'set by the administrator (simulator until a key is saved)',
     email: config.EMAIL_TRANSPORT === 'dev' ? 'dev outbox (nothing sent)' : config.EMAIL_TRANSPORT,
   });
   services.kick();

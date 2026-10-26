@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { asUser, parseBody, parseQuery, requireRole, type AppEnv } from '../http/context';
+import { ApiError } from '../http/errors';
+import { asUser, idParam, parseBody, parseQuery, requireRole, type AppEnv } from '../http/context';
 
 export function meRoutes() {
   const r = new Hono<AppEnv>();
@@ -23,6 +24,38 @@ export function meRoutes() {
     );
     await asUser(c, (q) => q.query('select app.update_my_preferences($1, $2, $3)', [body.notify_email, body.notify_sms, body.phone]));
     return c.json(await asUser(c, async (q) => (await q.query<{ p: unknown }>('select app.my_profile() as p'))[0]!.p));
+  });
+
+  // Your own profile picture: set or remove it. The browser crops and shrinks it first.
+  r.put('/me/photo', async (c) => {
+    const body = await parseBody(
+      c,
+      z.strictObject({
+        content_type: z.enum(['image/jpeg', 'image/png', 'image/webp']),
+        data_base64: z.string().max(700_000, 'Pictures must be 512 KB or smaller').regex(/^[A-Za-z0-9+/]+=*$/, 'The picture could not be read'),
+      }),
+    );
+    await asUser(c, (q) => q.query('select app.set_my_photo($1, $2)', [body.content_type, body.data_base64]));
+    return c.json(await asUser(c, async (q) => (await q.query<{ p: unknown }>('select app.my_profile() as p'))[0]!.p));
+  });
+
+  r.delete('/me/photo', async (c) => {
+    await asUser(c, (q) => q.query('select app.remove_my_photo()'));
+    return c.json(await asUser(c, async (q) => (await q.query<{ p: unknown }>('select app.my_profile() as p'))[0]!.p));
+  });
+
+  // Served through the API so RLS decides who may see it; the URL carries no token.
+  r.get('/profile-photos/:id', async (c) => {
+    const id = idParam(c);
+    const [photo] = await asUser(c, (q) =>
+      q.query<{ content_type: string; data: Uint8Array }>('select content_type, data from public.profile_photos where profile_id = $1', [id]),
+    );
+    if (!photo) throw new ApiError(404, 'not_found', 'No picture');
+    return c.body(new Uint8Array(photo.data), 200, {
+      'Content-Type': photo.content_type,
+      'Cache-Control': 'private, max-age=86400',
+      'X-Content-Type-Options': 'nosniff',
+    });
   });
 
   r.get('/notifications', async (c) => {

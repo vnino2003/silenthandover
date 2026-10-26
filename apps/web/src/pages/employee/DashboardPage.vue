@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { classifyWindow, formatDuration, type ReportStatus } from '@sh/shared';
+import { classifyWindow, type ReportStatus } from '@sh/shared';
+import DutyRing from '@/components/DutyRing.vue';
 import ReportingWindow from '@/components/ReportingWindow.vue';
 import SeverityTag from '@/components/ui/SeverityTag.vue';
 import StateBlock from '@/components/ui/StateBlock.vue';
@@ -64,17 +65,6 @@ const action = computed(() => {
 });
 
 const pendingAcks = computed(() => data.value?.incoming.filter((i) => !i.acknowledged_at) ?? []);
-const dutyProgress = computed(() => {
-  const shift = current.value;
-  if (!shift) return null;
-  const start = new Date(shift.starts_at).getTime();
-  const end = new Date(shift.ends_at).getTime();
-  const elapsed = now.value - start;
-  const percent = Math.max(0, Math.min(100, Math.round((elapsed / (end - start)) * 100)));
-  if (now.value < start) return { percent: 0, label: `Starts in ${formatDuration(start - now.value)}` };
-  if (now.value < end) return { percent, label: `${formatDuration(end - now.value)} left in your duty` };
-  return { percent: 100, label: 'Duty finished — complete your handover report' };
-});
 </script>
 
 <template>
@@ -108,14 +98,8 @@ const dutyProgress = computed(() => {
                 <div><dt class="text-ink-3">Department</dt><dd>{{ current.department_name }}</dd></div>
                 <div v-if="current.supervisor_name"><dt class="text-ink-3">Supervisor</dt><dd>{{ current.supervisor_name }}</dd></div>
               </dl>
-              <div v-if="dutyProgress" class="mt-5 rounded-md bg-canvas px-3.5 py-3">
-                <div class="flex items-center justify-between gap-3 text-[12.5px]">
-                  <span class="font-medium text-ink-2">Duty progress</span>
-                  <span class="text-ink-3 tnum">{{ dutyProgress.label }}</span>
-                </div>
-                <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-sunken" role="progressbar" :aria-valuenow="dutyProgress.percent" aria-valuemin="0" aria-valuemax="100" aria-label="Duty progress">
-                  <div class="h-full rounded-full bg-accent transition-all" :style="{ width: `${dutyProgress.percent}%` }" />
-                </div>
+              <div class="mt-5 rounded-lg border border-line bg-canvas/60 p-4">
+                <DutyRing :shift="current" :now="now" />
               </div>
               <div class="mt-5 border-t border-line pt-5">
                 <ReportingWindow :shift="current" :now="now" />

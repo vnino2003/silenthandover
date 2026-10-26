@@ -24,8 +24,13 @@ const EnvSchema = z.object({
   SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
   SUPABASE_JWT_SECRET: z.string().optional(),
 
-  // AI processing: 'dev' = clearly labeled local simulator, 'n8n' = real workflow.
-  AI_ADAPTER: z.enum(['dev', 'n8n']).default('dev'),
+  // AI processing: 'admin' (default) = the provider and key the administrator saves on the admin page,
+  // using the labeled simulator until then; 'dev' = always the simulator; 'n8n' = Workflow A.
+  AI_ADAPTER: z.enum(['admin', 'dev', 'n8n']).default('admin'),
+  AI_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(5000).default(60000),
+  // Encrypts secrets entered in the app (the AI key). 32 bytes, base64: openssl rand -base64 32.
+  // Local mode creates one in the local data folder when unset.
+  SECRETS_ENCRYPTION_KEY: z.string().optional(),
   PROMPT_VERSION: z.enum(PROMPT_VERSIONS).default('1.0'),
   DEV_ANALYSIS_DELAY_MS: z.coerce.number().int().min(0).default(1500),
   N8N_ANALYSIS_WEBHOOK_URL: z.url().optional(),

@@ -7,6 +7,7 @@ import StatusBadge from '@/components/ui/StatusBadge.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import UiDialog from '@/components/ui/UiDialog.vue';
 import UiField from '@/components/ui/UiField.vue';
+import UserAvatar from '@/components/UserAvatar.vue';
 import { api, errorMessage } from '@/lib/api';
 import { dateTime, longDate, shiftRange, time } from '@/lib/format';
 import type { ShiftView } from '@/lib/types';
@@ -20,6 +21,7 @@ import { useToast } from '@/stores/toast';
 interface Assignee {
   employee_id: string;
   employee_name: string;
+  photo_version: number | null;
   report_id: string | null;
   report_status: ReportStatus | null;
   reference_code: string | null;
@@ -91,13 +93,6 @@ function startsIn(s: BoardShift) {
   const h = Math.floor(mins / 60);
   return `in ${h} h${mins % 60 ? ` ${mins % 60} min` : ''}`;
 }
-const initials = (name: string) =>
-  name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p[0]?.toUpperCase())
-    .join('');
 
 /** Did this person read the handover meant for them? null = nothing was sent to them. */
 function readState(a: Assignee): 'read' | 'unread' | null {
@@ -185,8 +180,8 @@ async function grant() {
               </div>
               <ul v-if="s.assignees.length" class="flex flex-wrap gap-x-6 gap-y-3 px-5 py-4">
                 <li v-for="a in s.assignees" :key="a.employee_id" class="flex items-center gap-2.5">
-                  <span class="relative grid size-10 place-items-center rounded-full bg-info-soft text-[13px] font-semibold text-info">
-                    {{ initials(a.employee_name) }}
+                  <span class="relative">
+                    <UserAvatar :id="a.employee_id" :name="a.employee_name" :version="a.photo_version" :size="40" />
                     <span class="absolute -right-0.5 -bottom-0.5 size-3 rounded-full border-2 border-surface bg-ok" aria-hidden="true" />
                   </span>
                   <span>
@@ -246,7 +241,7 @@ async function grant() {
                 <ul v-if="s.assignees.length" class="divide-y divide-line">
                   <li v-for="a in s.assignees" :key="a.employee_id" class="flex flex-wrap items-center justify-between gap-3 px-5 py-2.5">
                     <div class="flex min-w-0 items-center gap-2.5">
-                      <span class="grid size-8 shrink-0 place-items-center rounded-full bg-sunken text-[11px] font-semibold text-ink-2">{{ initials(a.employee_name) }}</span>
+                      <UserAvatar :id="a.employee_id" :name="a.employee_name" :version="a.photo_version" :size="32" />
                       <div class="min-w-0">
                         <p class="text-[14px] font-medium">{{ a.employee_name }}</p>
                         <p class="text-[12.5px] text-ink-3">

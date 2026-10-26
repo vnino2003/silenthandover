@@ -34,6 +34,8 @@ export interface Profile {
   pseudonym: string;
   notify_email: boolean;
   notify_sms: boolean;
+  /** Changes whenever the profile picture changes; null when there is none. */
+  photo_version: number | null;
   server_now: string;
 }
 

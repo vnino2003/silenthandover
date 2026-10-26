@@ -5,6 +5,7 @@ import StateBlock from '@/components/ui/StateBlock.vue';
 import StatusBadge, { type Tone } from '@/components/ui/StatusBadge.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import UiDialog from '@/components/ui/UiDialog.vue';
+import UiField from '@/components/ui/UiField.vue';
 import { api, errorMessage } from '@/lib/api';
 import { dateTime, relative } from '@/lib/format';
 import { useAsync } from '@/lib/useAsync';
@@ -13,7 +14,7 @@ import { useToast } from '@/stores/toast';
 
 interface Integrations {
   adapters: {
-    ai: { adapter: 'dev' | 'n8n'; simulated: boolean; webhook_configured: boolean; prompt_version: string };
+    ai: { adapter: 'dev' | 'n8n' | 'admin'; provider: 'gemini' | 'grok' | null; model: string | null; simulated: boolean; webhook_configured: boolean; prompt_version: string };
     email: { transport: string; simulated: boolean; from: string };
     sms: { connected: boolean; transport: 'none' | 'n8n'; webhook_configured: boolean; from: string; note: string };
     callbacks: { enabled: boolean };
@@ -58,6 +59,74 @@ const clearDemo = () =>
     toast.info(`Removed ${r.cleared.shifts} shifts, ${r.cleared.reports} reports and ${r.cleared.issues} tickets`);
   }, 'Demo data cleared');
 
+// ---- AI provider: the administrator pastes the key here; it is stored encrypted, never shown again.
+type Provider = 'simulator' | 'gemini' | 'grok';
+interface AiSettingsView {
+  provider: Provider;
+  model: string | null;
+  has_key: boolean;
+  key_hint: string | null;
+  updated_at: string | null;
+  updated_by_name: string | null;
+  encryption_available: boolean;
+  providers: Record<'gemini' | 'grok', { label: string; defaultModel: string; keyUrl: string }>;
+}
+const PROVIDER_NOTE: Record<Provider, string> = {
+  simulator: 'No AI is called. Drafts are made by a built-in rule-based simulator and clearly labeled as simulated.',
+  gemini: 'Has a free tier. On the free tier Google may use what is sent to improve its products — only sanitized text is sent, but use synthetic data for demos.',
+  grok: 'Paid: needs credit on your xAI account.',
+};
+const aiTitle = computed(() => {
+  const ai = data.value?.adapters.ai;
+  if (!ai) return '';
+  if (ai.provider === 'gemini') return 'Google Gemini';
+  if (ai.provider === 'grok') return 'xAI Grok';
+  return ai.adapter === 'n8n' && !ai.simulated ? 'n8n workflow' : 'Development simulator';
+});
+const ai = ref<AiSettingsView | null>(null);
+const aiForm = ref<{ provider: Provider; model: string; api_key: string; removeKey: boolean } | null>(null);
+const aiTest = ref<{ ok: boolean; text: string } | null>(null);
+const showKey = ref(false);
+async function openAi() {
+  try {
+    ai.value = await api.get<AiSettingsView>('/admin/ai');
+    aiForm.value = { provider: ai.value.provider, model: ai.value.model ?? '', api_key: '', removeKey: false };
+    aiTest.value = null;
+    showKey.value = false;
+  } catch (err) {
+    toast.error(errorMessage(err));
+  }
+}
+const providerInfo = computed(() => (aiForm.value && aiForm.value.provider !== 'simulator' ? ai.value?.providers[aiForm.value.provider] : null));
+/** The saved key only belongs to the provider it was saved for. */
+const keySavedForThis = computed(() => !!ai.value?.has_key && ai.value.provider === aiForm.value?.provider && !aiForm.value?.removeKey);
+const aiPayload = (): { provider: Provider; model: string | null; api_key?: string | null } => {
+  const f = aiForm.value!;
+  return {
+    provider: f.provider,
+    model: f.provider === 'simulator' ? null : f.model.trim() || null,
+    ...(f.api_key.trim() ? { api_key: f.api_key.trim() } : f.removeKey || f.provider === 'simulator' ? { api_key: null } : {}),
+  };
+};
+async function testAi() {
+  aiTest.value = null;
+  busy.value = 'ai-test';
+  try {
+    const body = aiPayload();
+    const r = await api.post<{ model: string; latency_ms: number }>('/admin/ai/test', { provider: body.provider, model: body.model, ...(body.api_key ? { api_key: body.api_key } : {}) });
+    aiTest.value = { ok: true, text: `Connected to ${r.model} · answered in ${(r.latency_ms / 1000).toFixed(1)} s` };
+  } catch (err) {
+    aiTest.value = { ok: false, text: errorMessage(err) };
+  } finally {
+    busy.value = null;
+  }
+}
+const saveAi = () =>
+  act('ai-save', async () => {
+    await api.put('/admin/ai', aiPayload());
+    aiForm.value = null;
+  }, 'AI settings saved');
+
 const retryEvent = (id: string) => act(id, () => api.post(`/admin/events/${id}/retry`), 'Retry queued');
 const retryDelivery = (id: string) => act(id, () => api.post(`/admin/deliveries/${id}/retry`), 'Retry queued');
 
@@ -80,13 +149,16 @@ const counts = (rows: { status: string; count: number }[]) => rows.reduce<Record
     <StateBlock :loading="loading" :error="error" :lines="6" @retry="reload()">
       <template v-if="data">
         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div class="card p-4">
+          <div class="card flex flex-col p-4">
             <p class="eyebrow">AI processing</p>
-            <p class="mt-1.5 text-[15px] font-medium">{{ data.adapters.ai.simulated ? 'Development simulator' : 'n8n workflow' }}</p>
+            <p class="mt-1.5 text-[15px] font-medium">{{ aiTitle }}</p>
             <p class="mt-0.5 text-[13px]" :class="data.adapters.ai.simulated ? 'text-warn' : 'text-ink-2'">
-              {{ data.adapters.ai.simulated ? 'No AI provider is called.' : data.adapters.ai.webhook_configured ? 'Webhook configured' : 'Webhook missing' }}
+              {{ data.adapters.ai.simulated ? 'No AI provider is called yet.' : data.adapters.ai.model ? `Model ${data.adapters.ai.model}` : data.adapters.ai.webhook_configured ? 'Webhook configured' : 'Webhook missing' }}
             </p>
             <p class="mt-2 text-[12.5px] text-ink-3">Prompt v{{ data.adapters.ai.prompt_version }}</p>
+            <UiButton v-if="data.adapters.ai.adapter === 'admin'" class="mt-3 self-start" size="sm" :variant="data.adapters.ai.simulated ? 'primary' : 'secondary'" @click="openAi">
+              {{ data.adapters.ai.simulated ? 'Connect an AI' : 'Change AI settings' }}
+            </UiButton>
           </div>
           <div class="card p-4">
             <p class="eyebrow">Email</p>
@@ -218,6 +290,78 @@ const counts = (rows: { status: string; count: number }[]) => rows.reduce<Record
       </div>
       <UiButton variant="danger" :loading="busy === 'clear'" @click="confirmClear = true">Clear demo data</UiButton>
     </section>
+    <UiDialog
+      :open="Boolean(aiForm)"
+      title="AI provider"
+      description="The AI that drafts each handover from the sanitized report. A supervisor still checks and approves every draft."
+      @close="aiForm = null"
+    >
+      <form v-if="aiForm && ai" id="ai-form" class="space-y-4" @submit.prevent="saveAi">
+        <fieldset>
+          <legend class="mb-1.5 text-[13.5px] font-medium">Provider</legend>
+          <div class="grid gap-2 sm:grid-cols-3">
+            <label
+              v-for="p in ([['gemini', 'Google Gemini'], ['grok', 'xAI Grok'], ['simulator', 'Simulator (no AI)']] as const)"
+              :key="p[0]"
+              class="cursor-pointer rounded-md border px-3 py-2.5 text-[13.5px] transition"
+              :class="aiForm.provider === p[0] ? 'border-accent bg-accent-soft font-medium' : 'border-line hover:border-line-strong'"
+            >
+              <input v-model="aiForm.provider" type="radio" :value="p[0]" class="sr-only" @change="(aiForm.model = ''), (aiTest = null), (aiForm.removeKey = false)" />
+              {{ p[1] }}
+            </label>
+          </div>
+          <p class="mt-2 text-[12.5px] text-ink-3">{{ PROVIDER_NOTE[aiForm.provider] }}</p>
+        </fieldset>
+
+        <template v-if="providerInfo">
+          <UiField v-slot="{ id }" label="API key" :hint="keySavedForThis ? `Saved key ends with …${ai.key_hint}. Leave empty to keep it.` : undefined">
+            <div class="relative">
+              <input
+                :id="id"
+                v-model="aiForm.api_key"
+                :type="showKey ? 'text' : 'password'"
+                class="field-input pr-16 font-mono text-[13px]"
+                autocomplete="off"
+                spellcheck="false"
+                :placeholder="keySavedForThis ? '•••••••••••• (saved)' : 'Paste the key'"
+              />
+              <button type="button" class="absolute inset-y-0 right-0 px-3 text-[12.5px] font-medium text-ink-3 hover:text-ink" @click="showKey = !showKey">{{ showKey ? 'Hide' : 'Show' }}</button>
+            </div>
+          </UiField>
+          <p class="-mt-2 text-[12.5px] text-ink-3">
+            Get one at <a :href="providerInfo.keyUrl" target="_blank" rel="noopener noreferrer" class="link">{{ providerInfo.keyUrl.replace('https://', '') }}</a>.
+            It is encrypted before it is stored and never shown again.
+          </p>
+          <UiField v-slot="{ id }" label="Model" optional>
+            <input :id="id" v-model="aiForm.model" class="field-input font-mono text-[13px]" :placeholder="providerInfo.defaultModel" spellcheck="false" />
+          </UiField>
+          <label v-if="keySavedForThis || (ai.has_key && ai.provider === aiForm.provider)" class="flex items-center gap-2 text-[13px] text-ink-2">
+            <input v-model="aiForm.removeKey" type="checkbox" class="size-4 accent-accent" /> Remove the saved key
+          </label>
+          <div class="flex flex-wrap items-center gap-3">
+            <UiButton size="sm" :loading="busy === 'ai-test'" :disabled="!aiForm.api_key.trim() && !keySavedForThis" @click="testAi">Test connection</UiButton>
+            <p v-if="aiTest" class="text-[13px]" :class="aiTest.ok ? 'text-ok' : 'text-bad'" role="status">{{ aiTest.text }}</p>
+          </div>
+          <p v-if="!ai.encryption_available" class="rounded-md bg-bad-soft px-3 py-2 text-[13px] text-bad">
+            The server has no SECRETS_ENCRYPTION_KEY, so it cannot store a key yet.
+          </p>
+        </template>
+        <p v-if="ai.updated_at && ai.updated_by_name" class="text-[12px] text-ink-3">Last changed by {{ ai.updated_by_name }}, {{ dateTime(ai.updated_at) }}</p>
+      </form>
+      <template #footer>
+        <UiButton variant="ghost" @click="aiForm = null">Cancel</UiButton>
+        <UiButton
+          variant="primary"
+          type="submit"
+          form="ai-form"
+          :loading="busy === 'ai-save'"
+          :disabled="!!aiForm && aiForm.provider !== 'simulator' && !aiForm.api_key.trim() && !keySavedForThis"
+        >
+          Save
+        </UiButton>
+      </template>
+    </UiDialog>
+
     <UiDialog :open="confirmClear" title="Clear all demo activity?" description="This permanently removes every shift, report, handover, ticket and notification in this local demo." @close="confirmClear = false">
       <p class="text-[13.5px] text-ink-2">Accounts, departments, shift patterns, source records and the audit log are kept.</p>
       <template #footer>

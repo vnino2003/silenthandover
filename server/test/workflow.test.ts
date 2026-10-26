@@ -1018,3 +1018,52 @@ describe('starting the local demo over', () => {
     expect((await h.call('manager', 'POST', '/api/manager/demo/timeline')).status).toBe(201);
   });
 });
+
+describe('profile pictures', () => {
+  let h: Harness;
+  const PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+  const photo = (who: string, id: string) => h.app.request(`/api/profile-photos/${id}`, { headers: { Authorization: `Bearer ${who}` } });
+  beforeAll(async () => {
+    h = await setup();
+  });
+  afterAll(async () => h?.close());
+
+  it('lets every role set their own picture', async () => {
+    for (const who of ['ana', 'manager', 'admin']) {
+      const res = await h.call(who, 'PUT', '/api/me/photo', { content_type: 'image/png', data_base64: PNG });
+      expect(res.status).toBe(200);
+      expect(res.body.photo_version).toEqual(expect.any(Number));
+      expect((await h.call(who, 'GET', '/api/me')).body.photo_version).toBe(res.body.photo_version);
+    }
+  });
+
+  it('shows it to the person, their department and administrators only', async () => {
+    for (const who of ['ana', 'juan', 'manager', 'admin']) {
+      const res = await photo(await h.token(who), h.ids.ana!);
+      expect(res.status).toBe(200);
+      expect(res.headers.get('content-type')).toBe('image/png');
+      expect(Buffer.from(await res.arrayBuffer()).toString('base64')).toBe(PNG);
+    }
+    for (const who of ['facmanager', 'liza']) expect((await photo(await h.token(who), h.ids.ana!)).status).toBe(404);
+    expect((await h.app.request(`/api/profile-photos/${h.ids.ana}`)).status).toBe(401);
+  });
+
+  it('refuses files that are not really pictures', async () => {
+    const res = await h.call('ana', 'PUT', '/api/me/photo', { content_type: 'image/jpeg', data_base64: PNG });
+    expect(res.status).toBe(422);
+    const text = await h.call('ana', 'PUT', '/api/me/photo', { content_type: 'image/png', data_base64: Buffer.from('<svg onload=alert(1)>').toString('base64') });
+    expect(text.status).toBe(422);
+  });
+
+  it('shows the picture on the supervisor’s Today page', async () => {
+    const board = (await h.call('manager', 'GET', '/api/manager/shift-board')).body;
+    const ana = board.shifts.flatMap((s: any) => s.assignees).find((a: any) => a.employee_id === h.ids.ana);
+    expect(ana.photo_version).toEqual(expect.any(Number));
+  });
+
+  it('removes it again', async () => {
+    const res = await h.call('ana', 'DELETE', '/api/me/photo');
+    expect(res.body.photo_version).toBeNull();
+    expect((await photo(await h.token('juan'), h.ids.ana!)).status).toBe(404);
+  });
+});

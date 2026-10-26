@@ -2,6 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 import BrandMark from '@/components/BrandMark.vue';
+import UserAvatar from '@/components/UserAvatar.vue';
 import { useAuth } from '@/stores/auth';
 import { useNotifications } from '@/stores/notifications';
 import { ROLE_LABELS } from '@sh/shared';
@@ -84,7 +85,10 @@ async function signOut() {
         {{ item.label }}
       </RouterLink>
       <div class="mt-2 border-t border-line pt-2">
-        <RouterLink to="/profile" class="block rounded-md px-3 py-2.5 text-[15px] text-ink-2">Profile &amp; notifications</RouterLink>
+        <RouterLink to="/profile" class="flex items-center gap-2.5 rounded-md px-3 py-2.5 text-[15px] text-ink-2">
+          <UserAvatar v-if="auth.profile" :id="auth.profile.id" :name="auth.profile.full_name" :version="auth.profile.photo_version" :size="28" />
+          Profile &amp; notifications
+        </RouterLink>
         <button class="block w-full rounded-md px-3 py-2.5 text-left text-[15px] text-ink-2" @click="signOut">Sign out</button>
       </div>
     </nav>
@@ -119,10 +123,13 @@ async function signOut() {
           </RouterLink>
         </div>
         <div class="mt-auto space-y-3 px-2">
-          <div>
-            <p class="truncate text-[14px] font-medium">{{ auth.profile?.full_name }}</p>
-            <p class="text-[12.5px] text-ink-3">{{ auth.role ? ROLE_LABELS[auth.role] : '' }}</p>
-          </div>
+          <RouterLink to="/profile" class="-mx-2 flex items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-sunken" aria-label="Your profile">
+            <UserAvatar v-if="auth.profile" :id="auth.profile.id" :name="auth.profile.full_name" :version="auth.profile.photo_version" :size="36" />
+            <span class="min-w-0">
+              <span class="block truncate text-[14px] font-medium">{{ auth.profile?.full_name }}</span>
+              <span class="block text-[12.5px] text-ink-3">{{ auth.role ? ROLE_LABELS[auth.role] : '' }}</span>
+            </span>
+          </RouterLink>
           <div class="flex gap-3 text-[13px]">
             <RouterLink to="/profile" class="text-ink-2 hover:text-ink">Profile</RouterLink>
             <button class="text-ink-2 hover:text-ink" @click="signOut">Sign out</button>
