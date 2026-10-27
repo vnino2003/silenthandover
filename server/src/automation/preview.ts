@@ -8,6 +8,7 @@ import {
   renderSystemPrompt,
   templateFields,
   USER_PROMPT_TEMPLATE,
+  type OrganizationRules,
   type PromptVersion,
   type ReportDraftContent,
 } from '@sh/shared';
@@ -38,6 +39,8 @@ export interface StoredRun {
   draft: unknown;
   flags: unknown[] | null;
   validation_errors: { path: string; message: string }[] | null;
+  /** The organization rules this run used; null for runs from before rules existed. */
+  org_rules: OrganizationRules | null;
 }
 
 export function describeStoredRun(run: StoredRun) {
@@ -65,7 +68,8 @@ export function describeStoredRun(run: StoredRun) {
     prompt: {
       version: run.prompt_version,
       elements: PROMPTS[run.prompt_version],
-      system: renderSystemPrompt(run.prompt_version),
+      organization: run.org_rules,
+      system: renderSystemPrompt(run.prompt_version, run.org_rules),
       user: user.text,
       output_fields: Object.keys((handoverDraftJsonSchema().properties as Record<string, unknown> | undefined) ?? {}),
     },
@@ -92,6 +96,7 @@ export async function previewPipeline(opts: {
   content: ReportDraftContent;
   roster: RosterEntry[];
   promptVersion: PromptVersion;
+  orgRules: OrganizationRules;
   engine: 'simulator' | 'provider';
   aiSettings: AiSettings;
   fetchImpl: typeof fetch;
@@ -115,7 +120,7 @@ export async function previewPipeline(opts: {
     shiftLabel: 'Example shift',
     openIssues: [],
     approvedRecords: [],
-  });
+  }, opts.orgRules);
 
   // 5. The model (or the labeled simulator) answers.
   let ai: { engine: string; model: string | null; simulated: boolean; latency_ms: number; raw: string };
@@ -170,6 +175,7 @@ export async function previewPipeline(opts: {
     prompt: {
       version: opts.promptVersion,
       elements: PROMPTS[opts.promptVersion],
+      organization: opts.orgRules,
       system: filled.prompt.system,
       user: filled.prompt.user,
       output_fields: Object.keys((filled.prompt.responseSchema.properties as Record<string, unknown> | undefined) ?? {}),

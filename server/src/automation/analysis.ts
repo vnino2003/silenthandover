@@ -2,6 +2,7 @@ import { AiHandoverDraft, buildHandoverPrompt, ReportDraftContent, type PromptVe
 import type { Config } from '../config';
 import type { Db, Queryable } from '../db/types';
 import { callWithFallback, type AiSettings } from './ai-provider';
+import { currentRules } from './ai-rules';
 import { simulateAnalysis } from './dev-analyzer';
 import { groundDraft, type GroundingRecord } from './grounding';
 import { detectInjection, type InjectionFinding } from './injection';
@@ -101,6 +102,7 @@ export class AnalysisPipeline {
 
   /** Loads the revision, sanitizes it, stores what will be sent, and renders the bounded prompt. */
   private async prepare(ev: EventRow): Promise<AnalysisJob> {
+    const rules = await currentRules(this.db);
     return this.db.asService(async (q) => {
       const [row] = await q.query<{ reference_code: string; department_id: string; content: unknown; label: string; shift_date: string; starts_at: Date; ends_at: Date }>(
         `select r.reference_code, r.department_id, v.content, s.label, s.shift_date::text as shift_date, s.starts_at, s.ends_at
@@ -130,6 +132,8 @@ export class AnalysisPipeline {
         JSON.stringify(sanitized.counts),
         JSON.stringify(injection),
       ]);
+      // The run records which organization rules it used (copied from the event when stored).
+      await q.query('update public.automation_events set org_rules_version = $2 where id = $1', [ev.id, rules.version]);
       const prompt = buildHandoverPrompt(this.config.PROMPT_VERSION as PromptVersion, {
         reportId: row.reference_code,
         sanitizedReport: sanitized.text,
@@ -142,7 +146,7 @@ export class AnalysisPipeline {
           details: sanitize(r.details, roster).text,
           recorded_at: new Date(r.recorded_at).toISOString(),
         })),
-      });
+      }, rules);
       return {
         eventId: ev.id,
         attempt: ev.attempts,

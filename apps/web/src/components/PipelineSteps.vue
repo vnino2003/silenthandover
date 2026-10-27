@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import type { ServerFlag } from '@sh/shared';
+import type { OrganizationRules, ServerFlag } from '@sh/shared';
 import FlagList from '@/components/FlagList.vue';
+import PromptElementsView from '@/components/PromptElementsView.vue';
 
 /**
  * One report's journey to the AI and back, step by step: template and fallbacks, privacy
@@ -23,6 +24,8 @@ export interface PipelineView {
   prompt: {
     version: string;
     elements: { rolePersona: string; taskObjective: string; contextAndPolicyRules: string; injectionShield: string; negativeConstraints: string[]; outputFormat: string };
+    /** The organization rules this prompt used (null for runs from before rules existed). */
+    organization: OrganizationRules | null;
     system: string;
     user: string;
     output_fields: string[];
@@ -63,14 +66,6 @@ const REDACTION_LABELS: Record<string, string> = {
   government_id: 'Government IDs',
   medical: 'Health details',
 };
-const ELEMENTS = [
-  { key: 'rolePersona', n: 1, title: 'Role / persona' },
-  { key: 'taskObjective', n: 2, title: 'Task objective' },
-  { key: 'contextAndPolicyRules', n: 3, title: 'Context and policy rules' },
-  { key: 'injectionShield', n: 4, title: 'Delimiters and injection shield' },
-  { key: 'negativeConstraints', n: 5, title: 'Negative constraints' },
-  { key: 'outputFormat', n: 6, title: 'Output format' },
-] as const;
 
 const redactions = computed(() => Object.entries(props.view.sanitized.counts).filter(([, n]) => n > 0));
 const removed = computed(() => redactions.value.reduce((n, [, c]) => n + c, 0));
@@ -188,7 +183,7 @@ const ms = (v: number) => (v < 1000 ? `${v} ms` : `${(v / 1000).toFixed(1)} s`);
       <button type="button" class="flex w-full items-start gap-3 px-5 py-4 text-left" :aria-expanded="open[4]" @click="toggle(4)">
         <span class="grid size-7 shrink-0 place-items-center rounded-full bg-accent-soft text-[13px] font-semibold text-accent-ink">4</span>
         <span class="min-w-0 flex-1">
-          <span class="block text-[15px] font-semibold">The six-element prompt (v{{ view.prompt.version }})</span>
+          <span class="block text-[15px] font-semibold">The six-element prompt (v{{ view.prompt.version }}<template v-if="view.prompt.organization"> · organization rules v{{ view.prompt.organization.version }}</template>)</span>
           <span class="block text-[13px] text-ink-3">The instructions the AI gets every time, plus the censored report placed between delimiters.</span>
         </span>
         <span class="text-[12.5px] text-ink-3">{{ open[4] ? 'Hide' : 'Show' }}</span>
@@ -196,15 +191,8 @@ const ms = (v: number) => (v < 1000 ? `${v} ms` : `${(v / 1000).toFixed(1)} s`);
       <div class="expand" :class="{ open: open[4] }">
         <div>
           <div class="space-y-4 border-t border-line px-5 py-4">
-            <div class="grid gap-2 sm:grid-cols-2">
-              <div v-for="el in ELEMENTS" :key="el.key" class="rounded-md border border-line p-3">
-                <p class="text-[12px] font-semibold text-accent-ink">{{ el.n }}. {{ el.title }}</p>
-                <ul v-if="el.key === 'negativeConstraints'" class="mt-1 list-disc space-y-0.5 pl-4 text-[12.5px] text-ink-2">
-                  <li v-for="(c, i) in view.prompt.elements.negativeConstraints" :key="i">{{ c }}</li>
-                </ul>
-                <p v-else class="mt-1 text-[12.5px] whitespace-pre-wrap text-ink-2">{{ view.prompt.elements[el.key] }}</p>
-              </div>
-            </div>
+            <PromptElementsView :elements="view.prompt.elements" :organization="view.prompt.organization" />
+            <p v-if="real && !view.prompt.organization" class="text-[12px] text-ink-3">This report was cleaned before organization rules existed.</p>
             <div class="grid gap-4 lg:grid-cols-2">
               <div>
                 <p class="eyebrow mb-1.5">Message template</p>

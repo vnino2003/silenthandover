@@ -1,5 +1,6 @@
 import { handoverDraftJsonSchema } from './ai-output';
 import { fillTemplate, type TemplateField } from './template';
+import { ORGANIZATION_RULES_HEADING, type OrganizationRules } from './organization-rules';
 
 /**
  * TESDA six-element bounded prompt for the Generative AI node.
@@ -98,24 +99,30 @@ export function escapeForDelimiters(text: string): string {
   return text.replace(/</g, '‹').replace(/>/g, '›');
 }
 
-export function renderSystemPrompt(version: PromptVersion): string {
-  return renderPromptElements(PROMPTS[version], version);
+export function renderSystemPrompt(version: PromptVersion, org?: OrganizationRules | null): string {
+  return renderPromptElements(PROMPTS[version], version, org);
 }
 
-/** The six elements as one system prompt. Mica's prompts use the same layout (see mica-prompt.ts). */
-export function renderPromptElements(p: PromptElements, version: string): string {
+/**
+ * The six elements as one system prompt. Mica's prompts use the same layout (see mica-prompt.ts).
+ * Organization rules, when given, are appended to elements 3 and 5 under their own heading: the
+ * locked rules come first, and the heading says the added rules cannot override them.
+ */
+export function renderPromptElements(p: PromptElements, version: string, org?: OrganizationRules | null): string {
+  const added = (rules: string[] | undefined) =>
+    rules?.length ? `\n\n${ORGANIZATION_RULES_HEADING}\n${rules.map((r) => `- ${escapeForDelimiters(r)}`).join('\n')}` : '';
   return [
-    `# Prompt version ${version}`,
+    `# Prompt version ${version}${org ? ` · organization rules v${org.version}` : ''}`,
     '## 1. Role',
     p.rolePersona,
     '## 2. Task objective',
     p.taskObjective,
     '## 3. Context and policy rules',
-    p.contextAndPolicyRules,
+    p.contextAndPolicyRules + added(org?.policy_rules),
     '## 4. Delimiters and injection shield',
     p.injectionShield,
     '## 5. Negative constraints',
-    p.negativeConstraints.map((c) => `- ${c}`).join('\n'),
+    p.negativeConstraints.map((c) => `- ${c}`).join('\n') + added(org?.negative_constraints),
     '## 6. Output format',
     p.outputFormat,
   ].join('\n\n');
@@ -141,12 +148,12 @@ export const USER_PROMPT_TEMPLATE = [
   'Produce the JSON object now.',
 ].join('\n');
 
-export function buildHandoverPrompt(version: PromptVersion, input: PromptInput): RenderedPrompt {
-  return fillHandoverPrompt(version, input).prompt;
+export function buildHandoverPrompt(version: PromptVersion, input: PromptInput, org?: OrganizationRules | null): RenderedPrompt {
+  return fillHandoverPrompt(version, input, org).prompt;
 }
 
 /** The rendered prompt plus how each template field was filled (shown in the admin AI pipeline view). */
-export function fillHandoverPrompt(version: PromptVersion, input: PromptInput): { prompt: RenderedPrompt; fields: TemplateField[] } {
+export function fillHandoverPrompt(version: PromptVersion, input: PromptInput, org?: OrganizationRules | null): { prompt: RenderedPrompt; fields: TemplateField[] } {
   const filled = fillTemplate(USER_PROMPT_TEMPLATE, {
     report_id: input.reportId,
     shift: escapeForDelimiters(input.shiftLabel),
@@ -160,7 +167,7 @@ export function fillHandoverPrompt(version: PromptVersion, input: PromptInput): 
     raw_input: escapeForDelimiters(input.sanitizedReport),
   });
   return {
-    prompt: { version, system: renderSystemPrompt(version), user: filled.text, responseSchema: handoverDraftJsonSchema() },
+    prompt: { version, system: renderSystemPrompt(version, org), user: filled.text, responseSchema: handoverDraftJsonSchema() },
     fields: filled.fields,
   };
 }

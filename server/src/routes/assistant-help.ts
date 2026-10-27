@@ -5,6 +5,7 @@ import { AssistantPageContext, type MicaAnswer, type Role } from '@sh/shared';
 import { parseBody, svc, type AppEnv } from '../http/context';
 import { ApiError } from '../http/errors';
 import { askMica, plainEngine } from '../automation/mica';
+import { currentRules } from '../automation/ai-rules';
 import { micaFacts, micaRoster } from '../automation/mica-facts';
 import { leaveDates } from '../automation/mica-dates';
 
@@ -75,7 +76,7 @@ export function assistantHelpRoutes() {
       services.aiSettings,
       services.fetchImpl,
       services.config.AI_REQUEST_TIMEOUT_MS,
-      { kind: profile.role, page: body.page, guide: guide.text, question: body.message, roster: await micaRoster(c) },
+      { kind: profile.role, page: body.page, guide: guide.text, question: body.message, roster: await micaRoster(c), orgRules: await currentRules(services.db) },
       services.log,
     );
     return c.json({ ...base, ...answer } satisfies MicaAnswer);

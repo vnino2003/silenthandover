@@ -8,6 +8,7 @@ import { detectInjection } from '../automation/injection';
 import { ApiError, fromZodError } from '../http/errors';
 import { callWithFallback } from '../automation/ai-provider';
 import { guidedReply, nextQuestion } from '../automation/assistant';
+import { currentRules } from '../automation/ai-rules';
 import { REDACTED, REDACTION_NOTICE, restoreDeep, safePreparationOutput, sanitizeTogether, stripFences } from '../automation/mica';
 
 interface Proposal {
@@ -122,7 +123,7 @@ export function assistantRoutes() {
       try {
         const shape = z.strictObject({ state: AssistantState, reply: z.string().trim().min(1).max(1200).optional() });
         const reply = await callWithFallback(services.aiSettings, services.fetchImpl, { ...active, model: active.automatic ? null : active.model }, {
-          system: renderMicaSystem('prepare'),
+          system: renderMicaSystem('prepare', await currentRules(services.db)),
           user: renderMicaUser({ role: 'employee', page: body.context?.page ?? 'assistant', facts, previousState: safePrevious, rawInput: safeMessage }),
           responseSchema: z.toJSONSchema(shape),
         }, Math.min(services.config.AI_REQUEST_TIMEOUT_MS, 30_000), 30_000);

@@ -258,3 +258,15 @@ Approved with the recommended answers A–D. Built together with a second tool t
   - Typecheck, 187 tests (`mica.test.ts` adds 9) and the web build all pass.
   - In the browser: the supervisor Ask on Leave requests (real pending leave and its impact, no reasons), the review page labels, and the admin pipeline page.
 - **Not verified:** voice with a real microphone; provider data retention (outside dependency).
+
+### Organization rules (added 2026-10-28)
+
+The administrator can add up to 10 policy rules and 10 "never" rules on the **Mica AI pipeline → Organization rules** tab.
+- **Where they go:** elements 3 and 5 of every prompt, for report cleaning and for Mica, under a heading saying they never override the locked rules.
+- **What stays locked:** the role, the task, the injection shield, the built-in rules and the output format.
+- **Defaults:** shipped as version 1 (migration `20261028000200`).
+- **Every save:** checked for injection wording, stored as a new version and audited.
+- **Each report** records the version it used, which the pipeline view shows.
+- **Mica's prompts:** shown on the **Mica assistant prompts** tab, rendered by the same shared functions the server uses.
+
+Tests: `server/test/ai-rules.test.ts`.

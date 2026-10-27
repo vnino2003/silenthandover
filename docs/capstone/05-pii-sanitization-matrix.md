@@ -60,6 +60,7 @@ prompts (`packages/shared/src/mica-prompt.ts`, version `mica-1.0`). Tests: `serv
   codes, the department's report categories). Names come back restored for the author only; text
   the model returns unchanged gets the author's original back, so a detail they typed is not lost.
 * A message that looks like a prompt injection is **not sent**; the user is told so.
+* **Organization rules** (admin, AI pipeline page) extend elements 3 and 5 of every prompt only. They are checked for injection wording, versioned and audited, and cannot switch off the sanitizer, the shield or the answer checks, which are code.
 * Answers are rejected (page guide shown instead) when they contain contact details, links, numbers
   not present in the question or guide, or claims that Mica did something.
 * Mica conversations are not stored. A preparation keeps only its editable state, for 24 hours.

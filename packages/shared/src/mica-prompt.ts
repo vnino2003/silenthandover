@@ -1,4 +1,5 @@
 import { escapeForDelimiters, renderPromptElements, type PromptElements } from './prompt';
+import type { OrganizationRules } from './organization-rules';
 
 /**
  * Mica's bounded prompts, in the same six-element layout as the report analysis (prompt.ts).
@@ -93,8 +94,8 @@ export const MICA_PROMPTS: Record<MicaPromptKind, PromptElements> = {
   },
 };
 
-export function renderMicaSystem(kind: MicaPromptKind): string {
-  return renderPromptElements(MICA_PROMPTS[kind], `${MICA_PROMPT_VERSION} (${kind})`);
+export function renderMicaSystem(kind: MicaPromptKind, org?: OrganizationRules | null): string {
+  return renderPromptElements(MICA_PROMPTS[kind], `${MICA_PROMPT_VERSION} (${kind})`, org);
 }
 
 export interface MicaBlocks {

@@ -1,10 +1,11 @@
 import { Hono } from 'hono';
 import { DepartmentExperience } from '@sh/shared';
 import { z } from 'zod';
-import { ReportDraftContent, ROLES, type PromptVersion } from '@sh/shared';
+import { DEFAULT_ORGANIZATION_RULES, ReportDraftContent, ROLES, type PromptVersion } from '@sh/shared';
 import { maskAddress } from '../automation/notifications';
 import { ApiError } from '../http/errors';
-import { asUser, idParam, parseBody, parseQuery, requireRole, svc, type AppEnv } from '../http/context';
+import { asUser, idParam, parseBody, parseQuery, requireRole, svc, type AppEnv, type Ctx } from '../http/context';
+import { checkRules, currentRules } from '../automation/ai-rules';
 import { resetActivity } from '../seed/demo';
 import { AI_PROVIDERS, callWithFallback, listModels, pickModel, ProviderError } from '../automation/ai-provider';
 import { describeStoredRun, previewPipeline, type StoredRun } from '../automation/preview';
@@ -121,7 +122,8 @@ export function adminRoutes() {
       q.query<StoredRun & { department_name: string; created_at: Date; revision_no: number; attempt: number }>(
         `select sr.reference_code, s.label || ' ' || s.shift_date::text as shift_label, r.prompt_version, a.sanitized_text, a.redaction_counts,
                 a.injection_findings, r.engine, r.model, r.is_simulated, r.latency_ms, r.status, r.draft, r.flags, r.validation_errors,
-                d.name as department_name, r.created_at, r.revision_no, r.attempt
+                d.name as department_name, r.created_at, r.revision_no, r.attempt,
+                (select to_jsonb(v) - 'is_default' - 'created_by' - 'created_at' from public.ai_rule_versions v where v.version = r.org_rules_version) as org_rules
            from public.ai_analysis_runs r
            join public.shift_reports sr on sr.id = r.report_id
            join public.shifts s on s.id = sr.shift_id
@@ -161,6 +163,7 @@ export function adminRoutes() {
         content: b.content,
         roster,
         promptVersion: config.PROMPT_VERSION as PromptVersion,
+        orgRules: await currentRules(db),
         engine: b.engine,
         aiSettings,
         fetchImpl,
@@ -179,6 +182,39 @@ export function adminRoutes() {
       throw err;
     }
   });
+
+  // ---- Organization rules ----------------------------------------------------------
+  // Added on top of the locked default prompt rules, for report cleaning and Mica. Each save is a
+  // new version (audited); the newest applies to every new AI request.
+  const rulesView = async (c: Ctx) => {
+    const { db } = svc(c);
+    const history = await db.asService((q) =>
+      q.query(
+        `select v.version, v.is_default, v.created_at, p.full_name as created_by_name,
+                cardinality(v.policy_rules) as policy_count, cardinality(v.negative_constraints) as never_count
+           from public.ai_rule_versions v left join public.profiles p on p.id = v.created_by
+          order by v.version desc limit 10`,
+      ),
+    );
+    return { current: await currentRules(db), defaults: DEFAULT_ORGANIZATION_RULES, history };
+  };
+  const saveRules = async (c: Ctx, rules: { policy_rules: string[]; negative_constraints: string[] }) => {
+    await asUser(c, (q) => q.query('select app.admin_save_ai_rules($1::text[], $2::text[])', [rules.policy_rules, rules.negative_constraints]));
+    return rulesView(c);
+  };
+  r.get('/ai/rules', async (c) => c.json(await rulesView(c)));
+  r.put('/ai/rules', async (c) => {
+    let raw: unknown;
+    try {
+      raw = await c.req.json();
+    } catch {
+      throw new ApiError(400, 'bad_request', 'Request body must be JSON');
+    }
+    return c.json(await saveRules(c, checkRules(raw)));
+  });
+  r.post('/ai/rules/reset', async (c) =>
+    c.json(await saveRules(c, { policy_rules: DEFAULT_ORGANIZATION_RULES.policy_rules, negative_constraints: DEFAULT_ORGANIZATION_RULES.negative_constraints })),
+  );
 
   // ---- Reset (local mode) ------------------------------------------------------
   // Local mode only: start over with no shifts, reports or tickets (accounts and setup stay).

@@ -147,3 +147,13 @@ It uses the same authenticated delivery-result callback and idempotency checks a
 | GET / POST | `/admin/leave`, `/admin/leave/:id/decision` | Administrator | Supervisors' own leave when no other supervisor can decide |
 | POST / PATCH | `/admin/leave-types` | Administrator | Configure leave types |
 | PATCH | `/admin/users/:id/job-title` | Administrator | Job title shown on schedules |
+
+## Organization rules (administrators)
+
+Rules the administrator adds on top of the locked default prompt rules, for report cleaning and Mica. They are appended to elements 3 (context and policy rules) and 5 (negative constraints) under their own heading; the role, task, injection shield, built-in rules and output format stay locked. Each save is a new, audited version; the newest applies to every new AI request, and each analysis run records the version it used (`org_rules_version`, shown as `prompt.organization` in `GET /admin/ai/runs/:id`).
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/admin/ai/rules` | `{ current, defaults, history }`, with the last 10 versions |
+| PUT | `/admin/ai/rules` | `{ policy_rules: string[], negative_constraints: string[] }`: at most 10 each, 3–300 characters, no duplicates; wording that tries to steer the model (override, approve, skip review, reveal, tags) is refused with 422 |
+| POST | `/admin/ai/rules/reset` | Saves the system defaults as a new version |

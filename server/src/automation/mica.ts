@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { renderMicaSystem, renderMicaUser, type MicaFactGroup, type MicaPromptKind } from '@sh/shared';
+import { renderMicaSystem, renderMicaUser, type MicaFactGroup, type MicaPromptKind, type OrganizationRules } from '@sh/shared';
 import { callWithFallback, ProviderError, type AiSettings } from './ai-provider';
 import { detectInjection } from './injection';
 import { containsContactDetails, reidentify, sanitize, type RosterEntry } from './sanitize';
@@ -71,6 +71,8 @@ export interface AskInput {
   guide: string;
   question: string;
   roster: RosterEntry[];
+  /** The administrator's organization rules, added to elements 3 and 5. */
+  orgRules?: OrganizationRules | null;
 }
 
 export async function askMica(
@@ -99,7 +101,7 @@ export async function askMica(
       fetchImpl,
       { provider: active.provider, apiKey: active.apiKey, model: active.automatic ? null : active.model },
       {
-        system: renderMicaSystem(input.kind),
+        system: renderMicaSystem(input.kind, input.orgRules),
         user: renderMicaUser({ role: input.kind, page: input.page, guide: input.guide, rawInput: safe.text }),
         responseSchema: z.toJSONSchema(Reply),
       },

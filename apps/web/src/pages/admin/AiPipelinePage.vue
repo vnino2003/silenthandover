@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue';
-import type { ReportDraftContent } from '@sh/shared';
+import type { OrganizationRules, ReportDraftContent } from '@sh/shared';
 import MicaMascot from '@/components/MicaMascot.vue';
+import MicaPromptsView from '@/components/MicaPromptsView.vue';
+import OrganizationRulesEditor, { type RulesView } from '@/components/OrganizationRulesEditor.vue';
 import PipelineSteps, { type PipelineView } from '@/components/PipelineSteps.vue';
 import ReportForm from '@/components/ReportForm.vue';
 import PageHeader from '@/components/ui/PageHeader.vue';
@@ -37,7 +39,19 @@ interface RunRow {
 type RunDetail = PipelineView & { run: { reference_code: string; department_name: string; shift_label: string; created_at: string; revision_no: number; attempt: number } };
 
 const toast = useToast();
-const tab = ref<'real' | 'example'>('real');
+const tab = ref<'real' | 'example' | 'mica' | 'rules'>('real');
+const TABS = [
+  { k: 'real', l: 'Real reports (censored)' },
+  { k: 'example', l: 'Try an example' },
+  { k: 'mica', l: 'Mica assistant prompts' },
+  { k: 'rules', l: 'Organization rules' },
+] as const;
+// The rules in use, for the Mica prompts view (the editor loads its own copy and reports saves).
+const rules = useAsync(() => api.get<RulesView>('/admin/ai/rules'));
+const orgRules = computed<OrganizationRules | null>(() => rules.data.value?.current ?? null);
+function rulesSaved(current: OrganizationRules) {
+  if (rules.data.value) rules.data.value = { ...rules.data.value, current };
+}
 
 // ---- Real reports (censored)
 const runs = useAsync(() => api.get<RunRow[]>('/admin/ai/runs'), [], { refreshMs: 30_000 });
@@ -114,7 +128,7 @@ async function run(content: ReportDraftContent) {
         <p class="font-medium text-ink">The same safeguards everywhere</p>
         <ul class="mt-1.5 list-disc space-y-1 pl-4">
           <li>Names become codes; health, contact and ID details are removed before anything is sent.</li>
-          <li>Six-part prompt; the user's words stay inside &lt;raw_input&gt; and never count as instructions.</li>
+          <li>Six-part prompt; the user's words stay inside &lt;raw_input&gt; and never count as instructions. You can add <button type="button" class="link" @click="tab = 'rules'">organization rules</button> on top of the locked ones.</li>
           <li>Every answer is checked. A failed or invented answer is never shown; work continues by hand.</li>
           <li>Records shown in the assistant and leave reasons are never sent to the AI.</li>
           <li>Mica never approves, submits or decides. People do.</li>
@@ -122,13 +136,13 @@ async function run(content: ReportDraftContent) {
       </div>
     </section>
 
-    <div class="mb-5 flex gap-1 border-b border-line" role="tablist">
+    <div class="mb-5 flex gap-1 overflow-x-auto border-b border-line [scrollbar-width:none]" role="tablist">
       <button
-        v-for="t in [{ k: 'real', l: 'Real reports (censored)' }, { k: 'example', l: 'Try an example' }] as const"
+        v-for="t in TABS"
         :key="t.k"
         role="tab"
         :aria-selected="tab === t.k"
-        class="-mb-px border-b-2 px-3 py-2 text-[14px]"
+        class="-mb-px shrink-0 border-b-2 px-3 py-2 text-[14px] whitespace-nowrap"
         :class="tab === t.k ? 'border-accent font-medium text-ink' : 'border-transparent text-ink-3 hover:text-ink'"
         @click="tab = t.k"
       >
@@ -183,6 +197,16 @@ async function run(content: ReportDraftContent) {
           <PipelineSteps v-if="detail" :key="selectedId ?? ''" :view="detail" real />
         </StateBlock>
       </section>
+    </div>
+
+    <!-- Mica's assistant prompts -->
+    <div v-else-if="tab === 'mica'" class="page-enter">
+      <MicaPromptsView :organization="orgRules" />
+    </div>
+
+    <!-- Organization rules -->
+    <div v-else-if="tab === 'rules'" class="page-enter">
+      <OrganizationRulesEditor @saved="rulesSaved" />
     </div>
 
     <!-- Try an example -->
