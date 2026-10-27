@@ -81,7 +81,7 @@ export function scheduleRoutes() {
   r.post('/schedule/preset', async (c) => {
     const b = await parseBody(
       c,
-      z.strictObject({ preset: z.enum(['two_shift', 'warehouse_extended', 'office_weekdays', 'continuous_24h']) }),
+      z.strictObject({ preset: z.enum(['two_shift', 'extended_hours', 'warehouse_extended', 'office_weekdays', 'continuous_24h']) }),
     );
     const result = await asUser(c, async (q) => {
       const [row] = await q.query<{ result: unknown }>('select app.apply_schedule_preset($1) as result', [b.preset]);

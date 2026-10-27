@@ -11,7 +11,7 @@ import {
   type PromptVersion,
   type ReportDraftContent,
 } from '@sh/shared';
-import { callProvider, type AiSettings } from './ai-provider';
+import { callWithFallback, type AiSettings } from './ai-provider';
 import { simulateAnalysis } from './dev-analyzer';
 import { groundDraft } from './grounding';
 import { detectInjection } from './injection';
@@ -122,8 +122,15 @@ export async function previewPipeline(opts: {
   const active = opts.engine === 'provider' ? await opts.aiSettings.active() : null;
   if (opts.engine === 'provider' && !active) throw new Error('no_provider');
   if (active) {
-    const reply = await callProvider(opts.fetchImpl, active.provider, active.model, active.apiKey, filled.prompt, opts.timeoutMs);
-    ai = { engine: active.provider, model: active.model, simulated: false, latency_ms: reply.latencyMs, raw: reply.text };
+    const reply = await callWithFallback(
+      opts.aiSettings,
+      opts.fetchImpl,
+      { provider: active.provider, apiKey: active.apiKey, model: active.automatic ? null : active.model },
+      filled.prompt,
+      Math.min(opts.timeoutMs, 25000),
+      70000,
+    );
+    ai = { engine: active.provider, model: reply.model, simulated: false, latency_ms: reply.latencyMs, raw: reply.text };
   } else {
     const started = Date.now();
     const draft = simulateAnalysis(reportId, sanitized.text, []);

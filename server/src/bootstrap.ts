@@ -75,7 +75,7 @@ export async function createServices(config: Config, opts: BootstrapOptions = {}
         ? randomBytes(32)
         : decodeSecretsKey(localSecret(localDir, 'local-secrets-key', 32))
       : null;
-  const aiSettings = new AiSettings(db, secretsKey ? createSecretBox(secretsKey) : null);
+  const aiSettings = new AiSettings(db, secretsKey ? createSecretBox(secretsKey) : null, fetchImpl);
   const adapter =
     config.AI_ADAPTER === 'n8n'
       ? createN8nAnalysisAdapter(config, fetchImpl)

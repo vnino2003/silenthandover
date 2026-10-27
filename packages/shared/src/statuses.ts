@@ -3,7 +3,7 @@ export type Role = (typeof ROLES)[number];
 
 /** What people see. Stored values stay employee / manager / admin. */
 export const ROLE_LABELS: Record<Role, string> = {
-  employee: 'Worker',
+  employee: 'Team member',
   manager: 'Supervisor',
   admin: 'Admin',
 };
@@ -94,7 +94,11 @@ export type AutomationEventStatus = (typeof AUTOMATION_EVENT_STATUSES)[number];
 export const DELIVERY_STATUSES = ['pending', 'sent', 'failed', 'simulated', 'skipped'] as const;
 export type DeliveryStatus = (typeof DELIVERY_STATUSES)[number];
 
-export const RECORD_TYPES = ['maintenance', 'inventory', 'dispatch', 'policy'] as const;
+export const RECORD_TYPES = ['maintenance', 'inventory', 'dispatch', 'operations', 'quality', 'staffing', 'policy'] as const;
+export const RECORD_TYPE_LABELS: Record<RecordType, string> = {
+  maintenance: 'Equipment / maintenance', inventory: 'Resources / supplies', dispatch: 'Service / transfer',
+  operations: 'Operational activity', quality: 'Quality / readiness', staffing: 'Staffing / coverage', policy: 'Approved policy',
+};
 export type RecordType = (typeof RECORD_TYPES)[number];
 
 export const DECISIONS = ['approved', 'rejected', 'revision_requested'] as const;

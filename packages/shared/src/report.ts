@@ -9,12 +9,16 @@ export const IssueUpdateInput = z.strictObject({
 });
 export type IssueUpdateInput = z.infer<typeof IssueUpdateInput>;
 
-export const PROBLEM_CATEGORIES = ['stock', 'equipment', 'delivery', 'safety', 'other'] as const;
+export const PROBLEM_CATEGORIES = ['stock', 'equipment', 'delivery', 'staffing', 'supplies', 'facilities', 'process', 'safety', 'other'] as const;
 export type ProblemCategory = (typeof PROBLEM_CATEGORIES)[number];
 export const PROBLEM_CATEGORY_LABELS: Record<ProblemCategory, string> = {
-  stock: 'Stock / count',
+  stock: 'Resources / availability',
   equipment: 'Equipment',
-  delivery: 'Delivery',
+  delivery: 'Service / transfer',
+  staffing: 'Staffing / coverage',
+  supplies: 'Supplies',
+  facilities: 'Facilities',
+  process: 'Process / coordination',
   safety: 'Safety hazard',
   other: 'Other',
 };
@@ -27,7 +31,7 @@ export const ProblemInput = z.strictObject({
 });
 export type ProblemInput = z.infer<typeof ProblemInput>;
 
-/** "Safety hazard at Dock 3: water near the charging station" — how a problem reads everywhere. */
+/** How a structured problem reads in every organization. */
 export function problemLine(p: ProblemInput): string {
   const where = p.location.trim() ? ` at ${p.location.trim()}` : '';
   return `${PROBLEM_CATEGORY_LABELS[p.category]}${where}: ${p.what.trim()}`;
@@ -101,22 +105,22 @@ export const REPORT_SECTIONS = [
   {
     key: 'completed_work',
     label: 'Work completed',
-    hint: 'Deliveries unloaded, orders picked, counts done. Include quantities and PO or reference numbers exactly as recorded.',
+    hint: 'Activities, checks and services completed. Include recorded quantities or reference numbers where relevant.',
   },
   {
     key: 'unresolved_issues',
     label: 'Problems still open',
-    hint: 'Stock that doesn’t match, damaged goods, equipment faults, hazards. Say where, what you saw, and what you did.',
+    hint: 'Unresolved problems, equipment faults or service concerns. Say where, what you observed and what action you took.',
   },
   {
     key: 'pending_tasks',
     label: 'For the next shift',
-    hint: 'Dispatches, restocking and follow-ups the next shift must pick up.',
+    hint: 'Unfinished activities and follow-ups the next team needs to take over.',
   },
   {
     key: 'operational_concerns',
-    label: 'Equipment & safety concerns',
-    hint: 'Forklifts, conveyors, scanners, spills, blocked exits — even if unconfirmed.',
+    label: 'Operational concerns',
+    hint: 'Equipment, staffing, facilities and safety concerns — even if unconfirmed.',
   },
   {
     key: 'handover_notes',

@@ -3,7 +3,7 @@ import {
   AiHandoverDraft,
   allowedIssueTransitions,
   buildHandoverPrompt,
-  DEMO_SAMPLE_REPORT,
+  DEMO_TEST_REPORT as DEMO_SAMPLE_REPORT,
   ISSUE_STATUSES,
   PROMPT_VERSIONS,
 } from '@sh/shared';

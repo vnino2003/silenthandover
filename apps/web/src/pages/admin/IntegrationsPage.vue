@@ -64,12 +64,14 @@ type Provider = 'simulator' | 'gemini' | 'grok';
 interface AiSettingsView {
   provider: Provider;
   model: string | null;
+  /** When the model is automatic: the one in use right now. */
+  resolved_model: string | null;
   has_key: boolean;
   key_hint: string | null;
   updated_at: string | null;
   updated_by_name: string | null;
   encryption_available: boolean;
-  providers: Record<'gemini' | 'grok', { label: string; defaultModel: string; keyUrl: string }>;
+  providers: Record<'gemini' | 'grok', { label: string; keyUrl: string }>;
 }
 const PROVIDER_NOTE: Record<Provider, string> = {
   simulator: 'No AI is called. Drafts are made by a built-in rule-based simulator and clearly labeled as simulated.',
@@ -87,14 +89,41 @@ const ai = ref<AiSettingsView | null>(null);
 const aiForm = ref<{ provider: Provider; model: string; api_key: string; removeKey: boolean } | null>(null);
 const aiTest = ref<{ ok: boolean; text: string } | null>(null);
 const showKey = ref(false);
+// Models the key can use, newest first, and the one "automatic" would pick. Providers retire
+// model names, so the list comes from the provider instead of being written into the app.
+const models = ref<string[]>([]);
+const suggestedModel = ref<string | null>(null);
+const modelsError = ref<string | null>(null);
 async function openAi() {
   try {
     ai.value = await api.get<AiSettingsView>('/admin/ai');
     aiForm.value = { provider: ai.value.provider, model: ai.value.model ?? '', api_key: '', removeKey: false };
     aiTest.value = null;
     showKey.value = false;
+    models.value = [];
+    suggestedModel.value = ai.value.resolved_model;
+    modelsError.value = null;
+    if (ai.value.has_key && ai.value.provider !== 'simulator') void loadModels();
   } catch (err) {
     toast.error(errorMessage(err));
+  }
+}
+async function loadModels() {
+  const f = aiForm.value;
+  if (!f || f.provider === 'simulator') return;
+  busy.value = 'ai-models';
+  modelsError.value = null;
+  try {
+    const r = await api.post<{ models: string[]; suggested: string | null }>('/admin/ai/models', {
+      provider: f.provider,
+      ...(f.api_key.trim() ? { api_key: f.api_key.trim() } : {}),
+    });
+    models.value = r.models;
+    suggestedModel.value = r.suggested;
+  } catch (err) {
+    modelsError.value = errorMessage(err);
+  } finally {
+    busy.value = null;
   }
 }
 const providerInfo = computed(() => (aiForm.value && aiForm.value.provider !== 'simulator' ? ai.value?.providers[aiForm.value.provider] : null));
@@ -113,8 +142,18 @@ async function testAi() {
   busy.value = 'ai-test';
   try {
     const body = aiPayload();
-    const r = await api.post<{ model: string; latency_ms: number }>('/admin/ai/test', { provider: body.provider, model: body.model, ...(body.api_key ? { api_key: body.api_key } : {}) });
-    aiTest.value = { ok: true, text: `Connected to ${r.model} · answered in ${(r.latency_ms / 1000).toFixed(1)} s` };
+    const r = await api.post<{ model: string; automatic: boolean; busy_skipped: string[]; latency_ms: number }>('/admin/ai/test', {
+      provider: body.provider,
+      model: body.model,
+      ...(body.api_key ? { api_key: body.api_key } : {}),
+    });
+    const seconds = (r.latency_ms / 1000).toFixed(1);
+    const skipped = r.busy_skipped.length ? ` (${r.busy_skipped.join(', ')} ${r.busy_skipped.length === 1 ? 'was' : 'were'} busy)` : '';
+    aiTest.value = {
+      ok: true,
+      text: r.automatic ? `Connected — automatic picked ${r.model}${skipped} · answered in ${seconds} s` : `Connected to ${r.model} · answered in ${seconds} s`,
+    };
+    if (!models.value.length) void loadModels();
   } catch (err) {
     aiTest.value = { ok: false, text: errorMessage(err) };
   } finally {
@@ -212,7 +251,7 @@ const counts = (rows: { status: string; count: number }[]) => rows.reduce<Record
 
         <section class="mt-6">
           <h2 class="mb-2 text-[15px] font-semibold">Recent automation events</h2>
-          <div class="card overflow-x-auto">
+          <div class="table-region card overflow-x-auto" tabindex="0" role="region" aria-label="Automation events and deliveries — scroll horizontally to see all columns">
             <table class="w-full min-w-[640px] text-left text-[13.5px]">
               <thead class="border-b border-line bg-canvas text-[12px] tracking-wide text-ink-3 uppercase">
                 <tr><th class="px-4 py-2.5 font-medium">Created</th><th class="px-3 py-2.5 font-medium">Kind</th><th class="px-3 py-2.5 font-medium">Adapter</th><th class="px-3 py-2.5 font-medium">Attempts</th><th class="px-4 py-2.5 font-medium">Status</th></tr>
@@ -233,7 +272,7 @@ const counts = (rows: { status: string; count: number }[]) => rows.reduce<Record
         <section class="mt-6">
           <h2 class="mb-2 text-[15px] font-semibold">Recent deliveries</h2>
           <StateBlock :empty="!data.deliveries.length" empty-title="No deliveries yet">
-            <div class="card overflow-x-auto">
+            <div class="table-region card overflow-x-auto" tabindex="0" role="region" aria-label="Automation events and deliveries — scroll horizontally to see all columns">
               <table class="w-full min-w-[640px] text-left text-[13.5px]">
                 <thead class="border-b border-line bg-canvas text-[12px] tracking-wide text-ink-3 uppercase">
                   <tr><th class="px-4 py-2.5 font-medium">Created</th><th class="px-3 py-2.5 font-medium">Recipient</th><th class="px-3 py-2.5 font-medium">Channel</th><th class="px-3 py-2.5 font-medium">Provider</th><th class="px-4 py-2.5 font-medium">Status</th></tr>
@@ -306,7 +345,7 @@ const counts = (rows: { status: string; count: number }[]) => rows.reduce<Record
               class="cursor-pointer rounded-md border px-3 py-2.5 text-[13.5px] transition"
               :class="aiForm.provider === p[0] ? 'border-accent bg-accent-soft font-medium' : 'border-line hover:border-line-strong'"
             >
-              <input v-model="aiForm.provider" type="radio" :value="p[0]" class="sr-only" @change="(aiForm.model = ''), (aiTest = null), (aiForm.removeKey = false)" />
+              <input v-model="aiForm.provider" type="radio" :value="p[0]" class="sr-only" @change="(aiForm.model = ''), (aiTest = null), (aiForm.removeKey = false), (models = []), (suggestedModel = null), (modelsError = null)" />
               {{ p[1] }}
             </label>
           </div>
@@ -333,8 +372,29 @@ const counts = (rows: { status: string; count: number }[]) => rows.reduce<Record
             It is encrypted before it is stored and never shown again.
           </p>
           <UiField v-slot="{ id }" label="Model" optional>
-            <input :id="id" v-model="aiForm.model" class="field-input font-mono text-[13px]" :placeholder="providerInfo.defaultModel" spellcheck="false" />
+            <div class="flex gap-2">
+              <input
+                :id="id"
+                v-model="aiForm.model"
+                class="field-input font-mono text-[13px]"
+                list="ai-models"
+                :placeholder="suggestedModel ? `Automatic (now ${suggestedModel})` : 'Automatic — newest available'"
+                spellcheck="false"
+                autocomplete="off"
+              />
+              <UiButton size="sm" variant="ghost" class="h-auto shrink-0" :loading="busy === 'ai-models'" :disabled="!aiForm.api_key.trim() && !keySavedForThis" @click="loadModels">
+                {{ models.length ? 'Refresh' : 'Show models' }}
+              </UiButton>
+            </div>
+            <datalist id="ai-models">
+              <option v-for="m in models" :key="m" :value="m" />
+            </datalist>
           </UiField>
+          <p class="-mt-2 text-[12.5px] text-ink-3">
+            Leave empty to always use the newest model your key can use — it keeps working when the provider retires an old one.
+            <template v-if="models.length"> {{ models.length }} available; click the box to pick one.</template>
+          </p>
+          <p v-if="modelsError" class="-mt-2 text-[12.5px] text-bad">{{ modelsError }}</p>
           <label v-if="keySavedForThis || (ai.has_key && ai.provider === aiForm.provider)" class="flex items-center gap-2 text-[13px] text-ink-2">
             <input v-model="aiForm.removeKey" type="checkbox" class="size-4 accent-accent" /> Remove the saved key
           </label>

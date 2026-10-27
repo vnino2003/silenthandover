@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { openWorkAssistant } from '@/lib/assistant';
+import MicaMascot from '@/components/MicaMascot.vue';
 import { classifyWindow, type ReportStatus } from '@sh/shared';
 import DutyRing from '@/components/DutyRing.vue';
 import ReportingWindow from '@/components/ReportingWindow.vue';
@@ -76,6 +78,7 @@ const pendingAcks = computed(() => data.value?.incoming.filter((i) => !i.acknowl
 
     <StateBlock :loading="loading" :error="error" :lines="5" @retry="reload()">
       <template v-if="data">
+        <button type="button" class="mb-5 flex w-full items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3 text-left hover:border-accent/30" @click="openWorkAssistant"><MicaMascot :size="32" /><span class="flex-1 text-[13px] text-ink-2">Need a hand with your {{ auth.experience.report_label.toLowerCase() }}?</span><span class="text-[12px] font-medium text-accent">Ask Mica ↗</span></button>
         <div v-if="data.needs_revision.length" class="mb-5 rounded-lg border border-violet/25 bg-violet-soft px-4 py-3">
           <p class="text-[14px] font-medium text-violet">Your supervisor asked for a revision</p>
           <ul class="mt-1 space-y-0.5 text-[14px]">

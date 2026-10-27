@@ -269,7 +269,7 @@ const redactionText = computed(() => {
                   <p v-if="r.details" class="text-ink-2">{{ r.details }}</p>
                 </li>
               </ul>
-              <p v-else class="border-t border-line px-5 py-3 text-[13px] text-ink-3">No maintenance, inventory or dispatch records near this shift. <RouterLink to="/manager/records" class="link">Add one</RouterLink></p>
+              <p v-else class="border-t border-line px-5 py-3 text-[13px] text-ink-3">No supporting operational records near this shift. <RouterLink to="/manager/records" class="link">Add one</RouterLink></p>
             </details>
           </section>
 

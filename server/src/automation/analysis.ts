@@ -1,7 +1,7 @@
 import { AiHandoverDraft, buildHandoverPrompt, ReportDraftContent, type PromptVersion, type RenderedPrompt } from '@sh/shared';
 import type { Config } from '../config';
 import type { Db, Queryable } from '../db/types';
-import { AI_PROVIDERS, callProvider, type AiSettings } from './ai-provider';
+import { callWithFallback, type AiSettings } from './ai-provider';
 import { simulateAnalysis } from './dev-analyzer';
 import { groundDraft, type GroundingRecord } from './grounding';
 import { detectInjection, type InjectionFinding } from './injection';
@@ -70,12 +70,22 @@ export class AnalysisPipeline {
 
   /** Claims due analysis events and dispatches them. Safe to call often. */
   async runDue(limit = 5): Promise<number> {
-    const events = await this.db.asService((q) =>
-      q.query<EventRow>('select id, attempts, idempotency_key, report_id, revision_no from internal.claim_analysis_events($1, $2)', [
+    const events = await this.db.asService(async (q) => {
+      // An in-process call (simulator or admin-connected AI) finishes within about two minutes.
+      // One still "dispatched" after three was cut off by a restart, so it goes back in the queue
+      // without using up an attempt. (n8n results arrive later by callback and are left alone.)
+      await q.query(
+        `update public.automation_events
+            set status = 'pending', attempts = greatest(attempts - 1, 0), next_attempt_at = now(),
+                last_error = 'Interrupted (the server restarted); trying again'
+          where kind = 'report_analysis' and status = 'dispatched' and adapter in ('admin', 'dev')
+            and dispatched_at < now() - interval '3 minutes'`,
+      );
+      return q.query<EventRow>('select id, attempts, idempotency_key, report_id, revision_no from internal.claim_analysis_events($1, $2)', [
         limit,
         this.adapter.name,
-      ]),
-    );
+      ]);
+    });
     for (const ev of events) {
       try {
         const job = await this.prepare(ev);
@@ -296,10 +306,19 @@ export function createAdminAnalysisAdapter(
     async dispatch(job, pipeline) {
       const active = await settings.active();
       if (!active) return simulator.dispatch(job, pipeline);
-      const reply = await callProvider(opts.fetchImpl ?? fetch, active.provider, active.model, active.apiKey, job.prompt, opts.timeoutMs);
+      // Automatic mode moves on to the next model if one is busy; a failure is retried with backoff.
+      const reply = await callWithFallback(
+        settings,
+        opts.fetchImpl ?? fetch,
+        { provider: active.provider, apiKey: active.apiKey, model: active.automatic ? null : active.model },
+        job.prompt,
+        opts.timeoutMs,
+        // Background work: never spend more than two minutes on one report before retrying later.
+        120_000,
+      );
       await pipeline.complete(job.eventId, job.attempt, reply.text, {
         engine: active.provider,
-        model: active.model,
+        model: reply.model,
         isSimulated: false,
         latencyMs: reply.latencyMs,
         usage: reply.usage,
@@ -308,7 +327,7 @@ export function createAdminAnalysisAdapter(
     async status() {
       const v = await settings.view();
       const live = v.provider !== 'simulator' && v.has_key && v.encryption_available;
-      return { adapter: 'admin', provider: live ? v.provider : null, model: live ? (v.model ?? AI_PROVIDERS[v.provider as 'gemini' | 'grok'].defaultModel) : null, simulated: !live };
+      return { adapter: 'admin', provider: live ? v.provider : null, model: live ? (v.model ?? v.resolved_model ?? 'newest available') : null, simulated: !live };
     },
   };
 }

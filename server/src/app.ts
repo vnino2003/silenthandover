@@ -12,6 +12,8 @@ import { integrationRoutes } from './routes/integrations';
 import { issueRoutes } from './routes/issues';
 import { managerRoutes } from './routes/manager';
 import { meRoutes } from './routes/me';
+import { assistantRoutes } from './routes/assistant';
+import { assistantHelpRoutes } from './routes/assistant-help';
 
 export function createApp(services: Services) {
   const app = new Hono<AppEnv>();
@@ -96,6 +98,8 @@ export function createApp(services: Services) {
   authed.use('*', (c, next) => (c.req.method === 'GET' ? next() : writeLimiter(c, next)));
   authed.route('/', meRoutes());
   authed.route('/', employeeRoutes());
+  authed.route('/', assistantHelpRoutes());
+  authed.route('/', assistantRoutes());
   authed.route('/', issueRoutes());
   authed.route('/manager', managerRoutes());
   authed.route('/admin', adminRoutes());

@@ -1,0 +1,380 @@
+{
+  "employee": [
+    {
+      "client": 305,
+      "path": "/",
+      "scroll": 305,
+      "warehouseCopy": false,
+      "width": 320
+    },
+    {
+      "client": 320,
+      "path": "/reports",
+      "scroll": 320,
+      "warehouseCopy": false,
+      "width": 320
+    },
+    {
+      "client": 320,
+      "path": "/tasks",
+      "scroll": 320,
+      "warehouseCopy": false,
+      "width": 320
+    },
+    {
+      "client": 305,
+      "path": "/handover",
+      "scroll": 305,
+      "warehouseCopy": false,
+      "width": 320
+    },
+    {
+      "client": 305,
+      "path": "/profile",
+      "scroll": 305,
+      "warehouseCopy": false,
+      "width": 320
+    },
+    {
+      "client": 375,
+      "path": "/",
+      "scroll": 375,
+      "warehouseCopy": false,
+      "width": 390
+    },
+    {
+      "client": 390,
+      "path": "/reports",
+      "scroll": 390,
+      "warehouseCopy": false,
+      "width": 390
+    },
+    {
+      "client": 390,
+      "path": "/tasks",
+      "scroll": 390,
+      "warehouseCopy": false,
+      "width": 390
+    },
+    {
+      "client": 390,
+      "path": "/handover",
+      "scroll": 390,
+      "warehouseCopy": false,
+      "width": 390
+    },
+    {
+      "client": 375,
+      "path": "/profile",
+      "scroll": 375,
+      "warehouseCopy": false,
+      "width": 390
+    },
+    {
+      "client": 753,
+      "path": "/",
+      "scroll": 753,
+      "warehouseCopy": false,
+      "width": 768
+    },
+    {
+      "client": 768,
+      "path": "/reports",
+      "scroll": 768,
+      "warehouseCopy": false,
+      "width": 768
+    },
+    {
+      "client": 768,
+      "path": "/tasks",
+      "scroll": 768,
+      "warehouseCopy": false,
+      "width": 768
+    },
+    {
+      "client": 768,
+      "path": "/handover",
+      "scroll": 768,
+      "warehouseCopy": false,
+      "width": 768
+    },
+    {
+      "client": 768,
+      "path": "/profile",
+      "scroll": 768,
+      "warehouseCopy": false,
+      "width": 768
+    },
+    {
+      "client": 1425,
+      "path": "/",
+      "scroll": 1425,
+      "warehouseCopy": false,
+      "width": 1440
+    },
+    {
+      "client": 1440,
+      "path": "/reports",
+      "scroll": 1440,
+      "warehouseCopy": false,
+      "width": 1440
+    },
+    {
+      "client": 1440,
+      "path": "/tasks",
+      "scroll": 1440,
+      "warehouseCopy": false,
+      "width": 1440
+    },
+    {
+      "client": 1440,
+      "path": "/handover",
+      "scroll": 1440,
+      "warehouseCopy": false,
+      "width": 1440
+    },
+    {
+      "client": 1440,
+      "path": "/profile",
+      "scroll": 1440,
+      "warehouseCopy": false,
+      "width": 1440
+    }
+  ],
+  "supervisor": [
+    {
+      "client": 320,
+      "path": "/manager",
+      "scroll": 320,
+      "warehouseCopy": false,
+      "width": 320
+    },
+    {
+      "client": 305,
+      "path": "/manager/schedule",
+      "scroll": 305,
+      "warehouseCopy": false,
+      "width": 320
+    },
+    {
+      "client": 320,
+      "path": "/manager/issues",
+      "scroll": 320,
+      "warehouseCopy": false,
+      "width": 320
+    },
+    {
+      "client": 305,
+      "path": "/manager/records",
+      "scroll": 305,
+      "warehouseCopy": false,
+      "width": 320
+    },
+    {
+      "client": 390,
+      "path": "/manager",
+      "scroll": 390,
+      "warehouseCopy": false,
+      "width": 390
+    },
+    {
+      "client": 375,
+      "path": "/manager/schedule",
+      "scroll": 375,
+      "warehouseCopy": false,
+      "width": 390
+    },
+    {
+      "client": 390,
+      "path": "/manager/issues",
+      "scroll": 390,
+      "warehouseCopy": false,
+      "width": 390
+    },
+    {
+      "client": 375,
+      "path": "/manager/records",
+      "scroll": 375,
+      "warehouseCopy": false,
+      "width": 390
+    },
+    {
+      "client": 768,
+      "path": "/manager",
+      "scroll": 768,
+      "warehouseCopy": false,
+      "width": 768
+    },
+    {
+      "client": 753,
+      "path": "/manager/schedule",
+      "scroll": 753,
+      "warehouseCopy": false,
+      "width": 768
+    },
+    {
+      "client": 768,
+      "path": "/manager/issues",
+      "scroll": 768,
+      "warehouseCopy": false,
+      "width": 768
+    },
+    {
+      "client": 768,
+      "path": "/manager/records",
+      "scroll": 768,
+      "warehouseCopy": false,
+      "width": 768
+    },
+    {
+      "client": 1440,
+      "path": "/manager",
+      "scroll": 1440,
+      "warehouseCopy": false,
+      "width": 1440
+    },
+    {
+      "client": 1440,
+      "path": "/manager/schedule",
+      "scroll": 1440,
+      "warehouseCopy": false,
+      "width": 1440
+    },
+    {
+      "client": 1440,
+      "path": "/manager/issues",
+      "scroll": 1440,
+      "warehouseCopy": false,
+      "width": 1440
+    },
+    {
+      "client": 1440,
+      "path": "/manager/records",
+      "scroll": 1440,
+      "warehouseCopy": false,
+      "width": 1440
+    }
+  ],
+  "admin": [
+    {
+      "client": 320,
+      "path": "/admin/departments",
+      "scroll": 320,
+      "warehouseCopy": false,
+      "width": 320
+    },
+    {
+      "client": 305,
+      "path": "/admin/users",
+      "scroll": 305,
+      "warehouseCopy": false,
+      "width": 320
+    },
+    {
+      "client": 320,
+      "path": "/admin/ai-pipeline",
+      "scroll": 320,
+      "warehouseCopy": false,
+      "width": 320
+    },
+    {
+      "client": 305,
+      "path": "/admin/settings",
+      "scroll": 305,
+      "warehouseCopy": false,
+      "width": 320
+    },
+    {
+      "client": 390,
+      "path": "/admin/departments",
+      "scroll": 390,
+      "warehouseCopy": false,
+      "width": 390
+    },
+    {
+      "client": 375,
+      "path": "/admin/users",
+      "scroll": 375,
+      "warehouseCopy": false,
+      "width": 390
+    },
+    {
+      "client": 390,
+      "path": "/admin/ai-pipeline",
+      "scroll": 390,
+      "warehouseCopy": false,
+      "width": 390
+    },
+    {
+      "client": 375,
+      "path": "/admin/settings",
+      "scroll": 375,
+      "warehouseCopy": false,
+      "width": 390
+    },
+    {
+      "client": 768,
+      "path": "/admin/departments",
+      "scroll": 768,
+      "warehouseCopy": false,
+      "width": 768
+    },
+    {
+      "client": 768,
+      "path": "/admin/users",
+      "scroll": 768,
+      "warehouseCopy": false,
+      "width": 768
+    },
+    {
+      "client": 768,
+      "path": "/admin/ai-pipeline",
+      "scroll": 768,
+      "warehouseCopy": false,
+      "width": 768
+    },
+    {
+      "client": 753,
+      "path": "/admin/settings",
+      "scroll": 753,
+      "warehouseCopy": false,
+      "width": 768
+    },
+    {
+      "client": 1440,
+      "path": "/admin/departments",
+      "scroll": 1440,
+      "warehouseCopy": false,
+      "width": 1440
+    },
+    {
+      "client": 1440,
+      "path": "/admin/users",
+      "scroll": 1440,
+      "warehouseCopy": false,
+      "width": 1440
+    },
+    {
+      "client": 1440,
+      "path": "/admin/ai-pipeline",
+      "scroll": 1440,
+      "warehouseCopy": false,
+      "width": 1440
+    },
+    {
+      "client": 1425,
+      "path": "/admin/settings",
+      "scroll": 1425,
+      "warehouseCopy": false,
+      "width": 1440
+    }
+  ],
+  "assistantPhone": {
+    "width": 320,
+    "client": 305,
+    "panelLeft": 16,
+    "panelWidth": 272.67,
+    "pageScrollWidth": 305
+  },
+  "workflow": "Verified role-aware page help; seeded hospital draft preparation; in-app navigation preserves preparation and changes page context; confirmation sheet starts at top. Draft was kept for demo use."
+}

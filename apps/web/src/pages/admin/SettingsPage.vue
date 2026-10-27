@@ -66,7 +66,7 @@ const LABELS: Record<string, string> = {
 
 <template>
   <div class="mx-auto max-w-3xl">
-    <PageHeader title="Settings" description="Operational rules applied by the database and the scheduled checks." />
+    <PageHeader title="Rules and emails" description="Operational rules applied by the database and the scheduled checks, and the email templates." />
     <StateBlock :loading="settings.loading.value" :error="settings.error.value" @retry="settings.reload()">
       <ul class="stagger card divide-y divide-line">
         <li v-for="s in settings.data.value" :key="s.key" class="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5">

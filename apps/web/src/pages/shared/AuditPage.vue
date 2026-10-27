@@ -47,7 +47,7 @@ function describe(details: Record<string, unknown>) {
       </select>
     </PageHeader>
     <StateBlock :loading="loading" :refreshing="refreshing" :error="error" :empty="!data?.length" empty-title="No entries" @retry="reload()">
-      <div class="card overflow-x-auto">
+      <div class="table-region card overflow-x-auto" tabindex="0" role="region" aria-label="Audit history — scroll horizontally to see all columns">
         <table class="w-full min-w-[640px] text-left text-[13.5px]">
           <thead class="border-b border-line bg-canvas text-[12px] tracking-wide text-ink-3 uppercase">
             <tr>

@@ -44,7 +44,7 @@ async function submit() {
 
       <div class="rise rise-delay card px-6 py-7 shadow-pop sm:px-8">
         <h1 class="text-center text-[22px] leading-tight font-semibold tracking-[-0.015em]">Sign in</h1>
-        <p class="mt-1.5 text-center text-[14px] text-ink-2">Shift reports, handovers and open tickets for your team.</p>
+        <p class="mt-1.5 text-center text-[14px] text-ink-2">Shift reports, handovers and operational concerns for your team.</p>
 
         <form class="mt-7 space-y-4" novalidate @submit.prevent="submit">
           <UiField v-slot="{ id }" label="Work email">

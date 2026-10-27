@@ -18,7 +18,7 @@ if (process.argv.includes('--reset')) {
   log('local database removed', { dir });
 }
 const services = await createServices(config);
-const result = await seedDemo(services, { onlyIfEmpty: true });
+const result = await seedDemo(services, { onlyIfEmpty: true, sampleActivity: true, presentation: true });
 if (result) {
   console.log('\nSynthetic demo accounts (local test passwords — do not reuse):');
   for (const a of result.accounts) console.log(`  ${ROLE_LABELS[a.role as Role].padEnd(11)} ${a.email.padEnd(28)} ${a.full_name}`);

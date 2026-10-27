@@ -22,7 +22,7 @@ for analysis. Tests: `server/test/units.test.ts` ("PII sanitization") and `workf
 | Government IDs (SSS, TIN, PhilHealth, Pag-IBIG, UMID, passport, licence) | 34-1234567-8 | **Sensitive** personal information | No | `[GOV-ID-REDACTED]` (formatted patterns and keyword-anchored values) | **No** | Original report only |
 | Health information | "has fever", "diabetic", "on sick leave" | **Sensitive** personal information | No | Term replaced by `[MEDICAL-REDACTED]` | **No** | Original report only |
 | Operational facts (equipment IDs, PO numbers, quantities, locations) | FL-02, PO 77812, Bay 2 | Not personal | Yes | Kept | — | — |
-| Workplace incidents | "slipped near Dock 3" | May relate to a person | Yes (safety) | Kept; any name in it is pseudonymized | — | — |
+| Workplace incidents | "slipped near the unit support room" | May relate to a person | Yes (safety) | Kept; any name in it is pseudonymized | — | — |
 
 ## Storage, access and retention
 

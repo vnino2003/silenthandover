@@ -1,22 +1,25 @@
 import type { Services } from '../http/context';
+import { DEMO_SAMPLE_REPORT, NEWBORN_EXPERIENCE } from '@sh/shared';
 import type { Queryable } from '../db/types';
 
 /**
  * SYNTHETIC DEMONSTRATION DATA. Every person, number and event here is invented.
  * Local test accounts only — never reuse these passwords anywhere else.
  *
- * The demo is one warehouse department. More departments can be added later from the
+ * The demo is the Newborn Care Department. More departments can be added later from the
  * admin portal without code changes; each gets its own supervisor and stays separate.
  */
 export const DEMO_PASSWORD = 'demo-handover-2026';
-export const DEMO_DEPARTMENT = { code: 'WH', name: 'Warehouse Inventory', timezone: 'Asia/Manila' } as const;
+export const DEMO_DEPARTMENT = { code: 'NC', name: 'Newborn Care Department', timezone: 'Asia/Manila' } as const;
 
 export const DEMO_ACCOUNTS = [
   { key: 'admin', email: 'admin@demo.test', full_name: 'Alex Reyes', role: 'admin', dept: null },
-  { key: 'manager', email: 'maria.santos@demo.test', full_name: 'Maria Santos', role: 'manager', dept: 'WH' },
-  { key: 'juan', email: 'juan.delacruz@demo.test', full_name: 'Juan Dela Cruz', role: 'employee', dept: 'WH' },
-  { key: 'ana', email: 'ana.lim@demo.test', full_name: 'Ana Lim', role: 'employee', dept: 'WH' },
-  { key: 'ben', email: 'ben.torres@demo.test', full_name: 'Ben Torres', role: 'employee', dept: 'WH' },
+  { key: 'manager', email: 'maria.santos@demo.test', full_name: 'Maria Santos', role: 'manager', dept: 'NC' },
+  { key: 'juan', email: 'juan.delacruz@demo.test', full_name: 'Juan Dela Cruz', role: 'employee', dept: 'NC' },
+  { key: 'ana', email: 'ana.lim@demo.test', full_name: 'Ana Lim', role: 'employee', dept: 'NC' },
+  { key: 'ben', email: 'ben.torres@demo.test', full_name: 'Ben Torres', role: 'employee', dept: 'NC' },
+  { key: 'carla', email: 'carla.mendoza@demo.test', full_name: 'Carla Mendoza', role: 'employee', dept: 'NC' },
+  { key: 'daniel', email: 'daniel.ramos@demo.test', full_name: 'Daniel Ramos', role: 'employee', dept: 'NC' },
 ] as const;
 
 /** Only seeded by the tests, to prove departments cannot see each other's data. */
@@ -37,7 +40,7 @@ export async function seedDemo(
   services: Services,
   // sampleActivity: sample tickets, source records, a week's crew and an open reporting window.
   // Used by the automated tests; a normal first start creates the setup only (live use).
-  opts: { onlyIfEmpty: boolean; includeSecondDepartment?: boolean; sampleActivity?: boolean },
+  opts: { onlyIfEmpty: boolean; includeSecondDepartment?: boolean; sampleActivity?: boolean; presentation?: boolean },
 ): Promise<SeedResult | null> {
   const { db, auth } = services;
   const existing = await db.asService((q) => val<number>(q, 'select count(*)::int as v from public.profiles'));
@@ -55,18 +58,19 @@ export async function seedDemo(
   // Administrator: one-time setup — the department, its people, and the demo team.
   await db.asUser(ids.admin!, async (q) => {
     const depts: Record<string, string> = {
-      WH: await val<string>(q, `select app.admin_upsert_department(null, $1, $2, $3) as v`, [
+      NC: await val<string>(q, `select app.admin_upsert_department(null, $1, $2, $3) as v`, [
         DEMO_DEPARTMENT.code,
         DEMO_DEPARTMENT.name,
         DEMO_DEPARTMENT.timezone,
       ]),
     };
+    await q.query('select app.set_department_experience($1,$2::jsonb)', [depts.NC, JSON.stringify(NEWBORN_EXPERIENCE)]);
     if (opts.includeSecondDepartment) {
       depts.FAC = await val<string>(q, `select app.admin_upsert_department(null, 'FAC', 'Facilities', 'Asia/Manila') as v`);
     }
     // The sample shifts use their own team so their handover goes to the sample incoming shift,
-    // not to a regular warehouse shift that happens to start in between.
-    if (opts.sampleActivity) await q.query(`select app.admin_upsert_team(null, $1, $2)`, [depts.WH, DEMO_TEAM]);
+    // not to a regular department shift that happens to start in between.
+    if (opts.sampleActivity) await q.query(`select app.admin_upsert_team(null, $1, $2)`, [depts.NC, DEMO_TEAM]);
     for (const a of accounts) {
       if (a.role === 'admin') continue;
       await q.query('select app.admin_create_profile($1, $2, $3, $4, $5, null, null)', [ids[a.key], a.full_name, a.email, a.role, depts[a.dept!]]);
@@ -76,7 +80,7 @@ export async function seedDemo(
   // Supervisor: the day-to-day schedule for their own department.
   await db.asUser(ids.manager!, async (q) => {
     // Two shifts: Morning 6 AM – 2 PM hands over to Afternoon 2 PM – 10 PM.
-    await q.query(`select app.apply_schedule_preset('two_shift')`);
+    await q.query('select app.apply_schedule_preset($1)', [opts.presentation ? 'continuous_24h' : 'two_shift']);
     const templates = await q.query<{ id: string }>(`select id from public.shift_templates where department_id = app.my_department() and is_active order by start_time`);
     for (const template of templates) await q.query(`select app.generate_shifts($1, ${today} - 1, ${today} + 6, $2)`, [template.id, ids.manager]);
     if (!opts.sampleActivity) return;
@@ -87,7 +91,8 @@ export async function seedDemo(
           and shift_date between ${today} + 1 and ${today} + 6`,
     );
     for (const s of crew) {
-      for (const who of s.label === 'Morning' ? [ids.juan] : [ids.ana, ids.ben]) await q.query('select app.assign_to_shift($1, $2)', [s.id, who]);
+      const people = s.label === 'Morning' || s.label === 'Day' ? [ids.juan] : s.label === 'Night' ? [ids.carla, ids.daniel] : [ids.ana, ids.ben];
+      for (const who of people) await q.query('select app.assign_to_shift($1, $2)', [s.id, who]);
     }
   });
 
@@ -95,18 +100,19 @@ export async function seedDemo(
 
   if (opts.sampleActivity) await db.asUser(ids.manager!, async (q) => {
     await q.query(
-      `select app.add_operational_record('maintenance', 'MR-2291', 'Conveyor C3 belt tension adjusted', 'Tension set to spec by maintenance tech; belt tracking OK at test run.', now() - interval '3 hours')`,
+      `select app.add_operational_record('maintenance', 'BIO-NC-020', 'Unit equipment readiness review', 'Biomedical engineering completed the scheduled inspection of the spare equipment set. NB-02 is excluded pending a separate wheel-lock inspection.', now() - interval '3 hours')`,
     );
     await q.query(
-      `select app.add_operational_record('inventory', 'INV-1026', 'Cycle count — Aisle 7', 'System count 48 pallets of SKU 55-210 at 08:00.', now() - interval '6 hours')`,
+      `select app.add_operational_record('quality', 'NC-READY-01', 'Newborn unit readiness checklist', 'Rooms 1–4 prepared; emergency supply seals checked against the local checklist. No patient information is included.', now() - interval '6 hours')`,
     );
     await q.query(
-      `select app.add_operational_record('policy', 'POL-SAFE-01', 'Forklift defects', 'A forklift with a reported brake or steering defect must be tagged out of service until maintenance signs it off.', now() - interval '30 days')`,
+      `select app.add_operational_record('policy', 'POL-NC-01', 'Operational handover and equipment escalation', 'Synthetic demo policy: use approved service references in operational handovers; report equipment faults to the shift lead and authorized engineering team. Clinical information stays in the approved clinical record.', now() - interval '30 days')`,
     );
-    const forklift = await val<{ id: string }>(q, `select app.raise_issue('Forklift FL-02 brake feels soft', 'Reported by operators on two shifts. Tagged out pending maintenance check.', 'high', true) as v`);
-    const dock = await val<{ id: string }>(q, `select app.raise_issue('Dock 3 door sensor intermittent', 'Door sometimes stops halfway. Workaround: manual close.', 'medium', false) as v`);
-    await q.query(`select app.transition_issue($1, 'in_progress', 'Maintenance ticket raised; parts on order.')`, [dock.id]);
-    await q.query('select app.assign_issue($1, $2)', [forklift.id, ids.juan]);
+    await q.query(`select app.add_operational_record('staffing', 'NC-ROSTER-01', 'Care-team coverage and incoming briefing', 'Incoming briefing covers open service requests and unit-readiness references.', now() - interval '2 hours')`);
+    const equipment = await val<{ id: string }>(q, `select app.raise_issue('Bassinet NB-02 wheel lock needs inspection', 'Removed from use in the preparation room. Biomedical engineering request BIO-NC-021 is awaiting inspection.', 'high', true) as v`);
+    const facilities = await val<{ id: string }>(q, `select app.raise_issue('Family consultation room call bell intermittent', 'Facilities request FAC-NC-014 is open. Shift lead has been informed.', 'medium', false) as v`);
+    await q.query(`select app.transition_issue($1, 'in_progress', 'Facilities team acknowledged FAC-NC-014; inspection is in progress.')`, [facilities.id]);
+    await q.query('select app.assign_issue($1, $2)', [equipment.id, ids.juan]);
   });
 
   if (opts.includeSecondDepartment) {
@@ -115,10 +121,16 @@ export async function seedDemo(
       await q.query(`select app.generate_shifts($1, ${today} - 1, ${today} + 6, $2)`, [t, ids.facmanager]);
       const facToday = await val<string>(q, `select id as v from public.shifts where department_id = app.my_department() and shift_date = ${today}`);
       await q.query('select app.assign_to_shift($1, $2)', [facToday, ids.liza]);
-      await q.query(`select app.raise_issue('Roof drain near Bay 2 clogged', 'Visible water pooling after rain.', 'medium', false)`);
+      await q.query(`select app.raise_issue('Staff entrance light needs attention', 'Facilities inspection requested for the staff entrance.', 'medium', false)`);
     });
   }
 
+  if (opts.presentation && opts.sampleActivity) {
+    await db.asUser(ids.juan!, async (q) => {
+      const [s] = await q.query<{ id: string }>(`select s.id from public.shifts s join public.shift_assignments a on a.shift_id=s.id where a.employee_id=auth.uid() and a.removed_at is null and s.label like '% (demo)' and s.status='scheduled' order by s.created_at desc limit 1`);
+      if (s) { const id = await val<string>(q, 'select app.get_or_create_report($1) as v', [s.id]); await q.query('select app.save_draft($1,$2::jsonb)', [id, JSON.stringify(DEMO_SAMPLE_REPORT)]); }
+    });
+  }
   return { accounts: accounts.map((a) => ({ email: a.email, role: a.role, full_name: a.full_name })) };
 }
 
@@ -132,6 +144,7 @@ export async function seedDemo(
  */
 export async function resetActivity(services: Services, actorId: string) {
   const tables = [
+    'internal.assistant_proposals',
     'public.issue_photos', 'public.issue_updates', 'public.issue_assignments', 'public.operational_issues',
     'public.handover_routes', 'public.handover_acknowledgments', 'public.handover_deliveries', 'public.handover_approvals',
     'public.ai_analysis_runs', 'internal.analysis_inputs', 'public.notification_deliveries', 'public.notifications',

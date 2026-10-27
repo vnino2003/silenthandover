@@ -1,55 +1,13 @@
 # 1. Three-Criterion Automation Audit
 
-**Track:** C — Admin & Inventory Operations.
-**Scope:** one department, *Warehouse Inventory*, where unresolved stock, dispatch, equipment and
-safety issues are most often lost at shift change. The system is built to scale: an administrator can
-add departments (e.g. Receiving, Dispatch, Maintenance) without code changes, and each department gets
-its own supervisor, schedule and private data.
+**Scope:** operational shift continuity in the synthetic Newborn Care Department at Starlight Community Hospital. The same platform supports other organizations through department configuration. This demonstration concerns equipment readiness, supplies, facilities, staffing coordination and administrative follow-ups. Patient care records remain in the approved clinical system.
 
-**Task audited:** turning each employee's end-of-shift notes into a verified handover for the next
-shift, and keeping unresolved issues visible until someone authorized confirms they are fixed.
+**Frequency:** each shift change produces handovers from outgoing team members. The hospital example uses continuous coverage. Illustrative volumes are planning assumptions rather than measured clinical or operational outcomes.
 
-## Criterion 1 — High frequency ✔
+**Repeatability:** completed activities, open concerns, pending work and supporting references follow a stable reporting structure. Each organization can customize terminology, guidance, categories and schedule rules. Unresolved items persist until an authorized reviewer verifies completion.
 
-* Happens at **every shift change, for every employee**. A site running three 8-hour shifts produces a
-  report per person, three times a day, every day.
-* Illustrative volume (an assumption for planning, not measured data): a warehouse with 10 people per
-  shift → 30 reports/day → about 900 per month for one department.
-* Each manual handover costs the outgoing employee time to write, the supervisor time to read and
-  chase, and the incoming employee time to find what matters. The cost repeats every shift.
+**Human judgment:** a model can organize supplied operational facts, identify missing detail and suggest existing concern links. It cannot verify equipment safety, approve a handover, make staffing decisions or provide clinical advice. Reviewers compare original notes with the draft and authorized source records before approval.
 
-## Criterion 2 — Rule-bounded ✔
+**Example:** an outgoing team member reports a slipping wheel lock on bassinet NB-02 and a pending sealed-linen replenishment request. The incoming team receives the approved operational checklist. Biomedical engineering evidence can be attached to a completion claim; the shift lead verifies it before closure.
 
-The process follows explicit, checkable rules, which is what lets software enforce it:
-
-| Rule | Where it is enforced |
-|---|---|
-| Report only during a fixed window (e.g. 30 min before shift end to 30 min after) | `app.window_state()`, `app.submit_report()` — database clock |
-| One report per employee per shift; changes only through a requested revision | unique constraint + status checks |
-| Fixed report sections; "none" must be stated explicitly | `ReportSubmission` schema |
-| Only a supervisor of that department may approve; never their own report | `app.decide_report()` |
-| Every verification flag needs a recorded decision before approval | `app.decide_report()` |
-| Issue status follows a fixed transition table; only supervisors verify resolution | `app.transition_issue()` |
-| Handover goes to the next shift of the same department/team | `app.next_shift()` |
-
-The AI's part is also bounded: a fixed role, fixed output schema, no tools, and no authority.
-
-## Criterion 3 — Digital ingestion ✔
-
-* Input is captured digitally at the source: a web form (mobile-first) with structured sections,
-  saved as JSON in PostgreSQL.
-* Every downstream step consumes that digital record: sanitization, AI drafting, review, delivery,
-  issue tracking and audit. No paper, no re-typing, no scanning.
-
-## Verdict
-
-All three criteria are met, so the task is a good candidate for automation **with a human approval
-gate**, because the content is safety-relevant and written in free text:
-
-| Automate | Keep human |
-|---|---|
-| Window enforcement, reminders, missing-report alerts | Deciding whether a claim is true |
-| Removing personal data before AI use | Approving, correcting or rejecting the handover |
-| Drafting a structured summary and flagging gaps | Merging a report item into an existing issue |
-| Checking quotes and numbers against the source | Declaring an issue or hazard resolved |
-| Delivery, acknowledgment tracking, escalation | Granting late-submission overrides |
+**Boundaries:** no diagnosis, treatment recommendation, patient identity or clinical decision automation. The example policy and all people, records and organizations are synthetic.

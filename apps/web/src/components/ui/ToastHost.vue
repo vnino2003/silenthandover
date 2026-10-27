@@ -5,7 +5,7 @@ const MARK = { ok: 'bg-[#5fd39a]', info: 'bg-[#8fb4ff]', bad: 'bg-white' } as co
 </script>
 
 <template>
-  <div class="pointer-events-none fixed inset-x-0 bottom-4 z-[60] flex flex-col items-center gap-2 px-4 sm:items-end sm:pr-6" aria-live="polite">
+  <div class="toast-host pointer-events-none fixed inset-x-0 z-[60] flex flex-col items-center gap-2 px-4 sm:items-end sm:pr-6" aria-live="polite">
     <TransitionGroup name="toast">
       <div
         v-for="t in toast.toasts"

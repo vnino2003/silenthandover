@@ -1,11 +1,12 @@
 import { Hono } from 'hono';
+import { DepartmentExperience } from '@sh/shared';
 import { z } from 'zod';
 import { ReportDraftContent, ROLES, type PromptVersion } from '@sh/shared';
 import { maskAddress } from '../automation/notifications';
 import { ApiError } from '../http/errors';
 import { asUser, idParam, parseBody, parseQuery, requireRole, svc, type AppEnv } from '../http/context';
 import { resetActivity } from '../seed/demo';
-import { AI_PROVIDERS, callProvider, ProviderError } from '../automation/ai-provider';
+import { AI_PROVIDERS, callWithFallback, listModels, pickModel, ProviderError } from '../automation/ai-provider';
 import { describeStoredRun, previewPipeline, type StoredRun } from '../automation/preview';
 
 const optionalUuid = z.uuid().nullable().default(null);
@@ -63,16 +64,31 @@ export function adminRoutes() {
   r.post('/ai/test', async (c) => {
     const b = await parseBody(c, AiBody.extend({ provider: z.enum(['gemini', 'grok']) }));
     const { aiSettings, config, fetchImpl } = svc(c);
-    const saved = b.api_key ? null : await aiSettings.active();
-    const apiKey = b.api_key ?? (saved?.provider === b.provider ? saved.apiKey : null);
+    const apiKey = b.api_key ?? (await aiSettings.savedKey(b.provider));
     if (!apiKey) throw new ApiError(422, 'validation', 'Paste the API key to test it', { api_key: 'Required' });
-    const model = b.model ?? AI_PROVIDERS[b.provider].defaultModel;
     try {
-      const reply = await callProvider(fetchImpl, b.provider, model, apiKey, {
+      // No model chosen: test exactly what reports would use — the newest model, moving on to the
+      // next one if it is busy.
+      const reply = await callWithFallback(aiSettings, fetchImpl, { provider: b.provider, apiKey, model: b.model ?? null }, {
         system: 'You are a connection test. Reply with JSON only.',
         user: 'Return exactly {"ok": true}.',
-      }, Math.min(config.AI_REQUEST_TIMEOUT_MS, 30000));
-      return c.json({ ok: true, provider: b.provider, model, latency_ms: reply.latencyMs });
+      }, Math.min(config.AI_REQUEST_TIMEOUT_MS, 20000), 50000);
+      return c.json({ ok: true, provider: b.provider, model: reply.model, automatic: !b.model, busy_skipped: reply.tried.slice(0, -1), latency_ms: reply.latencyMs });
+    } catch (err) {
+      if (err instanceof ProviderError) throw new ApiError(502, 'provider_error', err.message);
+      throw err;
+    }
+  });
+
+  // The models this key can actually use, newest first, and the one "automatic" would pick.
+  r.post('/ai/models', async (c) => {
+    const b = await parseBody(c, z.strictObject({ provider: z.enum(['gemini', 'grok']), api_key: z.string().trim().min(16).max(300).optional() }));
+    const { aiSettings, fetchImpl } = svc(c);
+    const apiKey = b.api_key ?? (await aiSettings.savedKey(b.provider));
+    if (!apiKey) throw new ApiError(422, 'validation', 'Paste the API key first', { api_key: 'Required' });
+    try {
+      const models = await listModels(fetchImpl, b.provider, apiKey);
+      return c.json({ models, suggested: pickModel(b.provider, models) });
     } catch (err) {
       if (err instanceof ProviderError) throw new ApiError(502, 'provider_error', err.message);
       throw err;
@@ -223,7 +239,7 @@ export function adminRoutes() {
   r.get('/departments', async (c) => {
     const rows = await asUser(c, (q) =>
       q.query(
-        `select d.id, d.code, d.name, d.timezone, d.created_at,
+        `select d.id, d.code, d.name, d.timezone, d.created_at, d.experience,
                 coalesce((select jsonb_agg(jsonb_build_object('id', t.id, 'name', t.name) order by t.name) from public.teams t where t.department_id = d.id), '[]'::jsonb) as teams,
                 (select count(*)::int from public.profiles p where p.department_id = d.id and p.is_active) as member_count
            from public.departments d order by d.name`,
@@ -253,6 +269,13 @@ export function adminRoutes() {
     const b = await parseBody(c, z.strictObject({ name: z.string().trim().min(2).max(120) }));
     const teamId = await asUser(c, async (q) => (await q.query<{ id: string }>('select app.admin_upsert_team(null, $1, $2) as id', [id, b.name]))[0]!.id);
     return c.json({ id: teamId }, 201);
+  });
+
+  r.put('/departments/:id/experience', async (c) => {
+    const id = idParam(c);
+    const value = await parseBody(c, DepartmentExperience);
+    await asUser(c, (q) => q.query('select app.set_department_experience($1,$2::jsonb)', [id, JSON.stringify(value)]));
+    return c.json(value);
   });
 
   // ---- Settings and templates -------------------------------------------------

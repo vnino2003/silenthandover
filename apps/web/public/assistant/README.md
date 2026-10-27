@@ -1,0 +1,7 @@
+# Mica mascot
+
+Original asset generated with the built-in image_gen tool for this project. The transparent PNG is used by MicaMascot.vue for the launcher, onboarding/empty state, response avatar and restrained thinking animation. Keep its identity industry-independent; do not add medical or industry-specific insignia.
+
+## Generation prompt
+
+Use case: stylized-concept. Asset type: transparent mascot avatar for Silent Handover, a premium professional workplace continuity app with teal and cool-neutral UI. Create ONE original friendly messenger-bird character named Mica, an industry-independent AI assistant. A small sculptural teal bird with overlapping folded-ribbon wings suggesting information passed carefully from one shift to another, subtle asymmetrical folded crest, warm ivory face inset, two modest dark eyes, tiny understated beak, calm attentive expression. Sophisticated soft 3D clay/paper hybrid illustration, clean simple recognizable silhouette that reads at 40px, restrained proportions, approachable but not babyish. Front three-quarter view, full character centered with generous clear padding. Teal #087e82, deep slate, ivory, one subtle pale mint highlight. Soft diffuse studio lighting. True transparent background, no floor or drop shadow outside the character. No words, letters, logos, medical symbols, hats, clothing, gadgets, hearts, sparkles, huge anime eyes, extra characters, decorative scene, or watermark. This must look like a quiet capable professional companion, not a toy.

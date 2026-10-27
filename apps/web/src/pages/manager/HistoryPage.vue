@@ -47,7 +47,7 @@ const { data, loading, refreshing, error, reload } = useAsync(
       </select>
     </PageHeader>
     <StateBlock :loading="loading" :refreshing="refreshing" :error="error" :empty="!data?.length" empty-title="No reports in this period" @retry="reload()">
-      <div class="card overflow-x-auto">
+      <div class="table-region card overflow-x-auto" tabindex="0" role="region" aria-label="Report history — scroll horizontally to see all columns">
         <table class="w-full min-w-[620px] text-left text-[14px]">
           <thead class="border-b border-line bg-canvas text-[12px] tracking-wide text-ink-3 uppercase">
             <tr><th class="px-5 py-2.5 font-medium">Report</th><th class="px-3 py-2.5 font-medium">Employee</th><th class="px-3 py-2.5 font-medium">Shift</th><th class="px-3 py-2.5 font-medium">Submitted</th><th class="px-5 py-2.5 text-right font-medium">Status</th></tr>

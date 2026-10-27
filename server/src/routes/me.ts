@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { DepartmentExperience } from '@sh/shared';
 import { z } from 'zod';
 import { ApiError } from '../http/errors';
 import { asUser, idParam, parseBody, parseQuery, requireRole, type AppEnv } from '../http/context';
@@ -7,6 +8,10 @@ export function meRoutes() {
   const r = new Hono<AppEnv>();
 
   r.get('/me', (c) => c.json(c.get('profile')));
+  r.get('/department/experience', async (c) => {
+    const [row] = await asUser(c, (q) => q.query<{ experience: unknown }>('select experience from public.departments where id = app.my_department()'));
+    return c.json(DepartmentExperience.parse(row?.experience ?? {}));
+  });
 
   r.patch('/me/preferences', async (c) => {
     const body = await parseBody(

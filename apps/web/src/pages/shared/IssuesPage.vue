@@ -111,7 +111,7 @@ async function raise() {
     <UiDialog :open="raising" title="Report an issue" :description="isManager ? 'It opens immediately for your department.' : 'A supervisor reviews new issues before they are opened.'" @close="raising = false">
       <form id="raise-form" class="space-y-4" @submit.prevent="raise">
         <UiField v-slot="{ id }" label="What’s the problem?" :error="formErrors.title">
-          <input :id="id" v-model="form.title" class="field-input" maxlength="160" placeholder="e.g. Dock 2 leveler not lowering" />
+          <input :id="id" v-model="form.title" class="field-input" maxlength="160" placeholder="A short description of the operational concern" />
         </UiField>
         <UiField v-slot="{ id }" label="Details" optional>
           <textarea :id="id" v-model="form.description" class="field-input" rows="3" placeholder="Where, what you saw, what you did" />

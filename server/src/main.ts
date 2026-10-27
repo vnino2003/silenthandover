@@ -12,7 +12,7 @@ const config = loadConfig();
 const services = await createServices(config);
 
 if (config.APP_MODE === 'local' && config.DEMO_MODE) {
-  const seeded = await seedDemo(services, { onlyIfEmpty: true });
+  const seeded = await seedDemo(services, { onlyIfEmpty: true, sampleActivity: true, presentation: true });
   if (seeded) log('demo data seeded', { accounts: seeded.accounts.length });
 }
 

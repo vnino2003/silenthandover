@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue';
-import { DEMO_SAMPLE_REPORT, EMPTY_REPORT, problemLine, type ReportDraftContent } from '@sh/shared';
+import { computed, nextTick, ref, watch } from 'vue';
+import type { ReportDraftContent } from '@sh/shared';
 import PipelineSteps, { type PipelineView } from '@/components/PipelineSteps.vue';
+import ReportForm from '@/components/ReportForm.vue';
 import PageHeader from '@/components/ui/PageHeader.vue';
 import StateBlock from '@/components/ui/StateBlock.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
@@ -62,44 +63,25 @@ const RUN_TONE: Record<string, 'ok' | 'bad' | 'warn' | 'info'> = { succeeded: 'o
 const RUN_LABEL: Record<string, string> = { succeeded: 'Accepted', failed: 'AI unreachable', invalid_output: 'Rejected answer' };
 
 // ---- Try an example
-const settings = useAsync(() => api.get<{ provider: string; has_key: boolean; model: string | null; providers: Record<string, { label: string; defaultModel: string }> }>('/admin/ai'));
+const settings = useAsync(() => api.get<{ provider: string; has_key: boolean; model: string | null; resolved_model: string | null; providers: Record<string, { label: string }> }>('/admin/ai'));
 const providerReady = computed(() => !!settings.data.value && settings.data.value.provider !== 'simulator' && settings.data.value.has_key);
 const providerLabel = computed(() => {
   const s = settings.data.value;
   if (!s || s.provider === 'simulator') return '';
-  return `${s.providers[s.provider]?.label ?? s.provider} · ${s.model ?? s.providers[s.provider]?.defaultModel ?? ''}`;
+  return `${s.providers[s.provider]?.label ?? s.provider} · ${s.model ?? s.resolved_model ?? 'newest model'}`;
 });
-const FIELDS = [
-  { key: 'completed_work', label: 'What did you finish this shift?' },
-  { key: 'unresolved_issues', label: 'Problems still open' },
-  { key: 'pending_tasks', label: 'What the next shift must do' },
-  { key: 'operational_concerns', label: 'Equipment or safety worries' },
-  { key: 'handover_notes', label: 'Other notes' },
-] as const;
-type FieldKey = (typeof FIELDS)[number]['key'];
-const blank = (): Record<FieldKey, string> => ({ completed_work: '', unresolved_issues: '', pending_tasks: '', operational_concerns: '', handover_notes: '' });
-const form = ref(blank());
-function useExample() {
-  const s = DEMO_SAMPLE_REPORT;
-  form.value = {
-    completed_work: s.completed_work,
-    // The example lists its problems one by one; show them as lines, as the report text does.
-    unresolved_issues: [...s.problems.map(problemLine), s.unresolved_issues].filter(Boolean).join('\n'),
-    pending_tasks: s.pending_tasks,
-    operational_concerns: s.operational_concerns,
-    handover_notes: s.handover_notes,
-  };
-}
 const engine = ref<'simulator' | 'provider'>('simulator');
 const example = ref<PipelineView | null>(null);
 const runs_ = ref(0);
 const busy = ref(false);
-async function run() {
+const resultsEl = ref<HTMLElement | null>(null);
+async function run(content: ReportDraftContent) {
   busy.value = true;
   try {
-    const content: ReportDraftContent = { ...EMPTY_REPORT, ...form.value };
     example.value = await api.post<PipelineView>('/admin/ai/preview', { content, engine: engine.value });
     runs_.value++;
+    await nextTick();
+    resultsEl.value?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   } catch (err) {
     toast.error(errorMessage(err));
   } finally {
@@ -180,41 +162,42 @@ async function run() {
 
     <!-- Try an example -->
     <div v-else class="page-enter">
-      <section class="card p-5" aria-labelledby="input-h">
-        <div class="flex flex-wrap items-center justify-between gap-2">
-          <h2 id="input-h" class="text-[15px] font-semibold">Example report</h2>
-          <div class="flex gap-1.5">
-            <UiButton size="sm" @click="useExample">Fill with example</UiButton>
-            <UiButton size="sm" variant="ghost" @click="form = blank()">Clear</UiButton>
-          </div>
+      <div class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-surface px-4 py-3">
+        <p class="text-[13.5px] text-ink-2">
+          This is the <span class="font-medium text-ink">same form an employee fills in</span> at the end of a shift. Fill it in (or press
+          <span class="font-medium">Generate example</span>), leave the optional boxes empty to see fallbacks, then run it.
+        </p>
+        <div class="flex rounded-md border border-line p-0.5 text-[13px]" role="radiogroup" aria-label="Which AI answers">
+          <button type="button" role="radio" :aria-checked="engine === 'simulator'" class="rounded px-3 py-1.5" :class="engine === 'simulator' ? 'bg-sunken font-medium' : 'text-ink-3'" @click="engine = 'simulator'">Simulator</button>
+          <button
+            type="button"
+            role="radio"
+            :aria-checked="engine === 'provider'"
+            :disabled="!providerReady"
+            class="rounded px-3 py-1.5 disabled:opacity-50"
+            :class="engine === 'provider' ? 'bg-sunken font-medium' : 'text-ink-3'"
+            :title="providerReady ? '' : 'Connect an AI on the Integrations page first'"
+            @click="engine = 'provider'"
+          >
+            {{ providerReady ? providerLabel : 'Connected AI (none yet)' }}
+          </button>
         </div>
-        <p class="mt-1 text-[13px] text-ink-3">Leave some boxes empty to see the fallbacks. Names of real accounts are replaced automatically. Nothing is saved or sent to anyone.</p>
-        <div class="mt-4 grid gap-3 sm:grid-cols-2">
-          <label v-for="f in FIELDS" :key="f.key" class="block text-[13.5px] font-medium" :class="{ 'sm:col-span-2': f.key === 'completed_work' || f.key === 'unresolved_issues' }">
-            {{ f.label }}
-            <textarea v-model="form[f.key]" class="field-input mt-1 text-[14px]" :rows="f.key === 'completed_work' || f.key === 'unresolved_issues' ? 3 : 2" placeholder="(leave blank to see the fallback)" />
-          </label>
-        </div>
-        <div class="mt-4 flex flex-wrap items-center gap-3 border-t border-line pt-4">
-          <div class="flex rounded-md border border-line p-0.5 text-[13px]" role="radiogroup" aria-label="Which AI answers">
-            <button type="button" role="radio" :aria-checked="engine === 'simulator'" class="rounded px-3 py-1.5" :class="engine === 'simulator' ? 'bg-sunken font-medium' : 'text-ink-3'" @click="engine = 'simulator'">Simulator</button>
-            <button
-              type="button"
-              role="radio"
-              :aria-checked="engine === 'provider'"
-              :disabled="!providerReady"
-              class="rounded px-3 py-1.5 disabled:opacity-50"
-              :class="engine === 'provider' ? 'bg-sunken font-medium' : 'text-ink-3'"
-              :title="providerReady ? '' : 'Connect an AI on the Integrations page first'"
-              @click="engine = 'provider'"
-            >
-              {{ providerReady ? providerLabel : 'Connected AI (none yet)' }}
-            </button>
-          </div>
-          <UiButton variant="primary" :loading="busy" @click="run">Run through the pipeline</UiButton>
-        </div>
-      </section>
-      <PipelineSteps v-if="example" :key="runs_" class="mt-6" :view="example" />
+      </div>
+      <ReportForm
+        report-id="pipeline-example"
+        :initial="null"
+        server-updated-at=""
+        :is-revision="false"
+        :can-submit="true"
+        :submit-blocked-reason="null"
+        :open-issues="[]"
+        preview
+        :preview-busy="busy"
+        @preview="run"
+      />
+            <div ref="resultsEl" class="scroll-mt-6">
+        <PipelineSteps v-if="example" :key="runs_" class="mt-6" :view="example" />
+      </div>
     </div>
   </div>
 </template>

@@ -13,7 +13,7 @@ import { useToast } from '@/stores/toast';
 
 /**
  * The supervisor's schedule: the department's regular shifts (Morning 6–2 and Afternoon 2–10
- * for the warehouse) as rows, the days of the week as columns. Every day already has its
+ * for the department) as rows, the days of the week as columns. Every day already has its
  * shifts; the supervisor only picks who works each one.
  */
 interface ShiftType {
@@ -332,8 +332,8 @@ async function saveShiftSetup() {
           <h2 id="week-heading" class="text-[16px] font-semibold">{{ weekTitle }}</h2>
           <p class="mt-0.5 text-[13px] text-ink-3">Each shift can have several people.</p>
         </div>
-        <div class="flex items-center gap-1.5">
-          <UiButton size="sm" variant="ghost" :loading="busy === 'copy'" @click="copyLastWeek">Copy last week’s crew</UiButton>
+        <div class="flex w-full flex-wrap items-center gap-1.5 sm:w-auto">
+          <UiButton class="w-full sm:w-auto" size="sm" variant="ghost" :loading="busy === 'copy'" @click="copyLastWeek">Copy last week’s crew</UiButton>
           <UiButton size="sm" variant="ghost" aria-label="Previous week" @click="moveWeek(-1)">←</UiButton>
           <UiButton size="sm" variant="ghost" @click="goToday">This week</UiButton>
           <UiButton size="sm" variant="ghost" aria-label="Next week" @click="moveWeek(1)">→</UiButton>
@@ -341,7 +341,7 @@ async function saveShiftSetup() {
       </div>
 
       <StateBlock :loading="shifts.loading.value" :refreshing="shifts.refreshing.value" :error="shifts.error.value" :empty="false" @retry="shifts.reload()">
-        <div class="card overflow-x-auto">
+        <div class="table-region card overflow-x-auto" tabindex="0" role="region" aria-label="Weekly shift schedule — scroll horizontally to see all columns">
           <table class="w-full min-w-[860px] border-collapse text-left">
             <thead>
               <tr class="border-b border-line">
@@ -463,7 +463,7 @@ async function saveShiftSetup() {
             <UiField v-slot="{ id }" label="Name" class="flex-1"><input :id="id" v-model="r.name" class="field-input" maxlength="80" placeholder="e.g. Morning" /></UiField>
             <UiButton size="sm" variant="ghost" :aria-label="`Remove ${r.name || 'this shift'}`" :disabled="editingShifts.length === 1" @click="editingShifts.splice(i, 1)">Remove</UiButton>
           </div>
-          <div class="mt-2 grid grid-cols-3 gap-2">
+          <div class="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
             <UiField v-slot="{ id }" label="Starts"><input :id="id" v-model="r.start_time" type="time" class="field-input" /></UiField>
             <UiField v-slot="{ id }" label="Ends"><input :id="id" v-model="r.end_time" type="time" class="field-input" /></UiField>
             <UiField v-slot="{ id }" label="Days">

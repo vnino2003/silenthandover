@@ -70,7 +70,7 @@ async function save() {
       <UiButton variant="primary" @click="openNew">Add user</UiButton>
     </PageHeader>
     <StateBlock :loading="users.loading.value" :error="users.error.value" :empty="!rows.length" empty-title="No users found" @retry="users.reload()">
-      <div class="card overflow-x-auto">
+      <div class="table-region card overflow-x-auto" tabindex="0" role="region" aria-label="User directory — scroll horizontally to see all columns">
         <table class="w-full min-w-[640px] text-left text-[14px]">
           <thead class="border-b border-line bg-canvas text-[12px] tracking-wide text-ink-3 uppercase">
             <tr><th class="px-5 py-2.5 font-medium">Name</th><th class="px-3 py-2.5 font-medium">Role</th><th class="px-3 py-2.5 font-medium">Department</th><th class="px-3 py-2.5 font-medium">Status</th><th class="px-5 py-2.5" /></tr>

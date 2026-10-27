@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia';
+import { DepartmentExperience, GENERIC_EXPERIENCE, ROLE_LABELS, type Role } from '@sh/shared';
 import { computed, ref } from 'vue';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { api, ApiError, configureApi } from '@/lib/api';
@@ -25,6 +26,8 @@ function readLocalSession(): LocalSession | null {
 export const useAuth = defineStore('auth', () => {
   const config = ref<AppConfig | null>(null);
   const profile = ref<Profile | null>(null);
+  const experience = ref(DepartmentExperience.parse({}));
+  const roleLabel = (role: Role) => role === 'employee' ? experience.value.staff_label : role === 'manager' ? experience.value.supervisor_label : ROLE_LABELS[role];
   const ready = ref(false);
   const bootError = ref<string | null>(null);
   /** Server clock minus browser clock, in ms. Countdowns use server time. */
@@ -45,6 +48,7 @@ export const useAuth = defineStore('auth', () => {
       /* storage unavailable */
     }
     profile.value = null;
+    experience.value = DepartmentExperience.parse({});
   }
 
   configureApi({
@@ -61,6 +65,7 @@ export const useAuth = defineStore('auth', () => {
     try {
       const p = await api.get<Profile>('/me');
       profile.value = p;
+      experience.value = p.department_id ? await api.get<DepartmentExperience>('/department/experience') : { ...GENERIC_EXPERIENCE };
       clockSkew.value = new Date(p.server_now).getTime() - Date.now();
     } catch (err) {
       if (err instanceof ApiError && (err.status === 401 || err.status === 403)) clearSession();
@@ -109,5 +114,5 @@ export const useAuth = defineStore('auth', () => {
   const homePath = computed(() => (role.value === 'admin' ? '/admin' : role.value === 'manager' ? '/manager' : '/'));
   const serverNow = () => Date.now() + clockSkew.value;
 
-  return { config, profile, ready, bootError, role, homePath, clockSkew, init, signIn, signOut, loadProfile, serverNow };
+  return { config, profile, experience, roleLabel, ready, bootError, role, homePath, clockSkew, init, signIn, signOut, loadProfile, serverNow };
 });

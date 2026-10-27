@@ -24,6 +24,7 @@ const routes: RouteRecordRaw[] = [
     children: [
       { path: '', component: () => import('@/pages/employee/DashboardPage.vue'), meta: { roles: employee, title: 'Today' } },
       { path: 'reports', component: () => import('@/pages/employee/MyReportsPage.vue'), meta: { roles: employee, title: 'My reports' } },
+      { path: 'assistant', component: () => import('@/pages/employee/AssistantPage.vue'), meta: { roles: employee, title: 'Workplace assistant' } },
       { path: 'reports/:id', component: () => import('@/pages/employee/ReportPage.vue'), meta: { roles: employee, title: 'Shift report' } },
       { path: 'shifts/:shiftId/report', component: () => import('@/pages/employee/OpenReportPage.vue'), meta: { roles: employee } },
       { path: 'handover', component: () => import('@/pages/employee/IncomingPage.vue'), meta: { roles: employee, title: 'Shift takeover' } },
@@ -47,7 +48,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'admin/users', component: () => import('@/pages/admin/UsersPage.vue'), meta: { roles: admin, title: 'Users' } },
       { path: 'admin/departments', component: () => import('@/pages/admin/DepartmentsPage.vue'), meta: { roles: admin, title: 'Departments' } },
       { path: 'admin/shifts', redirect: '/admin' },
-      { path: 'admin/settings', component: () => import('@/pages/admin/SettingsPage.vue'), meta: { roles: admin, title: 'Settings' } },
+      { path: 'admin/settings', component: () => import('@/pages/admin/SettingsPage.vue'), meta: { roles: admin, title: 'Rules and emails' } },
       { path: 'admin/integrations', redirect: '/admin' },
       { path: 'admin/audit', component: () => import('@/pages/shared/AuditPage.vue'), meta: { roles: admin, title: 'Audit log' } },
     ],

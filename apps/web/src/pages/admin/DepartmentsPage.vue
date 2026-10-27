@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
+import DepartmentExperienceEditor from '@/components/DepartmentExperienceEditor.vue';
 import PageHeader from '@/components/ui/PageHeader.vue';
 import StateBlock from '@/components/ui/StateBlock.vue';
 import UiButton from '@/components/ui/UiButton.vue';
@@ -12,6 +13,7 @@ import type { Department } from '@/lib/useAdminRefs';
 import { useToast } from '@/stores/toast';
 
 const toast = useToast();
+const customizing = ref<Department | null>(null);
 const { data, loading, error, reload } = useAsync(() => api.get<Department[]>('/admin/departments'));
 const zones = (() => {
   try {
@@ -74,6 +76,7 @@ async function saveTeam() {
               <p class="text-[13px] text-ink-3">{{ d.timezone }} ({{ tzLabel(d.timezone) }}) · {{ d.member_count }} active member{{ d.member_count === 1 ? '' : 's' }}</p>
             </div>
             <div class="flex gap-2">
+              <UiButton size="sm" @click="customizing = d">Customize</UiButton>
               <UiButton size="sm" variant="ghost" @click="team = { department: d, name: '' }">Add team</UiButton>
               <UiButton size="sm" @click="(editing = { id: d.id, code: d.code, name: d.name, timezone: d.timezone }), (errors = {})">Edit</UiButton>
             </div>
@@ -84,6 +87,9 @@ async function saveTeam() {
         </li>
       </ul>
     </StateBlock>
+    <UiDialog :open="Boolean(customizing)" :title="`Customize ${customizing?.name ?? 'department'}`" wide @close="customizing = null">
+      <DepartmentExperienceEditor v-if="customizing" :key="customizing.id" :department-id="customizing.id" :initial="customizing.experience" @saved="customizing = null; reload(); toast.ok('Department experience saved')" />
+    </UiDialog>
 
     <UiDialog :open="Boolean(editing)" :title="editing?.id ? 'Edit department' : 'Add department'" @close="editing = null">
       <form v-if="editing" id="dept-form" class="space-y-4" @submit.prevent="saveDept">

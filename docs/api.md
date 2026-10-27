@@ -3,6 +3,26 @@
 Base path `/api`. JSON in and out. Authenticated routes need `Authorization: Bearer <token>`.
 Errors: `{ "error": { "code", "message", "fields"?, "request_id" } }`.
 
+## Workplace assistant (active employees only)
+
+Role-aware page help is separate: `POST /assistant/help` accepts `{message, page}` for any active role, validates page access for that role, and returns plain-text guidance with an explicit engine label. It has no action tools or access to arbitrary page content. Employee action preparations may include `{context: {page, entity_id?}}`; a report reference is resolved under author-scoped RLS before its shift is selected.
+
+Department configuration: `GET /department/experience` reads the caller's own department settings (generic defaults for an unassigned administrator). `PUT /admin/departments/:id/experience` validates and persists terminology, guidance, concern categories and record choices; only administrators may write it.
+
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/assistant/message` | `{ message, shift_id? }` starts preparation; `{ message, preparation_id, version }` continues it |
+| GET | `/assistant/preparations/:id` | Restore the author's latest summary and receipt |
+| PUT | `/assistant/preparations/:id` | Save `{ version, state }` after reviewing/editing; validates shared schemas and issue permissions |
+| POST | `/assistant/preparations/:id/confirm` | `{ version, confirmed: true }` executes the reviewed server snapshot once; repeated confirmation returns the receipt |
+| GET | `/assistant/status` | Own recent reports and authorized department issues from PostgreSQL |
+
+Preparation responses include state, engine (`guided` when no model is connected), missing fields,
+readiness, version, shift, expiry and an optional receipt. Message bodies are limited to 64 KB and
+messages to 6000 characters. Existing authentication and write rate limits apply. Confirmation
+does not accept client-authored action content. Unsupported actions never execute. Failures retain
+the last preparation. Status data is read under RLS and never supplied as model-generated facts.
+
 | Code | HTTP | Meaning |
 |---|---|---|
 | `unauthenticated` | 401 | Missing or expired session |

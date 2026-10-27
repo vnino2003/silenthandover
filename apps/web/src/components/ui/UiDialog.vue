@@ -36,10 +36,9 @@ watch(
       const body = panel.value?.querySelector<HTMLElement>('.dialog-body');
       (
         body?.querySelector<HTMLElement>('[autofocus], input:not([type=hidden]):not(.sr-only), textarea, select') ??
-        // No field: focus the first footer button (usually Cancel), never a destructive action.
-        panel.value?.querySelector<HTMLElement>('.dialog-footer button:first-child') ??
-        panel.value?.querySelector<HTMLElement>('button')
-      )?.focus();
+        // Read-only summaries start at the top, not scrolled down to the footer action.
+        panel.value
+      )?.focus({ preventScroll: true });
     } else {
       document.removeEventListener('keydown', onKey);
       document.body.style.overflow = '';
@@ -60,9 +59,10 @@ onBeforeUnmount(() => {
         <div
           ref="panel"
           role="dialog"
+          tabindex="-1"
           aria-modal="true"
           :aria-label="title"
-          class="dialog-panel max-h-[92vh] w-full overflow-y-auto rounded-t-xl bg-surface shadow-pop sm:rounded-lg"
+          class="dialog-panel max-h-[92dvh] w-full overflow-y-auto rounded-t-xl bg-surface shadow-pop sm:rounded-lg"
           :class="wide ? 'sm:max-w-2xl' : 'sm:max-w-md'"
         >
           <!-- On phones the dialog is a bottom sheet; the handle shows it can be dismissed. -->

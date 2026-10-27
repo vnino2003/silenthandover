@@ -62,7 +62,7 @@ The brief allows either. A Node.js API (Hono) was chosen because:
 | Verify an issue as resolved | | ✔ own department | |
 | Accounts, departments, settings, integration health | | | ✔ |
 
-The demo uses one department (Warehouse Inventory). More can be added by the admin without code
+The demo uses one department (Newborn Care Department). More can be added by the admin without code
 changes; each gets its own supervisor, schedule and data boundary.
 
 ## 5. Shift reporting lifecycle

@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { DEMO_SAMPLE_REPORT, type AiHandoverDraft } from '@sh/shared';
+import { DEMO_TEST_REPORT as DEMO_SAMPLE_REPORT, type AiHandoverDraft } from '@sh/shared';
 import { simulateAnalysis } from '../src/automation/dev-analyzer';
 import { adhocShift, CALLBACK_SECRET, demoOutgoingShift, setup, WEBHOOK_SECRET, type FetchCall, type Harness } from './helpers';
 
@@ -365,8 +365,26 @@ describe('AI provider connected by the administrator', () => {
   const GROK_KEY = 'xai-TEST-not-a-real-key-0123456789abcd';
   let h: Harness;
   let mode: 'ok' | 'unauthorized' = 'ok';
+  let busyModel: string | null = null;
   const fake = fakeFetch((call) => {
     if (mode === 'unauthorized') return Response.json({ error: { message: 'API key not valid' } }, { status: 401 });
+    if (busyModel && call.url.includes(`/models/${busyModel}:`)) {
+      return Response.json({ error: { message: 'This model is currently experiencing high demand.' } }, { status: 503 });
+    }
+    // The provider's model list: an older model, a "lite" one, a preview and a non-text model too.
+    if (!call.init.method || call.init.method === 'GET') {
+      return call.url.includes('generativelanguage')
+        ? Response.json({
+            models: [
+              { name: 'models/gemini-2.5-flash', supportedGenerationMethods: ['generateContent'] },
+              { name: 'models/gemini-3.8-flash', supportedGenerationMethods: ['generateContent', 'countTokens'] },
+              { name: 'models/gemini-3.8-flash-lite', supportedGenerationMethods: ['generateContent'] },
+              { name: 'models/gemini-4.0-pro-preview', supportedGenerationMethods: ['generateContent'] },
+              { name: 'models/text-embedding-004', supportedGenerationMethods: ['embedContent'] },
+            ],
+          })
+        : Response.json({ data: [{ id: 'grok-3-mini' }, { id: 'grok-4' }, { id: 'grok-4-mini' }, { id: 'grok-2-image' }] });
+    }
     const user: string = call.url.includes('generativelanguage') ? call.body.contents[0].parts[0].text : call.body.messages[1].content;
     const ref = /report_id: (\S+)/.exec(user)?.[1] ?? 'TEST';
     const raw = /<raw_input>\n([\s\S]*)\n<\/raw_input>/.exec(user)?.[1] ?? '';
@@ -407,18 +425,20 @@ describe('AI provider connected by the administrator', () => {
   });
 
   it('sends the sanitized report to Gemini with the saved key', async () => {
-    expect((await h.call(null, 'GET', '/api/config')).body.integrations.ai).toMatchObject({ simulated: false, provider: 'gemini', model: 'gemini-2.5-flash' });
+    expect((await h.call(null, 'GET', '/api/config')).body.integrations.ai).toMatchObject({ simulated: false, provider: 'gemini', model: expect.any(String) });
     const { reportId } = await submitSample(h);
     await h.drain();
-    const call = fake.calls.find((c) => c.url.includes('generativelanguage'))!;
-    expect(call.url).toContain('/models/gemini-2.5-flash:generateContent');
+    const call = fake.calls.find((c) => c.url.includes(':generateContent'))!;
+    // No model chosen: the newest stable "flash" the key can use, not a hard-coded name.
+    expect(call.url).toContain('/models/gemini-3.8-flash:generateContent');
     expect((call.init.headers as Record<string, string>)['x-goog-api-key']).toBe(GEMINI_KEY);
     expect(call.url).not.toContain(GEMINI_KEY);
     expect(call.body.systemInstruction.parts[0].text).toContain('# Prompt version');
     expect(call.body.generationConfig.responseMimeType).toBe('application/json');
     expect(JSON.stringify(call.body)).not.toContain('Ana Lim');
     const [run] = await h.sql(`select engine, model, is_simulated, status from public.ai_analysis_runs where report_id = $1`, [reportId]);
-    expect(run).toEqual({ engine: 'gemini', model: 'gemini-2.5-flash', is_simulated: false, status: 'succeeded' });
+    expect(run).toEqual({ engine: 'gemini', model: 'gemini-3.8-flash', is_simulated: false, status: 'succeeded' });
+    expect((await h.call('admin', 'GET', '/api/admin/ai')).body).toMatchObject({ model: null, resolved_model: 'gemini-3.8-flash' });
     expect((await h.sql('select status from public.shift_reports where id = $1', [reportId]))[0].status).toBe('pending_review');
   });
 
@@ -431,6 +451,37 @@ describe('AI provider connected by the administrator', () => {
     expect(bad.status).toBe(502);
     expect(bad.body.error.message).toContain('check the API key');
     expect(JSON.stringify(bad.body)).not.toContain(GEMINI_KEY);
+  });
+
+  it('lists the models the key can use, newest first, and lets the admin pick one', async () => {
+    const listed = await h.call('admin', 'POST', '/api/admin/ai/models', { provider: 'gemini' });
+    expect(listed.status).toBe(200);
+    expect(listed.body).toEqual({
+      models: ['gemini-4.0-pro-preview', 'gemini-3.8-flash', 'gemini-3.8-flash-lite', 'gemini-2.5-flash'],
+      suggested: 'gemini-3.8-flash',
+    });
+    expect((await h.call('manager', 'POST', '/api/admin/ai/models', { provider: 'gemini' })).status).toBe(403);
+    // A chosen model is used as-is.
+    await h.call('admin', 'PUT', '/api/admin/ai', { provider: 'gemini', model: 'gemini-2.5-flash' });
+    const tested = await h.call('admin', 'POST', '/api/admin/ai/test', { provider: 'gemini', model: 'gemini-2.5-flash' });
+    expect(tested.body).toMatchObject({ model: 'gemini-2.5-flash', automatic: false });
+    await h.call('admin', 'PUT', '/api/admin/ai', { provider: 'gemini', model: null });
+    expect((await h.call('admin', 'POST', '/api/admin/ai/test', { provider: 'gemini' })).body).toMatchObject({ model: 'gemini-3.8-flash', automatic: true });
+  });
+
+  it('moves on to the next model when the newest one is busy', async () => {
+    busyModel = 'gemini-3.8-flash';
+    try {
+      const auto = await h.call('admin', 'POST', '/api/admin/ai/test', { provider: 'gemini' });
+      expect(auto.status).toBe(200);
+      expect(auto.body).toMatchObject({ model: 'gemini-2.5-flash', automatic: true, busy_skipped: ['gemini-3.8-flash'] });
+      // A model the admin chose is never swapped silently: the busy error is shown instead.
+      const chosen = await h.call('admin', 'POST', '/api/admin/ai/test', { provider: 'gemini', model: 'gemini-3.8-flash' });
+      expect(chosen.status).toBe(502);
+      expect(chosen.body.error.message).toContain('busy or having trouble');
+    } finally {
+      busyModel = null;
+    }
   });
 
   it('switches to Grok with its own key, and back to the simulator', async () => {
@@ -516,7 +567,7 @@ describe('real reports in the AI pipeline view (admin, censored)', () => {
     const runs = await h.call('admin', 'GET', '/api/admin/ai/runs');
     expect(runs.status).toBe(200);
     const [ref] = await h.sql('select reference_code from public.shift_reports where id = $1', [reportId]);
-    expect(runs.body[0]).toMatchObject({ reference_code: ref.reference_code, department_name: 'Warehouse Inventory', status: 'succeeded' });
+    expect(runs.body[0]).toMatchObject({ reference_code: ref.reference_code, department_name: 'Newborn Care Department', status: 'succeeded' });
   });
 
   it('shows what really went to the AI, censored — never names, contact details or the author', async () => {

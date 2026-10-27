@@ -67,7 +67,7 @@ async function submit() {
     <div class="space-y-4">
       <label class="block text-[14px] font-medium">
         What did you do?
-        <textarea v-model="note" class="field-input mt-1" rows="3" maxlength="2000" :placeholder="issue?.kind === 'task' ? 'e.g. Wrapped and labelled all 6 pallets, loaded at 4:10pm' : 'e.g. Maintenance replaced the brake pads, tested OK'" />
+        <textarea v-model="note" class="field-input mt-1" rows="3" maxlength="2000" placeholder="Describe the action taken and any service reference. A supervisor will verify completion." />
       </label>
       <div>
         <p class="text-[14px] font-medium">Photo proof <span class="font-normal text-ink-3">(optional, recommended)</span></p>

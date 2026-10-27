@@ -1,4 +1,5 @@
 import { computed } from 'vue';
+import type { DepartmentExperience } from '@sh/shared';
 import { api } from './api';
 import { useAsync } from './useAsync';
 
@@ -7,6 +8,7 @@ export interface Department {
   code: string;
   name: string;
   timezone: string;
+  experience: DepartmentExperience;
   teams: { id: string; name: string }[];
   member_count: number;
 }

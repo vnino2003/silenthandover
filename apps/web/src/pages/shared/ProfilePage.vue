@@ -87,7 +87,7 @@ async function save() {
       <dl class="grid gap-4 text-[14px] sm:grid-cols-2">
         <div><dt class="text-ink-3">Name</dt><dd class="font-medium">{{ p.full_name }}</dd></div>
         <div><dt class="text-ink-3">Email</dt><dd>{{ p.email }}</dd></div>
-        <div><dt class="text-ink-3">Role</dt><dd>{{ ROLE_LABELS[p.role] }}</dd></div>
+        <div><dt class="text-ink-3">Role</dt><dd>{{ auth.roleLabel(p.role) }}</dd></div>
         <div>
           <dt class="text-ink-3">Department</dt>
           <dd>{{ p.department_name ?? '—' }}</dd>

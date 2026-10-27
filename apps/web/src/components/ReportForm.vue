@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import {
   DEMO_SAMPLE_REPORT,
+  GENERIC_SAMPLE_REPORT,
   EMPTY_REPORT,
   PROBLEM_CATEGORIES,
   PROBLEM_CATEGORY_LABELS,
@@ -11,6 +12,7 @@ import {
   type ProblemInput,
 } from '@sh/shared';
 import UiButton from '@/components/ui/UiButton.vue';
+import { openWorkAssistant } from '@/lib/assistant';
 import UiDialog from '@/components/ui/UiDialog.vue';
 import { api, ApiError, errorMessage } from '@/lib/api';
 import { time } from '@/lib/format';
@@ -25,8 +27,14 @@ const props = defineProps<{
   canSubmit: boolean;
   submitBlockedReason: string | null;
   openIssues: { id: string; code: string; title: string; status: string }[];
+  /**
+   * Admin AI pipeline: the same form and checks as a real report, but nothing is saved and the
+   * button hands the answers to the pipeline preview instead of submitting them.
+   */
+  preview?: boolean;
+  previewBusy?: boolean;
 }>();
-const emit = defineEmits<{ submitted: [] }>();
+const emit = defineEmits<{ submitted: []; preview: [content: ReportDraftContent] }>();
 
 const auth = useAuth();
 const toast = useToast();
@@ -49,7 +57,7 @@ const showParagraph = ref(Boolean(content.value.unresolved_issues));
 // ---- Autosave, with a copy on this device in case the network drops ----------------
 const backup = ref<{ content: ReportDraftContent; at: string } | null>(null);
 try {
-  const raw = localStorage.getItem(backupKey);
+  const raw = props.preview ? null : localStorage.getItem(backupKey);
   if (raw) {
     const b = JSON.parse(raw) as { content: unknown; at: string };
     const parsed = parse(b.content);
@@ -64,7 +72,7 @@ try {
 let timer: ReturnType<typeof setTimeout> | null = null;
 let dirty = false;
 async function save() {
-  if (!dirty) return;
+  if (!dirty || props.preview) return;
   dirty = false;
   saveState.value = 'saving';
   try {
@@ -85,6 +93,7 @@ async function save() {
 watch(
   content,
   () => {
+    if (props.preview) return;
     dirty = true;
     try {
       localStorage.setItem(backupKey, JSON.stringify({ content: content.value, at: new Date().toISOString() }));
@@ -113,7 +122,7 @@ function discardBackup() {
   }
 }
 function useSample() {
-  content.value = structuredClone(DEMO_SAMPLE_REPORT);
+  content.value = structuredClone(auth.experience.industry === 'Newborn care operations' ? DEMO_SAMPLE_REPORT : GENERIC_SAMPLE_REPORT);
   showMore.value = true;
 }
 
@@ -204,6 +213,10 @@ function requestSubmit() {
     toast.error('A few answers are missing');
     return;
   }
+  if (props.preview) {
+    emit('preview', JSON.parse(JSON.stringify(content.value)) as ReportDraftContent);
+    return;
+  }
   confirming.value = true;
 }
 async function submit() {
@@ -230,6 +243,7 @@ async function submit() {
 }
 
 const saveLabel = computed(() => {
+  if (props.preview) return 'Example only — nothing is saved or sent to anyone';
   if (saveState.value === 'saving') return 'Saving…';
   if (saveState.value === 'error') return 'Not saved yet — will retry';
   if (saveState.value === 'saved' && savedAt.value) return `Saved ${time(savedAt.value)}`;
@@ -250,6 +264,7 @@ const choice = (active: boolean) =>
 
 <template>
   <div>
+    <button v-if="!preview" type="button" class="mb-4 text-[13px] font-medium text-accent hover:underline" @click="openWorkAssistant">Prepare this {{ auth.experience.report_label.toLowerCase() }} with Mica ↗</button>
     <div v-if="backup" class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-info/25 bg-info-soft px-4 py-3 text-[14px]">
       <span class="text-info">This device has unsaved changes from {{ time(backup.at) }}.</span>
       <span class="flex gap-2">
@@ -258,7 +273,7 @@ const choice = (active: boolean) =>
       </span>
     </div>
 
-    <div v-if="auth.config?.demo" class="mb-4 flex items-center justify-between gap-3 rounded-lg border border-dashed border-line-strong px-4 py-2.5 text-[13px] text-ink-2">
+    <div v-if="auth.config?.demo || preview" class="mb-4 flex items-center justify-between gap-3 rounded-lg border border-dashed border-line-strong px-4 py-2.5 text-[13px] text-ink-2">
       <span>Not sure what to write? Fill the form with an example report, then edit it.</span>
       <UiButton size="sm" variant="ghost" @click="useSample">Generate example</UiButton>
     </div>
@@ -274,32 +289,32 @@ const choice = (active: boolean) =>
       <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-sunken" role="progressbar" :aria-valuenow="coreProgress.completed" :aria-valuemax="coreProgress.total" aria-label="Report completion">
         <div class="h-full rounded-full bg-accent transition-all" :style="{ width: `${coreProgress.percent}%` }" />
       </div>
-      <p class="mt-2 text-[12px] text-ink-3">Keep it factual and work-related. Personal information is removed before AI preparation.</p>
+      <p class="mt-2 text-[12px] text-ink-3">{{ auth.experience.privacy_hint }}</p>
     </div>
 
     <form class="space-y-4" novalidate @submit.prevent="requestSubmit">
       <!-- 1. Work completed -->
       <section class="card p-5" :data-error="Boolean(errors.completed_work)">
         <h3 class="text-[16px] font-semibold"><span class="mr-2 text-ink-3 tnum">1</span>What did you finish this shift?</h3>
-        <p class="mt-1 text-[13.5px] text-ink-3">Deliveries unloaded, orders picked, counts done. Include numbers if you have them.</p>
+        <p class="mt-1 text-[13.5px] text-ink-3">{{ auth.experience.completed_hint }}</p>
         <textarea
           v-model="content.completed_work"
           class="field-input mt-3 min-h-24"
           rows="3"
-          placeholder="e.g. Unloaded 2 trucks (PO 77812, 77815). Cycle count aisle 7 done."
+          :placeholder="auth.experience.completed_hint"
           aria-label="What did you finish this shift?"
           :aria-invalid="Boolean(errors.completed_work)"
         />
         <p v-if="errors.completed_work" class="mt-1.5 text-[13px] text-bad">{{ errors.completed_work }}</p>
       </section>
 
-      <!-- 2. New unresolved tickets -->
+      <!-- 2. New unresolved issues -->
       <section class="card p-5" :data-error="Boolean(errors.unresolved_issues)">
-        <h3 class="text-[16px] font-semibold"><span class="mr-2 text-ink-3 tnum">2</span>Open a ticket for the next shift?</h3>
-        <p class="mt-1 text-[13.5px] text-ink-3">Add only unresolved problems: stock mismatch, damage, equipment trouble, or anything unsafe. After supervisor approval, each becomes a tracked ticket.</p>
+        <h3 class="text-[16px] font-semibold"><span class="mr-2 text-ink-3 tnum">2</span>Any {{ auth.experience.issue_label.toLowerCase() }} to hand over?</h3>
+        <p class="mt-1 text-[13.5px] text-ink-3">{{ auth.experience.unresolved_hint }} Each item is tracked after review.</p>
         <div class="mt-3 grid grid-cols-2 gap-2">
-          <button type="button" class="h-12 rounded-md border text-[15px] transition-colors" :class="choice(problemsAnswer === 'yes')" @click="answerProblems('yes')">Add a ticket</button>
-          <button type="button" class="h-12 rounded-md border text-[15px] transition-colors" :class="choice(problemsAnswer === 'no')" @click="answerProblems('no')">No new tickets</button>
+          <button type="button" class="h-12 rounded-md border text-[15px] transition-colors" :class="choice(problemsAnswer === 'yes')" @click="answerProblems('yes')">Add a issue</button>
+          <button type="button" class="h-12 rounded-md border text-[15px] transition-colors" :class="choice(problemsAnswer === 'no')" @click="answerProblems('no')">No new issues</button>
         </div>
 
         <template v-if="problemsAnswer === 'yes'">
@@ -318,10 +333,10 @@ const choice = (active: boolean) =>
           </ul>
 
           <div v-if="adding" class="mt-4 rounded-md border border-accent/40 bg-canvas p-4">
-            <p class="text-[13.5px] font-medium">New handover ticket</p>
+            <p class="text-[13.5px] font-medium">New handover issue</p>
             <div class="mt-2 flex flex-wrap gap-1.5">
               <button
-                v-for="c in PROBLEM_CATEGORIES"
+                v-for="c in auth.experience.categories"
                 :key="c"
                 type="button"
                 class="rounded-full border px-3 py-1.5 text-[13.5px]"
@@ -333,19 +348,19 @@ const choice = (active: boolean) =>
             </div>
             <label class="mt-3 block text-[13.5px] font-medium">
               Where? <span class="font-normal text-ink-3">(optional)</span>
-              <input v-model="adding.location" class="field-input mt-1" maxlength="120" placeholder="e.g. Dock 3, Aisle 7, Forklift FL-02" />
+              <input v-model="adding.location" class="field-input mt-1" maxlength="120" placeholder="Area, room, equipment or service reference" />
             </label>
             <label class="mt-3 block text-[13.5px] font-medium">
               What happened?
-              <textarea v-model="adding.what" class="field-input mt-1" rows="2" maxlength="600" placeholder="e.g. Brakes feel soft, tagged it out" :aria-invalid="Boolean(errors.adding)" />
+              <textarea v-model="adding.what" class="field-input mt-1" rows="2" maxlength="600" placeholder="Describe what you observed and what action you took" :aria-invalid="Boolean(errors.adding)" />
             </label>
             <p v-if="errors.adding" class="mt-1 text-[13px] text-bad">{{ errors.adding }}</p>
             <div class="mt-3 flex gap-2">
-              <UiButton size="sm" variant="primary" @click="saveProblem">{{ adding.index === null ? 'Add ticket' : 'Save' }}</UiButton>
+              <UiButton size="sm" variant="primary" @click="saveProblem">{{ adding.index === null ? 'Add issue' : 'Save' }}</UiButton>
               <UiButton size="sm" variant="ghost" @click="adding = null">Cancel</UiButton>
             </div>
           </div>
-          <UiButton v-else class="mt-3" size="sm" @click="startProblem()">+ Add {{ content.problems.length ? 'another' : 'a' }} ticket</UiButton>
+          <UiButton v-else class="mt-3" size="sm" @click="startProblem()">+ Add {{ content.problems.length ? 'another' : 'a' }} issue</UiButton>
 
           <div class="mt-3">
             <button v-if="!showParagraph" type="button" class="text-[13px] text-ink-3 hover:text-ink" @click="showParagraph = true">Prefer to write it as a paragraph?</button>
@@ -355,11 +370,11 @@ const choice = (active: boolean) =>
         <p v-if="errors.unresolved_issues" class="mt-2 text-[13px] text-bad">{{ errors.unresolved_issues }}</p>
       </section>
 
-      <!-- Existing tickets stay out of the main path unless the employee checked one. -->
+      <!-- Existing issues stay out of the main path unless the employee checked one. -->
       <details v-if="openIssues.length" class="card overflow-hidden">
         <summary class="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4">
           <span>
-            <span class="block text-[16px] font-semibold"><span class="mr-2 text-ink-3 tnum">3</span>Update an existing ticket <span class="font-normal text-ink-3">(optional)</span></span>
+            <span class="block text-[16px] font-semibold"><span class="mr-2 text-ink-3 tnum">3</span>Update an existing issue <span class="font-normal text-ink-3">(optional)</span></span>
             <span class="mt-1 block text-[13px] text-ink-3">Open this only if you personally checked an earlier issue.</span>
           </span>
           <span class="shrink-0 text-[12.5px] text-ink-3">{{ openIssues.length }} open</span>
@@ -408,7 +423,7 @@ const choice = (active: boolean) =>
           v-model="content.pending_tasks"
           class="field-input mt-3"
           rows="3"
-          placeholder="One per line, e.g.&#10;Wrap 6 pallets for dispatch, truck at 4pm&#10;Return pallet jack to Bay 2"
+          :placeholder="auth.experience.pending_hint"
           aria-label="What the next shift must do"
           :aria-invalid="Boolean(errors.pending_tasks)"
         />
@@ -426,7 +441,7 @@ const choice = (active: boolean) =>
         </button>
         <div v-if="showMore" class="space-y-3 border-t border-line px-5 py-4">
           <label class="block text-[13.5px] font-medium">Equipment or safety worries
-            <textarea v-model="content.operational_concerns" class="field-input mt-1" rows="2" placeholder="Even if you’re not sure" />
+            <textarea v-model="content.operational_concerns" class="field-input mt-1" rows="2" :placeholder="auth.experience.concerns_hint" />
           </label>
           <label class="block text-[13.5px] font-medium">Other notes
             <textarea v-model="content.handover_notes" class="field-input mt-1" rows="2" />
@@ -437,11 +452,11 @@ const choice = (active: boolean) =>
         </div>
       </section>
 
-      <div class="sticky bottom-0 -mx-4 flex flex-col gap-2 border-t border-line bg-canvas/95 px-4 py-3 backdrop-blur sm:mx-0 sm:flex-row sm:items-center sm:justify-between sm:rounded-lg sm:border sm:bg-surface">
+      <div class="report-actions sticky -mx-4 flex flex-col gap-2 border-t border-line bg-canvas/95 px-4 py-3 backdrop-blur sm:mx-0 sm:flex-row sm:items-center sm:justify-between sm:rounded-lg sm:border sm:bg-surface">
         <p class="text-[13px] text-ink-3" :class="{ 'text-bad': saveState === 'error' }" aria-live="polite">{{ saveLabel }}</p>
         <div class="flex flex-col gap-1 sm:items-end">
-          <UiButton type="submit" variant="primary" size="lg" :disabled="!canSubmit" :loading="submitting" block>
-            {{ isRevision ? 'Send revision' : 'Send report' }}
+          <UiButton type="submit" variant="primary" size="lg" :disabled="!canSubmit" :loading="submitting || previewBusy" block>
+            {{ preview ? 'Run through the pipeline' : isRevision ? 'Send revision' : 'Send report' }}
           </UiButton>
           <p v-if="!canSubmit && submitBlockedReason" class="text-[12.5px] text-ink-3">{{ submitBlockedReason }}</p>
         </div>

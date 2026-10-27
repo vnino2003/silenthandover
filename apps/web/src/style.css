@@ -8,19 +8,19 @@
 @theme {
   --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
 
-  --color-canvas: #f7f7f5;
+  --color-canvas: #f3f6f8;
   --color-surface: #ffffff;
-  --color-sunken: #f1f0ed;
-  --color-line: #e6e4df;
-  --color-line-strong: #d3d0c9;
-  --color-ink: #1b1a18;
-  --color-ink-2: #4a4843;
-  --color-ink-3: #77746c;
+  --color-sunken: #eaf0f3;
+  --color-line: #e0e7ec;
+  --color-line-strong: #bfccd5;
+  --color-ink: #172b3a;
+  --color-ink-2: #475b6b;
+  --color-ink-3: #627584;
 
-  --color-accent: #1f5e57;
-  --color-accent-hover: #184b45;
-  --color-accent-soft: #e5eeec;
-  --color-accent-ink: #164540;
+  --color-accent: #087e82;
+  --color-accent-hover: #05666a;
+  --color-accent-soft: #e0f2f0;
+  --color-accent-ink: #075b60;
 
   --color-ok: #17663a;
   --color-ok-soft: #e7f4ec;
@@ -33,9 +33,9 @@
   --color-violet: #6a3bc9;
   --color-violet-soft: #f1ecfc;
 
-  --radius-sm: 5px;
-  --radius-md: 7px;
-  --radius-lg: 10px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
 
   --shadow-pop: 0 1px 2px rgb(27 26 24 / 0.06), 0 8px 24px -6px rgb(27 26 24 / 0.16);
 }
@@ -59,24 +59,8 @@
   }
 }
 
-@media (pointer: fine) {
-  html,
-  body {
-    cursor: url('/cursor.svg') 7 5, auto;
-  }
-  a,
-  button,
-  summary,
-  select,
-  label {
-    cursor: url('/cursor.svg') 7 5, pointer;
-  }
-  input,
-  textarea,
-  [contenteditable='true'] {
-    cursor: text;
-  }
-}
+button, summary, select { cursor: pointer; }
+button:disabled { cursor: not-allowed; }
 
 @utility tnum {
   font-variant-numeric: tabular-nums;
@@ -93,6 +77,7 @@
   }
   .card {
     @apply rounded-lg border border-line bg-surface;
+    box-shadow: 0 2px 3px rgb(24 52 70 / 0.02), 0 8px 28px -20px rgb(24 52 70 / 0.16);
   }
   .eyebrow {
     @apply text-[12px] font-medium uppercase tracking-[0.06em] text-ink-3;
@@ -100,6 +85,59 @@
   .link {
     @apply text-accent underline-offset-2 hover:underline;
   }
+}
+
+/* Shared layout rules keep every portal within the viewport. Wide operational tables
+   retain their columns inside a keyboard-accessible scrolling region. */
+html { scroll-padding-top: 5rem; }
+body { margin: 0; }
+.app-shell { --dock-space: calc(5rem + env(safe-area-inset-bottom)); }
+.workspace-main { padding-bottom: calc(var(--dock-space) + 1.5rem); }
+.workspace-sidebar { background: linear-gradient(180deg, #fff 0%, #f8fbfc 100%); }
+.workspace-sidebar nav a { min-height: 42px; }
+.mobile-dock { box-shadow: 0 -4px 24px rgb(24 52 70 / 0.05); }
+.report-actions { bottom: var(--dock-space, 0px); z-index: 10; }
+.toast-host { bottom: calc(6rem + env(safe-area-inset-bottom)); }
+.skip-link { position: fixed; left: 1rem; top: -5rem; z-index: 100; padding: .75rem 1rem; background: white; border: 2px solid var(--color-accent); border-radius: .5rem; }
+.skip-link:focus { top: 1rem; }
+.table-region { overscroll-behavior-x: contain; scrollbar-width: thin; }
+.table-region:focus-visible { outline-offset: 3px; }
+table th { white-space: nowrap; }
+table td { overflow-wrap: anywhere; }
+main p, main dd, .dialog-body { overflow-wrap: anywhere; }
+main pre { overflow-wrap: anywhere; }
+textarea { resize: vertical; }
+.dialog-footer { padding-bottom: max(.75rem, env(safe-area-inset-bottom)); }
+.assistant-hero { background: radial-gradient(ellipse at top right, #c8e9e7 0%, transparent 65%), #edf6f6; }
+.assistant-composer { box-shadow: 0 4px 24px rgb(24 52 70 / .06); }
+.assistant-dock { position: fixed; z-index: 40; right: max(1rem, env(safe-area-inset-right)); bottom: calc(var(--dock-space, 0px) + 1rem); width: min(440px, calc(100% - 2rem)); display: flex; flex-direction: column; align-items: flex-end; pointer-events: none; }
+.mica-panel { width: 100%; height: min(690px, calc(100dvh - var(--dock-space, 0px) - 6rem)); pointer-events: auto; }
+.mica-launcher { pointer-events: auto; }
+.app-shell:has(.report-actions) .assistant-dock:not(.mica-is-open) { bottom: calc(var(--dock-space, 0px) + 9rem); }
+.assistant-compact .assistant-hero { padding: 1rem; }
+.assistant-compact .assistant-hero > div { grid-template-columns: 1fr; }
+.assistant-compact aside > section:last-child { display: none; }
+.assistant-compact .card { box-shadow: none; }
+.mica-thinking { animation: mica-breathe 1.8s ease-in-out infinite; }
+@keyframes mica-breathe { 50% { opacity: .55; transform: translateY(-2px); } }
+body:has([aria-modal='true']) .assistant-dock { visibility: hidden; }
+@media (max-width: 639px) {
+  .mica-launcher { padding-right: .5rem; }
+  .mica-launcher > span { display: none; }
+  .mica-panel { height: min(650px, calc(100dvh - var(--dock-space, 0px) - 5rem)); }
+}
+@media (pointer: coarse) {
+  button, [role='tab'], summary { min-height: 44px; }
+}
+@media (max-width: 639px) {
+  .field-input { font-size: 16px; min-height: 44px; }
+  .page-header > div:last-child { max-width: 100%; }
+  .page-header a, .page-header button { white-space: normal; }
+  .dialog-panel { padding-bottom: env(safe-area-inset-bottom); }
+}
+@media (min-width: 1024px) {
+  .app-shell { --dock-space: 0px; }
+  .toast-host { bottom: 1.5rem; }
 }
 
 mark.evidence {

@@ -6,3 +6,6 @@ export * from './prompt';
 export * from './time';
 export * from './demo';
 export * from './template';
+export * from './assistant';
+export * from './experience';
+export * from './assistant-context';

@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { DEMO_SAMPLE_REPORT } from '@sh/shared';
+import { DEMO_TEST_REPORT as DEMO_SAMPLE_REPORT } from '@sh/shared';
 import { createServices } from '../src/bootstrap';
 import { loadConfig } from '../src/config';
 import { createDemoTimeline, seedDemo } from '../src/seed/demo';
@@ -30,7 +30,7 @@ describe('shift report → AI draft → human approval → delivery → continui
   it('logs an employee in and returns their profile', async () => {
     const res = await h.call('juan', 'GET', '/api/me');
     expect(res.status).toBe(200);
-    expect(res.body).toMatchObject({ role: 'employee', full_name: 'Juan Dela Cruz', department_name: 'Warehouse Inventory' });
+    expect(res.body).toMatchObject({ role: 'employee', full_name: 'Juan Dela Cruz', department_name: 'Newborn Care Department' });
   });
 
   it('requires a session', async () => {
@@ -46,7 +46,7 @@ describe('shift report → AI draft → human approval → delivery → continui
   it('shows the assigned shift with an open reporting window', async () => {
     const res = await h.call('juan', 'GET', '/api/employee/dashboard');
     expect(res.status).toBe(200);
-    expect(res.body.current_shift).toMatchObject({ id: shiftId, window_state: 'open', department_name: 'Warehouse Inventory' });
+    expect(res.body.current_shift).toMatchObject({ id: shiftId, window_state: 'open', department_name: 'Newborn Care Department' });
   });
 
   it('creates one draft per employee and shift', async () => {
@@ -168,7 +168,7 @@ describe('shift report → AI draft → human approval → delivery → continui
   it('approves the reviewed handover and delivers it to the incoming shift', async () => {
     const detail = await h.call('manager', 'GET', `/api/manager/reports/${reportId}`);
     const run = detail.body.runs[0];
-    const existing = detail.body.open_issues.find((i: any) => i.title.startsWith('Dock 3 door'));
+    const existing = detail.body.open_issues.find((i: any) => i.title.startsWith('Family consultation room'));
     const res = await h.call('manager', 'POST', `/api/manager/reports/${reportId}/decision`, {
       decision: 'approved',
       content: {
@@ -561,8 +561,8 @@ describe('next-shift checklist with photo proof', () => {
     expect(ok.status).toBe(201);
     await h.drain();
     const [input] = await h.sql('select sanitized_text from internal.analysis_inputs where report_id = $1', [reportId]);
-    expect(input.sanitized_text).toContain('Safety hazard at Charging station: Leak sa roof');
-    expect(input.sanitized_text).toContain('Equipment at Dock 3: Door sensor still stops halfway.');
+    expect(input.sanitized_text).toContain('Safety hazard at Unit support room: Roof leak');
+    expect(input.sanitized_text).toContain('Facilities at Family consultation room: Call bell is still intermittent.');
   });
 
   it('turns every task for the next shift into a tracked checklist item on approval', async () => {
@@ -773,7 +773,7 @@ describe('crew takeover: many workers leave, many arrive', () => {
   const PASSWORD = 'test-password-123';
 
   async function addWorker(key: string, name: string) {
-    const [dept] = await h.sql<{ id: string }>(`select id from public.departments where code = 'WH'`);
+    const [dept] = await h.sql<{ id: string }>(`select id from public.departments where code = 'NC'`);
     const email = `${key}@demo.test`;
     const res = await h.call('admin', 'POST', '/api/admin/users', { full_name: name, email, password: PASSWORD, role: 'employee', department_id: dept!.id });
     expect(res.status).toBe(201);
@@ -814,7 +814,7 @@ describe('crew takeover: many workers leave, many arrive', () => {
     h = await setup();
     morning = await demoOutgoingShift(h);
     afternoon = await demoIncomingShift(h);
-    dockIssue = (await h.sql<{ id: string }>(`select id from public.operational_issues where title like 'Dock 3 door%'`))[0]!.id;
+    dockIssue = (await h.sql<{ id: string }>(`select id from public.operational_issues where title like 'Family consultation room%'`))[0]!.id;
     await addWorker('pedro', 'Pedro Ramos');
     await addWorker('carla', 'Carla Mendoza');
     // Morning crew: Juan and Pedro. Afternoon crew: Ana, Ben and Carla.
@@ -903,7 +903,7 @@ describe('crew takeover: many workers leave, many arrive', () => {
     await addWorker('eli', 'Eli Santos');
     await addWorker('fay', 'Fay Cruz');
     await addWorker('gia', 'Gia Torres');
-    const [dept] = await h.sql<{ id: string }>(`select id from public.departments where code = 'WH'`);
+    const [dept] = await h.sql<{ id: string }>(`select id from public.departments where code = 'NC'`);
     const team = (await h.call('admin', 'POST', `/api/admin/departments/${dept!.id}/teams`, { name: 'Late approvals' })).body.id;
     const make = (label: string, starts: string, ends: string, grace: number, who: string) =>
       h.services.db.asUser(h.ids.manager!, async (q) => {
@@ -1090,7 +1090,7 @@ describe('a normal first start (live use)', () => {
                   (select count(*)::int from public.teams) as teams`,
         ),
       );
-      expect(counts).toEqual({ accounts: 5, tickets: 0, records: 0, assignments: 0, extra_shifts: 0, teams: 0 });
+      expect(counts).toEqual({ accounts: 7, tickets: 0, records: 0, assignments: 0, extra_shifts: 0, teams: 0 });
       const patterns = await services.db.asService((q) =>
         q.query(`select name, to_char(start_time, 'HH24:MI') as starts, to_char(end_time, 'HH24:MI') as ends from public.shift_templates where is_active order by start_time`),
       );
