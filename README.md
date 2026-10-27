@@ -34,6 +34,18 @@ To switch an older local demo, stop the local API and run `npm run demo:hospital
 4. Sign in as Ana or Ben. Read the approved handover, acknowledge it and take ownership of relevant checklist items. Completion claims wait for Maria's verification.
 5. Open Departments as Alex and choose **Customize** to see the organization settings. A different organization can choose generic terminology and categories; hospital language is confined to this demo configuration.
 
+## Scheduling and leave
+
+Supervisors plan staffing on **Schedule**: by shift, or by person with day / week / month views, coverage against each shift's minimum staff, and a list of conflicts. They decide **Leave requests** after seeing the staffing impact. Workers see **My schedule** (next shift first, list or calendar, rest days and leave) and request leave on **Leave**. Only approved leave changes the schedule, and nobody approves their own. Administrators configure leave types and scheduling rules, set job titles, and have a read-only view of every department. Every schedule change notifies the people affected.
+
+For a two-week staffing example, run this while the local app is running:
+
+```
+npm run demo:schedule
+```
+
+Details and design decisions: `docs/plan-scheduling-and-leave.md`.
+
 ## Mica, the integrated assistant
 
 Mica is an original teal messenger-bird companion. The compact panel stays on the current page and keeps an employee's preparation across navigation. Page help uses the authenticated role and department configuration. It does not automatically transmit the page body, employee records or clinical information. Supervisors and administrators receive role-specific guidance; only employees can prepare employee actions.

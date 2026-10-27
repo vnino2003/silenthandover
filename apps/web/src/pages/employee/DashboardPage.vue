@@ -4,6 +4,7 @@ import { openWorkAssistant } from '@/lib/assistant';
 import MicaMascot from '@/components/MicaMascot.vue';
 import { classifyWindow, type ReportStatus } from '@sh/shared';
 import DutyRing from '@/components/DutyRing.vue';
+import WeekStrip from '@/components/WeekStrip.vue';
 import ReportingWindow from '@/components/ReportingWindow.vue';
 import SeverityTag from '@/components/ui/SeverityTag.vue';
 import StateBlock from '@/components/ui/StateBlock.vue';
@@ -197,6 +198,7 @@ const pendingAcks = computed(() => data.value?.incoming.filter((i) => !i.acknowl
             </div>
           </section>
         </div>
+        <WeekStrip class="mt-5" />
       </template>
     </StateBlock>
   </div>

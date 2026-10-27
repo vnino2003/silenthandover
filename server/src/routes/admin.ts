@@ -190,7 +190,16 @@ export function adminRoutes() {
   });
 
   // ---- Users ---------------------------------------------------------------
-  r.get('/users', async (c) => c.json(await asUser(c, async (q) => (await q.query<{ u: unknown }>('select app.admin_list_users() as u'))[0]!.u)));
+  r.get('/users', async (c) =>
+    c.json(
+      await asUser(c, async (q) => {
+        const users = ((await q.query<{ u: { id: string }[] | null }>('select app.admin_list_users() as u'))[0]!.u ?? []);
+        // Job titles (shown on schedules) live beside the existing profile fields.
+        const titles = new Map((await q.query<{ id: string; job_title: string | null }>('select id, job_title from public.profiles')).map((p) => [p.id, p.job_title]));
+        return users.map((u) => ({ ...u, job_title: titles.get(u.id) ?? null }));
+      }),
+    ),
+  );
 
   r.post('/users', async (c) => {
     const body = await parseBody(
@@ -376,7 +385,11 @@ export function adminRoutes() {
   });
 
   r.post('/tick', async (c) => {
-    const result = await svc(c).db.asService(async (q) => (await q.query<{ r: unknown }>('select internal.scheduled_tick() as r'))[0]!.r);
+    const result = await svc(c).db.asService(async (q) => {
+      const tick = (await q.query<{ r: Record<string, unknown> }>('select internal.scheduled_tick() as r'))[0]!.r;
+      const schedule = (await q.query<{ r: Record<string, unknown> }>('select internal.schedule_tick() as r'))[0]!.r;
+      return { ...tick, ...schedule };
+    });
     svc(c).kick();
     return c.json(result);
   });

@@ -25,6 +25,8 @@ export interface AdminUser {
   is_active: boolean;
   pseudonym: string;
   created_at: string;
+  /** Shown on schedules, e.g. "Staff nurse". Optional and free text. */
+  job_title?: string | null;
 }
 
 /** Departments and users, loaded once per admin page for selects and labels. */

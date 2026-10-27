@@ -223,7 +223,19 @@ export function managerRoutes() {
                 (select count(*)::int from public.operational_issues i where i.department_id = app.my_department() and i.is_safety
                    and i.status in ('reported', 'pending_verification', 'open', 'in_progress', 'resolution_submitted')) as safety_open`,
       );
-      return { date: day, today, server_now: now, timezone: tz, shifts, counts };
+      // Who is away that day: approved leave (no reason shown) and rest days / days off.
+      const away = await q.query(
+        `select p.id as employee_id, p.full_name, 'leave' as kind, t.name as detail
+           from public.leave_requests r join public.profiles p on p.id = r.employee_id join public.leave_types t on t.id = r.leave_type_id
+          where r.department_id = app.my_department() and r.status = 'approved' and $1::date between r.start_date and r.end_date
+         union all
+         select p.id, p.full_name, m.kind, m.note
+           from public.schedule_day_marks m join public.profiles p on p.id = m.employee_id
+          where m.department_id = app.my_department() and m.day = $1::date
+         order by 2`,
+        [day],
+      );
+      return { date: day, today, server_now: now, timezone: tz, shifts, counts, away };
     });
     return c.json(rows);
   });
@@ -284,7 +296,9 @@ export function managerRoutes() {
            (select count(*)::int from public.operational_issues where department_id = app.my_department()
               and status in ('reported','pending_verification','open','in_progress','resolution_submitted') and is_safety) as open_safety,
            (select count(*)::int from public.operational_issues where department_id = app.my_department()
-              and status in ('reported','pending_verification','open','in_progress','resolution_submitted')) as open_issues`,
+              and status in ('reported','pending_verification','open','in_progress','resolution_submitted')) as open_issues,
+           (select count(*)::int from public.leave_requests r where r.department_id = app.my_department() and r.status = 'pending'
+              and app.can_decide_leave(r.id)) as pending_leave`,
       );
       return counts;
     });

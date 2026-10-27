@@ -4,6 +4,7 @@ const props = defineProps<{ path: string }>();
 const lines = computed(() => {
   const p = props.path;
   if (p.includes('assistant') || p.includes('ai-pipeline')) return ['m12 3 2.6 6.4L21 12l-6.4 2.6L12 21l-2.6-6.4L3 12l6.4-2.6L12 3Z'];
+  if (p.includes('leave')) return ['M5 5h14v15H5z', 'M8 3v4m8-4v4M5 10h14', 'm9.5 15 2 2 3.5-3.5'];
   if (p.includes('schedule') || p.includes('shifts')) return ['M5 5h14v15H5z', 'M8 3v4m8-4v4M5 10h14m-10 4h2m2 3h2'];
   if (p.includes('tasks') || p.includes('issues')) return ['m12 3 10 18H2L12 3Z', 'M12 9v5m0 3h.01'];
   if (p.includes('handover')) return ['M4 7h14m-4-4 4 4-4 4M20 17H6m4-4-4 4 4 4'];

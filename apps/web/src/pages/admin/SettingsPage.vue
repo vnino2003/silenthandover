@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
+import LeaveTypesEditor from '@/components/LeaveTypesEditor.vue';
 import PageHeader from '@/components/ui/PageHeader.vue';
 import StateBlock from '@/components/ui/StateBlock.vue';
 import UiButton from '@/components/ui/UiButton.vue';
@@ -61,6 +62,9 @@ const LABELS: Record<string, string> = {
   pii_retention_days: 'Keep analysis inputs for (days)',
   missing_report_alerts: 'Alert supervisors about missing reports',
   sms_enabled: 'Queue SMS notifications',
+  leave_min_notice_days: 'Leave notice (days ahead)',
+  leave_cancel_pending_allowed: 'Staff can cancel pending leave',
+  shift_reminder_hours: 'Shift reminder (hours before)',
 };
 </script>
 
@@ -82,6 +86,8 @@ const LABELS: Record<string, string> = {
         </li>
       </ul>
     </StateBlock>
+
+    <LeaveTypesEditor class="mt-8" />
 
     <h2 class="mt-8 text-[15px] font-semibold">Email templates</h2>
     <p class="mt-1 mb-3 text-[13px] text-ink-3">

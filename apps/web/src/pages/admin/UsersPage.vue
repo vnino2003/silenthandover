@@ -29,6 +29,7 @@ interface Form {
   team_id: string | null;
   phone: string;
   is_active: boolean;
+  job_title: string;
 }
 const editing = ref<Form | null>(null);
 const errors = ref<Record<string, string>>({});
@@ -36,11 +37,11 @@ const saving = ref(false);
 
 function openNew() {
   errors.value = {};
-  editing.value = { id: null, full_name: '', email: '', password: '', role: 'employee', department_id: departments.data.value?.[0]?.id ?? null, team_id: null, phone: '', is_active: true };
+  editing.value = { id: null, full_name: '', email: '', password: '', role: 'employee', department_id: departments.data.value?.[0]?.id ?? null, team_id: null, phone: '', is_active: true, job_title: '' };
 }
 function openEdit(u: AdminUser) {
   errors.value = {};
-  editing.value = { id: u.id, full_name: u.full_name, email: u.email, password: '', role: u.role, department_id: u.department_id, team_id: u.team_id, phone: u.phone ?? '', is_active: u.is_active };
+  editing.value = { id: u.id, full_name: u.full_name, email: u.email, password: '', role: u.role, department_id: u.department_id, team_id: u.team_id, phone: u.phone ?? '', is_active: u.is_active, job_title: u.job_title ?? '' };
 }
 
 async function save() {
@@ -49,8 +50,11 @@ async function save() {
   errors.value = {};
   const common = { full_name: f.full_name, role: f.role, department_id: f.role === 'admin' ? null : f.department_id, team_id: f.role === 'admin' ? null : f.team_id, phone: f.phone.trim() || null };
   try {
-    if (f.id) await api.patch(`/admin/users/${f.id}`, { ...common, is_active: f.is_active });
-    else await api.post('/admin/users', { ...common, email: f.email, password: f.password });
+    const id = f.id
+      ? (await api.patch(`/admin/users/${f.id}`, { ...common, is_active: f.is_active }), f.id)
+      : (await api.post<{ id: string }>('/admin/users', { ...common, email: f.email, password: f.password })).id;
+    const before = (users.data.value ?? []).find((u) => u.id === f.id)?.job_title ?? '';
+    if (f.job_title.trim() !== before) await api.patch(`/admin/users/${id}/job-title`, { job_title: f.job_title.trim() || null });
     toast.ok(f.id ? 'User updated' : 'User created');
     editing.value = null;
     await users.reload(true);
@@ -92,6 +96,9 @@ async function save() {
       <form v-if="editing" id="user-form" class="space-y-4" @submit.prevent="save">
         <UiField v-slot="{ id }" label="Full name" :error="errors.full_name">
           <input :id="id" v-model="editing.full_name" class="field-input" maxlength="120" />
+        </UiField>
+        <UiField v-if="editing.role !== 'admin'" v-slot="{ id }" label="Job title" optional hint="Shown on schedules, for example Staff nurse, Forklift operator or Cashier." :error="errors.job_title">
+          <input :id="id" v-model="editing.job_title" class="field-input" maxlength="80" />
         </UiField>
         <template v-if="!editing.id">
           <UiField v-slot="{ id }" label="Work email" :error="errors.email">

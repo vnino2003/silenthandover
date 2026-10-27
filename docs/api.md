@@ -123,3 +123,24 @@ the last preparation. Status data is read under RLS and never supplied as model-
 **Optional SMS workflow** (`N8N_SMS_WEBHOOK_URL`):
 `{ deliveries: [{ delivery_id, attempt, channel: "sms", to, text, idempotency_key }], from, callback_url }`.
 It uses the same authenticated delivery-result callback and idempotency checks as email.
+
+## Scheduling and leave
+
+| Method | Path | Who | Purpose |
+|---|---|---|---|
+| GET | `/leave-types` | Signed in | Leave types configured by the administrator |
+| GET / POST | `/leave` | Worker, supervisor | Own leave requests / request leave (whole days) |
+| POST | `/leave/:id/cancel` | Requester | Cancel own pending request |
+| GET | `/employee/schedule?from&to` | Worker | Own shifts, rest days, leave, next shift |
+| GET | `/manager/board?from&to` | Supervisor | Department board: staff, shifts, coverage, rest days, leave (no reasons), conflicts |
+| GET | `/manager/leave?scope=pending|all` | Supervisor | Department leave requests |
+| GET | `/manager/leave/:id/impact` | Supervisor | Shifts the person would leave and the staffing left |
+| POST | `/manager/leave/:id/decision` | Supervisor (not own) | Approve or decline (reason required to decline) |
+| POST | `/manager/leave/:id/cancel` | Supervisor | Cancel approved or pending leave (reason required) |
+| PUT | `/manager/day-marks` | Supervisor | Mark or clear a rest day / day off |
+| POST | `/manager/rest-days` | Supervisor | Weekly rest days over a date range |
+| PATCH | `/manager/templates/:id/min-staff`, `/manager/schedule/:id/min-staff` | Supervisor | Staff needed per shift pattern / shift |
+| GET | `/admin/board?department_id&from&to` | Administrator | Read-only department board |
+| GET / POST | `/admin/leave`, `/admin/leave/:id/decision` | Administrator | Supervisors' own leave when no other supervisor can decide |
+| POST / PATCH | `/admin/leave-types` | Administrator | Configure leave types |
+| PATCH | `/admin/users/:id/job-title` | Administrator | Job title shown on schedules |

@@ -8,6 +8,7 @@ import { clientIp, rateLimit } from './http/rate-limit';
 import { svc, type AppEnv, type Profile, type Services } from './http/context';
 import { adminRoutes } from './routes/admin';
 import { employeeRoutes } from './routes/employee';
+import { leaveRoutes } from './routes/leave';
 import { integrationRoutes } from './routes/integrations';
 import { issueRoutes } from './routes/issues';
 import { managerRoutes } from './routes/manager';
@@ -98,6 +99,7 @@ export function createApp(services: Services) {
   authed.use('*', (c, next) => (c.req.method === 'GET' ? next() : writeLimiter(c, next)));
   authed.route('/', meRoutes());
   authed.route('/', employeeRoutes());
+  authed.route('/', leaveRoutes());
   authed.route('/', assistantHelpRoutes());
   authed.route('/', assistantRoutes());
   authed.route('/', issueRoutes());

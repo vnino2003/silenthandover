@@ -15,6 +15,7 @@
     "test": "npm run test -w packages/shared && npm run test -w server",
     "seed": "npm run seed -w server --",
     "demo:hospital": "npm run demo:hospital -w server",
+    "demo:schedule": "npm run demo:schedule -w server",
     "prompt:eval": "npm run prompt:eval -w server --"
   },
   "devDependencies": {

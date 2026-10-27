@@ -97,7 +97,7 @@ export function scheduleRoutes() {
         `select t.id, t.team_id, tm.name as team_name, t.name,
                 to_char(t.start_time, 'HH24:MI') as start_time, to_char(t.end_time, 'HH24:MI') as end_time,
                 t.end_time <= t.start_time as overnight, t.window_open_minutes, t.grace_minutes,
-                t.allow_early_draft, t.is_active, t.weekdays
+                t.allow_early_draft, t.is_active, t.weekdays, t.min_staff
            from public.shift_templates t
            left join public.teams tm on tm.id = t.team_id
           where t.department_id = app.my_department()
@@ -142,7 +142,7 @@ export function scheduleRoutes() {
       q.query(
         `select s.id, s.label, s.shift_date::text as shift_date, s.timezone, s.status, s.starts_at, s.ends_at,
                 s.window_opens_at, s.window_closes_at, s.team_id, t.name as team_name,
-                s.supervisor_id, sup.full_name as supervisor_name, s.template_id,
+                s.supervisor_id, sup.full_name as supervisor_name, s.template_id, s.min_staff,
                 coalesce((select jsonb_agg(jsonb_build_object('employee_id', p.id, 'full_name', p.full_name) order by p.full_name)
                             from public.shift_assignments a join public.profiles p on p.id = a.employee_id
                            where a.shift_id = s.id and a.removed_at is null), '[]'::jsonb) as assignees

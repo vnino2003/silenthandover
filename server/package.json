@@ -11,6 +11,7 @@
     "test": "vitest run",
     "seed": "tsx src/scripts/seed.ts",
     "demo:hospital": "tsx src/scripts/replace-demo.ts",
+    "demo:schedule": "tsx src/scripts/schedule-demo.ts",
     "prompt:eval": "tsx src/scripts/prompt-eval.ts"
   },
   "dependencies": {

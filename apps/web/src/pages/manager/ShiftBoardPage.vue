@@ -40,6 +40,7 @@ interface Board {
   timezone: string;
   shifts: BoardShift[];
   counts: { pending_review: number; untaken: number; safety_open: number };
+  away?: { employee_id: string; full_name: string; kind: 'leave' | 'rest_day' | 'day_off'; detail: string }[];
 }
 
 const toast = useToast();
@@ -158,6 +159,13 @@ async function grant() {
             <p class="mt-0.5 text-[22px] font-semibold tnum" :class="{ 'text-bad': missingCount }">{{ missingCount || data.counts.untaken }}</p>
           </RouterLink>
         </div>
+
+        <!-- Who is away this day: approved leave, rest days and days off -->
+        <p v-if="data.away?.length" class="card px-4 py-3 text-[13.5px] text-ink-2">
+          <span class="font-semibold text-ink">Away {{ viewingToday ? 'today' : 'this day' }}:</span>
+          <template v-for="(a, i) in data.away" :key="a.employee_id + a.kind">{{ i ? ', ' : ' ' }}{{ a.full_name }} <span :class="a.kind === 'leave' ? 'text-violet' : 'text-info'">({{ a.kind === 'leave' ? a.detail : a.kind === 'rest_day' ? 'rest day' : 'day off' }})</span></template>
+          <RouterLink to="/manager/leave" class="ml-2 link">Leave requests</RouterLink>
+        </p>
 
         <!-- Who is working right now -->
         <section v-if="viewingToday" aria-labelledby="now-heading">

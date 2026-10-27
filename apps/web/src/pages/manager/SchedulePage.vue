@@ -5,6 +5,7 @@ import StateBlock from '@/components/ui/StateBlock.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import UiDialog from '@/components/ui/UiDialog.vue';
 import UiField from '@/components/ui/UiField.vue';
+import DepartmentBoard from '@/components/DepartmentBoard.vue';
 import { api, errorMessage } from '@/lib/api';
 import { day, shiftRange } from '@/lib/format';
 import { useAsync } from '@/lib/useAsync';
@@ -28,6 +29,7 @@ interface ShiftType {
   allow_early_draft: boolean;
   is_active: boolean;
   weekdays: number[];
+  min_staff: number;
 }
 interface Shift {
   id: string;
@@ -40,6 +42,7 @@ interface Shift {
   supervisor_id: string | null;
   template_id: string | null;
   assignees: { employee_id: string; full_name: string }[];
+  min_staff?: number;
 }
 
 const auth = useAuth();
@@ -227,24 +230,27 @@ interface SetupRow {
   start_time: string;
   end_time: string;
   days: DaysChoice;
+  min_staff: number;
 }
 const editingShifts = ref<SetupRow[] | null>(null);
+/** By shift: the week grid below. By person: the department board with day / week / month views. */
+const layout = ref<'shift' | 'person'>('shift');
 const addHours = (hhmm: string, hours: number) => {
   const [h, m] = hhmm.split(':').map(Number) as [number, number];
   return `${String((h + hours) % 24).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 };
 function openShiftSetup() {
   editingShifts.value = patterns.value.length
-    ? patterns.value.map((p) => ({ id: p.id, name: p.name, start_time: p.start_time, end_time: p.end_time, days: choiceFor(p.weekdays) }))
+    ? patterns.value.map((p) => ({ id: p.id, name: p.name, start_time: p.start_time, end_time: p.end_time, days: choiceFor(p.weekdays), min_staff: p.min_staff ?? 1 }))
     : [
-        { id: null, name: 'Morning', start_time: '06:00', end_time: '14:00', days: 'all' },
-        { id: null, name: 'Afternoon', start_time: '14:00', end_time: '22:00', days: 'all' },
+        { id: null, name: 'Morning', start_time: '06:00', end_time: '14:00', days: 'all', min_staff: 1 },
+        { id: null, name: 'Afternoon', start_time: '14:00', end_time: '22:00', days: 'all', min_staff: 1 },
       ];
 }
 function addRow() {
   const last = editingShifts.value!.at(-1);
   const start = last?.end_time ?? '08:00';
-  editingShifts.value!.push({ id: null, name: '', start_time: start, end_time: addHours(start, 8), days: last?.days ?? 'all' });
+  editingShifts.value!.push({ id: null, name: '', start_time: start, end_time: addHours(start, 8), days: last?.days ?? 'all', min_staff: last?.min_staff ?? 1 });
 }
 const setupValid = computed(
   () =>
@@ -278,8 +284,11 @@ async function saveShiftSetup() {
         // A name used before comes back as the same pattern rather than a duplicate.
         const existing = r.id ? all.find((p) => p.id === r.id) : all.find((p) => !p.is_active && p.name.toLowerCase() === r.name.trim().toLowerCase());
         const payload = templateBody({ ...r, weekdays: DAYS[r.days].days }, existing, true);
-        if (existing) await api.patch(`/manager/templates/${existing.id}`, payload);
-        else await api.post('/manager/templates', payload);
+        const id = existing
+          ? (await api.patch(`/manager/templates/${existing.id}`, payload), existing.id)
+          : (await api.post<{ id: string }>('/manager/templates', payload)).id;
+        // The coverage target: how many people the shift needs.
+        if (!existing || existing.min_staff !== r.min_staff) await api.patch(`/manager/templates/${id}/min-staff`, { min_staff: r.min_staff });
       }
       await types.reload(true);
     },
@@ -296,6 +305,18 @@ async function saveShiftSetup() {
 <template>
   <div class="mx-auto max-w-6xl">
     <PageHeader title="Schedule" description="Your department’s shifts for the week. Tap a shift to choose who works it.">
+      <div class="flex rounded-md border border-line-strong p-0.5 text-[13px]" role="tablist" aria-label="Schedule layout">
+        <button
+          v-for="v in [{ k: 'shift', l: 'By shift' }, { k: 'person', l: 'By person' }] as const"
+          :key="v.k"
+          type="button"
+          role="tab"
+          :aria-selected="layout === v.k"
+          class="rounded px-3 py-1"
+          :class="layout === v.k ? 'bg-ink text-white' : 'text-ink-2 hover:bg-sunken'"
+          @click="layout = v.k"
+        >{{ v.l }}</button>
+      </div>
       <UiButton size="sm" variant="ghost" :disabled="types.loading.value" @click="openShiftSetup">Edit shifts</UiButton>
     </PageHeader>
 
@@ -326,7 +347,7 @@ async function saveShiftSetup() {
     </StateBlock>
 
     <!-- The week -->
-    <section aria-labelledby="week-heading">
+    <section v-if="layout === 'shift'" aria-labelledby="week-heading">
       <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 id="week-heading" class="text-[16px] font-semibold">{{ weekTitle }}</h2>
@@ -375,6 +396,12 @@ async function saveShiftSetup() {
                       <span v-if="cell(p.id, d.iso)!.assignees.length > 3" class="text-[11.5px] text-ink-3">+{{ cell(p.id, d.iso)!.assignees.length - 3 }} more</span>
                     </template>
                     <span v-else class="text-[12px] font-medium text-warn">{{ d.isPast ? 'No one' : '+ Add people' }}</span>
+                    <span
+                      v-if="cell(p.id, d.iso)!.status === 'scheduled' && (cell(p.id, d.iso)!.min_staff ?? 0) > 0"
+                      class="mt-auto self-end rounded-full px-1.5 text-[11px] font-semibold tnum"
+                      :class="cell(p.id, d.iso)!.assignees.length >= cell(p.id, d.iso)!.min_staff! ? 'bg-ok-soft text-ok' : 'bg-warn-soft text-warn'"
+                      :title="`${cell(p.id, d.iso)!.assignees.length} of ${cell(p.id, d.iso)!.min_staff} staff needed`"
+                    >{{ cell(p.id, d.iso)!.assignees.length }} / {{ cell(p.id, d.iso)!.min_staff }}</span>
                   </button>
                   <span v-else class="grid min-h-20 place-items-center text-[11.5px] text-ink-3">—</span>
                 </td>
@@ -451,6 +478,10 @@ async function saveShiftSetup() {
       </template>
     </UiDialog>
 
+    <section v-if="layout === 'person'" aria-label="Department board">
+      <DepartmentBoard endpoint="/manager/board" />
+    </section>
+
     <UiDialog
       :open="Boolean(editingShifts)"
       title="Your department’s shifts"
@@ -470,6 +501,9 @@ async function saveShiftSetup() {
               <select :id="id" v-model="r.days" class="field-input">
                 <option v-for="(d, k) in DAYS" :key="k" :value="k">{{ d.label }}</option>
               </select>
+            </UiField>
+            <UiField v-slot="{ id }" label="Staff needed" hint="Fewer is flagged as understaffed">
+              <input :id="id" v-model.number="r.min_staff" type="number" min="0" max="50" class="field-input tnum" />
             </UiField>
           </div>
           <p v-if="r.end_time < r.start_time" class="mt-1.5 text-[12px] text-info">Ends the next day</p>

@@ -20,6 +20,8 @@ const menuOpen = ref(false);
 const NAV = {
   employee: [
     { to: '/', label: 'Today', exact: true },
+    { to: '/schedule', label: 'My schedule' },
+    { to: '/leave', label: 'Leave' },
     { to: '/assistant', label: 'Workplace assistant' },
     { to: '/handover', label: 'Shift takeover' },
     { to: '/tasks', label: 'Open issues' },
@@ -30,15 +32,19 @@ const NAV = {
     { to: '/manager/shifts', label: 'Today', group: 'Daily work' },
     { to: '/manager', label: 'Review queue', exact: true, group: 'Daily work', count: 'review' },
     { to: '/manager/schedule', label: 'Schedule', group: 'Daily work' },
+    { to: '/manager/leave', label: 'Leave requests', group: 'Daily work', count: 'leave' },
     { to: '/manager/issues', label: 'Issues', group: 'Daily work' },
     { to: '/manager/reports', label: 'Report history', exact: true, group: 'Records' },
     { to: '/manager/records', label: 'Source records', group: 'Records' },
     { to: '/manager/audit', label: 'Audit log', group: 'Records' },
+    { to: '/leave', label: 'My leave', group: 'Records' },
   ],
   // IT / HR: people first, then the system settings (AI and integrations among them), then the log.
   admin: [
     { to: '/admin/users', label: 'Users', group: 'People' },
     { to: '/admin/departments', label: 'Departments', group: 'People' },
+    { to: '/admin/schedules', label: 'Schedules', group: 'People' },
+    { to: '/admin/leave', label: 'Leave approvals', group: 'People' },
     { to: '/admin', label: 'Integrations', exact: true, group: 'Settings' },
     { to: '/admin/ai-pipeline', label: 'AI pipeline', group: 'Settings' },
     { to: '/admin/settings', label: 'Rules and emails', group: 'Settings' },
@@ -46,7 +52,7 @@ const NAV = {
   ],
 } as const;
 
-type NavItem = { to: string; label: string; exact?: boolean; group?: string; count?: 'review' };
+type NavItem = { to: string; label: string; exact?: boolean; group?: string; count?: 'review' | 'leave' };
 const nav = computed<readonly NavItem[]>(() => (auth.role ? NAV[auth.role] : []).map((item) => ({ ...item,
   label: item.to === '/reports' ? `My ${auth.experience.report_label.toLowerCase()}s` : item.to === '/tasks' || item.to === '/manager/issues' ? `${auth.experience.issue_label}s` : item.label,
 })));
@@ -64,13 +70,14 @@ const navGroups = computed(() => {
 
 // Reports waiting for this supervisor, shown on the Review queue link. Refreshes quietly.
 const summary = useAsync(
-  () => (auth.role === 'manager' ? api.get<{ pending_review: number }>('/manager/summary') : Promise.resolve(null)),
+  () => (auth.role === 'manager' ? api.get<{ pending_review: number; pending_leave: number }>('/manager/summary') : Promise.resolve(null)),
   [],
   { refreshMs: 30_000 },
 );
-const counts = computed(() => ({ review: summary.data.value?.pending_review ?? 0 }));
+const counts = computed(() => ({ review: summary.data.value?.pending_review ?? 0, leave: summary.data.value?.pending_leave ?? 0 }));
 const employeeMobileNav = [
   { to: '/', label: 'Today', exact: true },
+  { to: '/schedule', label: 'Schedule' },
   { to: '/handover', label: 'Takeover' },
   { to: '/tasks', label: 'Issues' },
   { to: '/reports', label: 'Reports' },

@@ -128,7 +128,11 @@ export async function createServices(config: Config, opts: BootstrapOptions = {}
       ticks += 1;
       try {
         // The scheduled tick (timeouts, escalations, missing reports) runs every other interval.
-        if (ticks % 2 === 0) await db.asService((q) => q.query('select internal.scheduled_tick()'));
+        if (ticks % 2 === 0) {
+          await db.asService((q) => q.query('select internal.scheduled_tick()'));
+          // Shift reminders and staffing alerts.
+          await db.asService((q) => q.query('select internal.schedule_tick()'));
+        }
       } catch (err) {
         logger('scheduled tick failed', { error: err instanceof Error ? err.message : String(err) });
       }
