@@ -5,7 +5,10 @@ Errors: `{ "error": { "code", "message", "fields"?, "request_id" } }`.
 
 ## Workplace assistant (active employees only)
 
-Role-aware page help is separate: `POST /assistant/help` accepts `{message, page}` for any active role, validates page access for that role, and returns plain-text guidance with an explicit engine label. It has no action tools or access to arbitrary page content. Employee action preparations may include `{context: {page, entity_id?}}`; a report reference is resolved under author-scoped RLS before its shift is selected.
+Ask Mica is separate: `POST /assistant/help` accepts `{message, page, entity_id?}` for any active role (limited to `MICA_REQUESTS_PER_MINUTE`, default 20, together with `/assistant/message`), refuses pages outside the role (403), and returns a `MicaAnswer`: `{page, reply, engine, fallback, facts, notices, checked_at, leave_draft?}`.
+`facts` are read under the caller's own permissions (employee: own schedule, leave and reports; supervisor: own department's coverage, conflicts, pending leave with staffing impact, review queue or one report's flags; administrator: organization-wide counts only) and are **never sent to the AI**; leave reasons are never included.
+`engine` is `records` (the app answered from the facts), `guide` (the page guide; with `fallback: true` when the AI failed, timed out, or its answer failed the checks), or the provider name when Mica's AI explained the page.
+Leave messages are handled locally: `leave_draft` carries proposed dates for the Leave form, which still collects the reason and submits. Employee action preparations may include `{context: {page, entity_id?}}`; a report reference is resolved under author-scoped RLS before its shift is selected.
 
 Department configuration: `GET /department/experience` reads the caller's own department settings (generic defaults for an unassigned administrator). `PUT /admin/departments/:id/experience` validates and persists terminology, guidance, concern categories and record choices; only administrators may write it.
 

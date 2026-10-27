@@ -19,6 +19,8 @@ export async function setup(env: Record<string, string> = {}, fetchImpl?: typeof
     DEV_ANALYSIS_DELAY_MS: '0',
     ENABLE_INTERNAL_SCHEDULER: 'false',
     N8N_CALLBACK_SECRET: CALLBACK_SECRET,
+    // Tests send many Mica requests as one person; the limit itself is tested separately.
+    MICA_REQUESTS_PER_MINUTE: '1000',
     ...env,
   });
   const services = await createServices(config, { memory: true, quiet: true, manualKick: true, fetchImpl });

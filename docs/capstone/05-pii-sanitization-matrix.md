@@ -47,6 +47,25 @@ the sanitized text ("Sent to AI" tab) so they can confirm nothing personal left 
   terms, retention period, and processing location, and whether a data processing agreement is needed.
 * This repository uses **synthetic demonstration data only**.
 
+## Mica, the assistant
+
+Mica uses the same provider, key and sanitizer as the report analysis, with its own six-element
+prompts (`packages/shared/src/mica-prompt.ts`, version `mica-1.0`). Tests: `server/test/mica.test.ts`.
+
+* **Ask answers send only the sanitized question and the page guide.** The records Mica shows
+  ("From your records") are read under the user's own permissions and stay in the app.
+* **Leave messages and reasons never reach the provider.** Dates are worked out locally; the Leave
+  form collects the reason.
+* **Prepare** sends the sanitized message, the sanitized draft and non-personal configuration (issue
+  codes, the department's report categories). Names come back restored for the author only; text
+  the model returns unchanged gets the author's original back, so a detail they typed is not lost.
+* A message that looks like a prompt injection is **not sent**; the user is told so.
+* Answers are rejected (page guide shown instead) when they contain contact details, links, numbers
+  not present in the question or guide, or claims that Mica did something.
+* Mica conversations are not stored. A preparation keeps only its editable state, for 24 hours.
+* **Voice:** browser speech recognition may send audio to the browser maker's speech service before
+  Mica can sanitize anything. The panel says so; typing is always available.
+
 ## Known limitations
 
 * Rule-based, not named-entity recognition: a non-staff name without an honorific ("Tony called") is

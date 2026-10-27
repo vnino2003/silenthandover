@@ -21,15 +21,16 @@ export function configureApi(opts: { token: TokenSource; onUnauthorized: () => v
   onUnauthorized = opts.onUnauthorized;
 }
 
-export async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
+export async function request<T>(method: string, path: string, body?: unknown, options?: { signal?: AbortSignal }): Promise<T> {
   const headers: Record<string, string> = {};
   const token = await tokenSource();
   if (token) headers.Authorization = `Bearer ${token}`;
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   let res: Response;
   try {
-    res = await fetch(`${BASE}/api${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
-  } catch {
+    res = await fetch(`${BASE}/api${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), signal: options?.signal });
+  } catch (e) {
+    if (options?.signal?.aborted) throw e;
     throw new ApiError(0, 'network', 'Can’t reach the server. Check your connection and try again.');
   }
   const text = await res.text();
@@ -52,7 +53,7 @@ function safeJson(text: string): unknown {
 
 export const api = {
   get: <T>(path: string) => request<T>('GET', path),
-  post: <T>(path: string, body?: unknown) => request<T>('POST', path, body ?? {}),
+  post: <T>(path: string, body?: unknown, options?: { signal?: AbortSignal }) => request<T>('POST', path, body ?? {}, options),
   put: <T>(path: string, body: unknown) => request<T>('PUT', path, body),
   patch: <T>(path: string, body: unknown) => request<T>('PATCH', path, body),
   del: <T>(path: string) => request<T>('DELETE', path),

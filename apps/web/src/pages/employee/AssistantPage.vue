@@ -1,4 +1,5 @@
 <script setup lang="ts">
-import AssistantWorkbench from '@/components/AssistantWorkbench.vue';
+import AssistantDock from '@/components/AssistantDock.vue';
+import PageHeader from '@/components/ui/PageHeader.vue';
 </script>
-<template><AssistantWorkbench /></template>
+<template><div class="mx-auto max-w-3xl"><PageHeader title="Mica, your work companion" description="Continue the same conversation, with a little more room." /><AssistantDock embedded /></div></template>

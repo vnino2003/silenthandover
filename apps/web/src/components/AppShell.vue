@@ -46,7 +46,7 @@ const NAV = {
     { to: '/admin/schedules', label: 'Schedules', group: 'People' },
     { to: '/admin/leave', label: 'Leave approvals', group: 'People' },
     { to: '/admin', label: 'Integrations', exact: true, group: 'Settings' },
-    { to: '/admin/ai-pipeline', label: 'AI pipeline', group: 'Settings' },
+    { to: '/admin/ai-pipeline', label: 'Mica AI pipeline', group: 'Settings' },
     { to: '/admin/settings', label: 'Rules and emails', group: 'Settings' },
     { to: '/admin/audit', label: 'Audit log', group: 'Records' },
   ],
@@ -87,7 +87,7 @@ const mobileNav = computed<readonly { to: string; label: string; exact?: boolean
   { to: '/manager/schedule', label: 'Schedule' }, { to: '/manager/issues', label: 'Issues' },
 ] : [
   { to: '/admin/users', label: 'People' }, { to: '/admin', label: 'System', exact: true },
-  { to: '/admin/ai-pipeline', label: 'AI pipeline' }, { to: '/admin/settings', label: 'Settings' },
+  { to: '/admin/ai-pipeline', label: 'Mica AI pipeline' }, { to: '/admin/settings', label: 'Settings' },
 ]);
 const isActive = (item: { to: string; exact?: boolean }) => {
   // A report under review belongs to the review queue.

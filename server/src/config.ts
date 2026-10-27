@@ -28,6 +28,8 @@ const EnvSchema = z.object({
   // using the labeled simulator until then; 'dev' = always the simulator; 'n8n' = Workflow A.
   AI_ADAPTER: z.enum(['admin', 'dev', 'n8n']).default('admin'),
   AI_REQUEST_TIMEOUT_MS: z.coerce.number().int().min(5000).default(60000),
+  // Mica requests (Ask and Prepare) per person per minute; each one can call the AI provider.
+  MICA_REQUESTS_PER_MINUTE: z.coerce.number().int().min(1).default(20),
   // Encrypts secrets entered in the app (the AI key). 32 bytes, base64: openssl rand -base64 32.
   // Local mode creates one in the local data folder when unset.
   SECRETS_ENCRYPTION_KEY: z.string().optional(),

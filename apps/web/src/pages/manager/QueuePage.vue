@@ -80,9 +80,9 @@ const inFlight = computed(() => queue.data.value?.filter((r) => r.status !== 'pe
                 </div>
                 <div class="flex flex-wrap items-center gap-2 sm:justify-end">
                   <span v-if="r.has_safety" class="rounded-sm bg-bad px-1.5 py-px text-[11px] font-semibold tracking-wide text-white uppercase">Safety</span>
-                  <span v-if="r.analysis_state === 'failed'" class="text-[12.5px] font-medium text-bad">No AI draft — review original</span>
+                  <span v-if="r.analysis_state === 'failed'" class="text-[12.5px] font-medium text-bad">No Mica draft — review original</span>
                   <span v-else-if="r.flag_count" class="text-[12.5px] font-medium text-warn tnum">{{ r.flag_count }} flag{{ r.flag_count > 1 ? 's' : '' }}</span>
-                  <span v-if="r.is_simulated" class="text-[12.5px] text-ink-3">Simulated</span>
+                  <span v-if="r.is_simulated" class="text-[12.5px] text-ink-3">Mica practice draft</span>
                   <StatusBadge :report="r.status" />
                 </div>
               </button>

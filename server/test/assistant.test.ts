@@ -81,7 +81,7 @@ describe('employee assistant uses real workflow functions and server-owned confi
   });
 
   it('uses the real reporting window and leaves no partial report on failure', async () => {
-    const early = await adhocShift(h, { employee: 'juan', startsSql: "now() + interval '2 days'", endsSql: "now() + interval '2 days 4 hours'" });
+    const early = await adhocShift(h, { employee: 'juan', startsSql: "now() + interval '30 days'", endsSql: "now() + interval '30 days 4 hours'" });
     let p = (await message('report', undefined, early)).body;
     p = (await review(p, AssistantState.parse({ intent: 'report', content: { completed_work: 'Counted 12 pallets', no_unresolved_issues: true, no_pending_tasks: true } }))).body;
     expect((await confirm(p)).status).toBe(409);
@@ -183,14 +183,21 @@ describe('employee assistant uses real workflow functions and server-owned confi
     expect(calls.at(-1)).toContain('[PHONE-REDACTED]');
     modelMode = 'failure';
     const failure = await message('none', p.body);
-    expect(failure.status).toBe(502);
+    expect(failure.status).toBe(200);
+    expect(failure.body.engine).toBe('guided_unavailable');
+    expect(failure.body.notices.join(' ')).toContain('guided');
     expect(JSON.stringify(failure.body)).not.toContain('secret-key');
-    expect((await h.call('juan', 'GET', `/api/assistant/preparations/${p.body.id}`)).body.version).toBe(p.body.version);
+    expect((await h.call('juan', 'GET', `/api/assistant/preparations/${p.body.id}`)).body.state.content.completed_work).toBe(p.body.state.content.completed_work);
     modelMode = 'invalid';
-    expect((await message('none', p.body)).status).toBe(502);
+    const invalid=await message('none',failure.body);
+    expect(invalid.status).toBe(200);
+    expect(invalid.body.engine).toBe('guided_unavailable');
     modelMode = 'ok';
     modelState = { ...modelState, intent: 'task_update', issue_code: 'ISS-99999999' };
-    expect((await message('update a task')).status).toBe(422);
+    const invented=await message('update a task');
+    expect(invented.status).toBe(200);
+    expect(invented.body.state.issue_code).toBeNull();
+    expect(invented.body.engine).toBe('guided_unavailable');
     await h.call('admin', 'PUT', '/api/admin/ai', { provider: 'simulator', api_key: null });
   });
 });

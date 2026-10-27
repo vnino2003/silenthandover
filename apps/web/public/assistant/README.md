@@ -1,5 +1,15 @@
 # Mica mascot
 
+## Current identity: Mica Folio (selected 2026-10-28)
+
+The user selected concept B: an upright handover folio with ivory page layers, a diagonal teal wrap and a side tab. `mica-folio.png` is the refined transparent illustration generated with the built-in image_gen tool; its exact prompt is in `folio-generation-prompt.txt`. The reference was the B concept sheet generated earlier in this chat.
+
+The live avatar is a small, independently articulated SVG in `src/components/MicaMascot.vue`. It adapts the same silhouette and palette for small controls, with separate page, face, eyelid and hand movement. It intentionally uses simpler shading than the raster illustration. Status comes from the shared Mica session; no random processing or speech simulation is used. Reduced-motion users get a still avatar.
+
+The old bird asset is retained for provenance but is no longer referenced by the interface. Its original description and prompt follow.
+
+## Previous identity (historical)
+
 Original asset generated with the built-in image_gen tool for this project. The transparent PNG is used by MicaMascot.vue for the launcher, onboarding/empty state, response avatar and restrained thinking animation. Keep its identity industry-independent; do not add medical or industry-specific insignia.
 
 ## Generation prompt

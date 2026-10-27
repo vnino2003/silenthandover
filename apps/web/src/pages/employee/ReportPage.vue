@@ -69,8 +69,8 @@ const issueLabels = computed(() => Object.fromEntries((data.value?.open_issues ?
 
 const STATUS_COPY: Record<ReportStatus, string> = {
   draft: 'Not submitted yet.',
-  submitted: 'Received. It is queued for preparation before your supervisor reviews it.',
-  processing: 'Being prepared for your supervisor’s review.',
+  submitted: 'Received. Mica will prepare it for your supervisor’s review.',
+  processing: 'Mica is preparing it for your supervisor’s review.',
   pending_review: 'Waiting for your supervisor to verify it.',
   revision_requested: 'Your supervisor asked for changes. Update the report below and submit again.',
   approved: 'Verified and approved. It will be delivered when the incoming shift is staffed.',

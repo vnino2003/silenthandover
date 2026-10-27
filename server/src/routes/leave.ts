@@ -45,7 +45,7 @@ interface LeaveRow {
 const inLeave = (l: { start_date: string; end_date: string }, day: string) => day >= l.start_date && day <= l.end_date;
 
 /** Everything the department board shows for a date range, plus the conflicts worth attention. */
-async function boardFor(q: Queryable, departmentId: string, from: string, to: string) {
+export async function boardFor(q: Queryable, departmentId: string, from: string, to: string) {
   const [department] = await q.query<{ id: string; name: string; timezone: string; today: string }>(
     `select id, name, timezone, (now() at time zone timezone)::date::text as today from public.departments where id = $1`,
     [departmentId],
@@ -103,6 +103,41 @@ async function boardFor(q: Queryable, departmentId: string, from: string, to: st
   return { department, employees, patterns, shifts, marks, leave, conflicts };
 }
 
+/** The signed-in employee's own shifts, rest days and leave (row-level security keeps it to them). */
+export async function employeeSchedule(q: Queryable, from: string, to: string) {
+  const [{ today, timezone }] = (await q.query<{ today: string; timezone: string }>(
+    `select (now() at time zone d.timezone)::date::text as today, d.timezone from public.departments d where d.id = app.my_department()`,
+  )) as [{ today: string; timezone: string }];
+  const shifts = await q.query<{id:string;label:string;shift_date:string;starts_at:string;ends_at:string;timezone:string;status:string;crew_size:number}>(
+    `select s.id, s.label, s.shift_date::text as shift_date, s.starts_at, s.ends_at, s.timezone, s.status,
+            (select count(*)::int from public.shift_assignments x where x.shift_id = s.id and x.removed_at is null) as crew_size
+       from public.shift_assignments a join public.shifts s on s.id = a.shift_id
+      where a.employee_id = auth.uid() and a.removed_at is null and s.status = 'scheduled'
+        and s.shift_date between $1::date and $2::date
+      order by s.starts_at`,
+    [from, to],
+  );
+  const next = await q.query<{id:string;label:string;shift_date:string;starts_at:string;ends_at:string;timezone:string}>(
+    `select s.id, s.label, s.shift_date::text as shift_date, s.starts_at, s.ends_at, s.timezone
+       from public.shift_assignments a join public.shifts s on s.id = a.shift_id
+      where a.employee_id = auth.uid() and a.removed_at is null and s.status = 'scheduled' and s.ends_at > now()
+      order by s.starts_at limit 1`,
+  );
+  const marks = await q.query<{day:string;kind:string;note:string}>(
+    `select day::text as day, kind, note from public.schedule_day_marks where employee_id = auth.uid() and day between $1::date and $2::date order by day`,
+    [from, to],
+  );
+  const leave = await q.query<{id:string;leave_type:string;start_date:string;end_date:string;status:string}>(
+    `select r.id, t.name as leave_type, r.start_date::text as start_date, r.end_date::text as end_date, r.status
+       from public.leave_requests r join public.leave_types t on t.id = r.leave_type_id
+      where r.employee_id = auth.uid() and r.status in ('pending', 'approved')
+        and daterange(r.start_date, r.end_date, '[]') && daterange($1::date, $2::date, '[]')
+      order by r.start_date`,
+    [from, to],
+  );
+  return { today, timezone, next_shift:next[0] ?? null, shifts, marks, leave };
+}
+
 export function leaveRoutes() {
   const r = new Hono<AppEnv>();
 
@@ -150,40 +185,7 @@ export function leaveRoutes() {
   r.get('/employee/schedule', async (c) => {
     requireRole(c, 'employee');
     const { from, to } = parseQuery(c, Range);
-    const data = await asUser(c, async (q) => {
-      const [{ today, timezone }] = (await q.query<{ today: string; timezone: string }>(
-        `select (now() at time zone d.timezone)::date::text as today, d.timezone from public.departments d where d.id = app.my_department()`,
-      )) as [{ today: string; timezone: string }];
-      const shifts = await q.query(
-        `select s.id, s.label, s.shift_date::text as shift_date, s.starts_at, s.ends_at, s.timezone, s.status,
-                (select count(*)::int from public.shift_assignments x where x.shift_id = s.id and x.removed_at is null) as crew_size
-           from public.shift_assignments a join public.shifts s on s.id = a.shift_id
-          where a.employee_id = auth.uid() and a.removed_at is null and s.status = 'scheduled'
-            and s.shift_date between $1::date and $2::date
-          order by s.starts_at`,
-        [from, to],
-      );
-      const next = await q.query(
-        `select s.id, s.label, s.shift_date::text as shift_date, s.starts_at, s.ends_at, s.timezone
-           from public.shift_assignments a join public.shifts s on s.id = a.shift_id
-          where a.employee_id = auth.uid() and a.removed_at is null and s.status = 'scheduled' and s.ends_at > now()
-          order by s.starts_at limit 1`,
-      );
-      const marks = await q.query(
-        `select day::text as day, kind, note from public.schedule_day_marks where employee_id = auth.uid() and day between $1::date and $2::date order by day`,
-        [from, to],
-      );
-      const leave = await q.query(
-        `select r.id, t.name as leave_type, r.start_date::text as start_date, r.end_date::text as end_date, r.status
-           from public.leave_requests r join public.leave_types t on t.id = r.leave_type_id
-          where r.employee_id = auth.uid() and r.status in ('pending', 'approved')
-            and daterange(r.start_date, r.end_date, '[]') && daterange($1::date, $2::date, '[]')
-          order by r.start_date`,
-        [from, to],
-      );
-      return { today, timezone, next_shift: next[0] ?? null, shifts, marks, leave };
-    });
-    return c.json(data);
+    return c.json(await asUser(c, (q) => employeeSchedule(q, from, to)));
   });
 
   // ---- Supervisors --------------------------------------------------------------

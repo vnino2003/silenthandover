@@ -1,12 +1,14 @@
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { z } from 'zod';
-import { AssistantState, AssistantContext, DepartmentExperience, assistantMissing, ReportDraftContent, ReportSubmission, type AssistantView } from '@sh/shared';
+import { AssistantState, AssistantContext, DepartmentExperience, assistantMissing, renderMicaSystem, renderMicaUser, ReportDraftContent, ReportSubmission, type AssistantView } from '@sh/shared';
 import { asUser, idParam, parseBody, requireRole, svc, type AppEnv, type Ctx } from '../http/context';
+import { leaveDates } from '../automation/mica-dates';
+import { detectInjection } from '../automation/injection';
 import { ApiError, fromZodError } from '../http/errors';
-import { callProvider } from '../automation/ai-provider';
-import { ASSISTANT_SYSTEM, guidedReply, nextQuestion } from '../automation/assistant';
-import { sanitize } from '../automation/sanitize';
+import { callWithFallback } from '../automation/ai-provider';
+import { guidedReply, nextQuestion } from '../automation/assistant';
+import { REDACTED, REDACTION_NOTICE, restoreDeep, safePreparationOutput, sanitizeTogether, stripFences } from '../automation/mica';
 
 interface Proposal {
   id: string; employee_id: string; shift_id: string | null; state: AssistantState; version: number;
@@ -16,7 +18,7 @@ function view(p: Proposal): AssistantView {
   const missing = assistantMissing(p.state);
   if (p.state.intent === 'report' && !p.shift_id) missing.push('Select an assigned shift before preparing a report');
   return { id: p.id, version: p.version, state: p.state, engine: p.engine, reply: p.reply,
-    missing, ready: !missing.length && !p.result, shift_id: p.shift_id, expires_at: new Date(p.expires_at).toISOString(), result: p.result };
+    missing, ready: !missing.length && !p.result && p.state.intent !== 'leave', shift_id: p.shift_id, expires_at: new Date(p.expires_at).toISOString(), result: p.result };
 }
 async function load(c: Ctx, id: string) {
   const [row] = await svc(c).db.asService((q) => q.query<Proposal>(
@@ -92,31 +94,54 @@ export function assistantRoutes() {
     const experience = DepartmentExperience.parse(department?.experience ?? {});
     let state: AssistantState;
     let engine = 'guided';
+    let notice: string | undefined;
+    let modelReply = '';
+    const injection = detectInjection(body.message).length > 0;
+    // A message that tries to steer the model is not sent to it; guided preparation keeps the employee's words.
+    if (injection) notice = 'Embedded instructions cannot change permissions or skip review. This message was not sent to the AI; check the draft before confirming.';
     let active: Awaited<ReturnType<typeof services.aiSettings.active>>;
     try { active = await services.aiSettings.active(); }
-    catch { throw new ApiError(502, 'assistant_unavailable', 'The AI provider could not be reached. Your preparation is safe. Retry or use the standard form.'); }
-    if (active) {
+    catch { active = null; engine = 'guided_unavailable'; notice = 'AI is unavailable. Continue with guided preparation or use the standard form.'; }
+    const leaveIntent=previous.intent==='leave' || (previous.intent==='unsupported' && /\b(leave|time off)\b/i.test(body.message));
+    if(leaveIntent && !injection){
+      const today=new Intl.DateTimeFormat('en-CA',{timeZone:c.get('profile').department_timezone ?? 'UTC',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+      const dates=leaveDates(body.message,today);
+      const types=await asUser(c,q=>q.query<{name:string}>('select name from public.leave_types where is_active'));
+      const type=types.find(t=>body.message.toLowerCase().includes(t.name.toLowerCase()))?.name ?? previous.leave.type;
+      state=AssistantState.parse({...previous,intent:'leave',leave:{...previous.leave,type,...dates}});
+      notice='Review dates and choose the leave type in the Leave form. Private reasons stay there.';
+    } else if (active && !injection) {
       const { roster, codes } = await asUser(c, async (q) => ({
         roster: await q.query<{ full_name: string; pseudonym: string }>('select full_name, pseudonym from public.profiles where department_id = app.my_department()'),
         codes: await q.query<{ code: string }>('select code from public.operational_issues where department_id = app.my_department()'),
       }));
-      const safe = sanitize(JSON.stringify({ previous_state: previous, message: body.message }), roster).text;
+      // The draft and the message are sanitized together, so each person keeps one pseudonym.
+      const safe = sanitizeTogether([JSON.stringify(previous), body.message], roster);
+      const [safePrevious, safeMessage] = safe.parts as [string, string];
+      const facts = JSON.stringify({ authorized_issue_codes: codes.map((i) => i.code), department_experience: experience });
       try {
-        const reply = await callProvider(services.fetchImpl, active.provider, active.model, active.apiKey, {
-          system: ASSISTANT_SYSTEM,
-          user: JSON.stringify({ employee_material: safe, authorized_issue_codes: codes.map((i) => i.code), context: body.context, authenticated_role: 'employee', department_experience: experience }),
-          responseSchema: z.toJSONSchema(z.strictObject({ state: AssistantState })),
-        }, Math.min(services.config.AI_REQUEST_TIMEOUT_MS, 30_000));
-        const raw = JSON.parse(reply.text.replace(/^\s*```(?:json)?\s*|\s*```\s*$/g, ''));
-        state = AssistantState.parse(raw.state);
+        const shape = z.strictObject({ state: AssistantState, reply: z.string().trim().min(1).max(1200).optional() });
+        const reply = await callWithFallback(services.aiSettings, services.fetchImpl, { ...active, model: active.automatic ? null : active.model }, {
+          system: renderMicaSystem('prepare'),
+          user: renderMicaUser({ role: 'employee', page: body.context?.page ?? 'assistant', facts, previousState: safePrevious, rawInput: safeMessage }),
+          responseSchema: z.toJSONSchema(shape),
+        }, Math.min(services.config.AI_REQUEST_TIMEOUT_MS, 30_000), 30_000);
+        const parsed = shape.parse(JSON.parse(stripFences(reply.text)));
+        if (!safePreparationOutput(JSON.stringify(parsed), safePrevious + safeMessage + facts)) throw new Error('ungrounded_output');
+        // Unchanged text gets the employee's original back; new text gets the names back.
+        state = AssistantState.parse(restoreDeep(parsed.state, previous, JSON.parse(safePrevious), safe.mapping));
+        modelReply = restoreDeep(parsed.reply ?? '', undefined, undefined, safe.mapping);
         engine = active.provider;
+        if (REDACTED.test(JSON.stringify(parsed.state)) && !REDACTED.test(JSON.stringify(previous))) notice = REDACTION_NOTICE;
       } catch {
         // Provider error bodies can echo prompts: never expose them or log employee content.
-        throw new ApiError(502, 'assistant_unavailable', 'The AI could not prepare a valid answer. Your previous summary is safe. Retry, or use the standard form.');
+        state = guidedReply(body.message,previous);
+        engine = 'guided_unavailable';
+        notice = 'AI could not produce a valid answer. Continue with guided preparation; review the editable details.';
       }
     } else state = guidedReply(body.message, previous);
     await checkIssue(c, state);
-    const reply = state.intent === 'status' ? 'Here is the latest status from your workplace records.' : nextQuestion(state);
+    const reply = state.intent === 'status' ? 'Here is the latest status from your workplace records.' : modelReply || nextQuestion(state);
     const saved = await services.db.asService(async (q) => {
       if (p) {
         const [updated] = await q.query<Proposal>(`update internal.assistant_proposals set state = $1::jsonb, engine = $2, reply = $3, version = version + 1, ready = false
@@ -132,7 +157,7 @@ export function assistantRoutes() {
       [c.get('userId'), shiftId, base?.id ?? null, base?.updated_at ?? null, JSON.stringify(state), engine, reply]);
       return created!;
     });
-    return c.json(view(saved));
+    return c.json({...view(saved),...(notice ? {notices:[notice]} : {})});
   });
 
   // Edits update the server snapshot. Confirmation accepts no client-authored action payload.
@@ -143,14 +168,23 @@ export function assistantRoutes() {
     await checkIssue(c, body.state);
     const [updated] = await svc(c).db.asService((q) => q.query<Proposal>(`update internal.assistant_proposals set state = $1::jsonb,
       reply = $2, version = version + 1, ready = $6 where id = $3 and employee_id = $4 and version = $5 and result is null and expires_at > now() returning *`,
-    [JSON.stringify(body.state), nextQuestion(body.state), p.id, c.get('userId'), p.version, assistantMissing(body.state).length === 0 && (body.state.intent !== 'report' || Boolean(p.shift_id))]));
+    [JSON.stringify(body.state), nextQuestion(body.state), p.id, c.get('userId'), p.version, assistantMissing(body.state).length === 0 && body.state.intent !== 'leave' && (body.state.intent !== 'report' || Boolean(p.shift_id))]));
     if (!updated) throw new ApiError(409, 'conflict', 'This preparation changed. Reload the latest summary.');
     return c.json(view(updated));
+  });
+
+  r.post('/assistant/preparations/:id/draft', async (c) => {
+    const p = await load(c,idParam(c));
+    const body = await parseBody(c,z.strictObject({version:z.number().int().positive()}));
+    if (!p.result) { editable(p,body.version); await checkIssue(c,p.state); }
+    const [row] = await asUser(c,q=>q.query<{r:AssistantView['result']}>('select app.save_assistant_draft($1,$2) as r',[p.id,body.version]));
+    return c.json({...view(p),ready:false,result:row!.r});
   });
 
   r.post('/assistant/preparations/:id/confirm', async (c) => {
     const p = await load(c, idParam(c));
     const body = await parseBody(c, z.strictObject({ version: z.number().int().positive(), confirmed: z.literal(true) }));
+    if (p.state.intent === 'leave') throw new ApiError(422, 'validation', 'Leave requests are submitted on the Leave form. Use “Review dates in Leave”.');
     if (!p.result) {
       editable(p, body.version);
       if (view(p).missing.length) throw new ApiError(422, 'validation', 'Complete the missing information before confirming');

@@ -13,6 +13,7 @@ import {
 } from '@sh/shared';
 import ApprovedHandoverView from '@/components/ApprovedHandoverView.vue';
 import FlagList from '@/components/FlagList.vue';
+import MicaMascot from '@/components/MicaMascot.vue';
 import ReportContentView from '@/components/ReportContentView.vue';
 import StateBlock from '@/components/ui/StateBlock.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
@@ -175,7 +176,7 @@ async function reanalyze() {
   try {
     await api.post(`/manager/reports/${id.value}/reanalyze`);
     initializedFor = '';
-    toast.info('Re-analysis requested');
+    toast.info('Mica is preparing the draft again');
     await reload(true);
   } catch (err) {
     toast.error(errorMessage(err));
@@ -215,7 +216,7 @@ const redactionText = computed(() => {
             </p>
           </div>
           <div v-if="reviewing" class="flex flex-wrap gap-2">
-            <UiButton variant="ghost" size="sm" :loading="busy && !dialog" @click="reanalyze">Re-run analysis</UiButton>
+            <UiButton variant="ghost" size="sm" :loading="busy && !dialog" @click="reanalyze">Ask Mica again</UiButton>
             <UiButton variant="danger" size="sm" @click="(dialog = 'rejected'), (decisionNote = '')">Reject</UiButton>
             <UiButton size="sm" @click="(dialog = 'revision_requested'), (decisionNote = '')">Request revision</UiButton>
           </div>
@@ -227,7 +228,7 @@ const redactionText = computed(() => {
             <div class="card">
               <div class="flex items-center gap-1 border-b border-line px-3 pt-2" role="tablist">
                 <button
-                  v-for="t in [{ k: 'original', l: 'Original submission' }, { k: 'sanitized', l: 'Sent to AI (sanitized)' }] as const"
+                  v-for="t in [{ k: 'original', l: 'Original submission' }, { k: 'sanitized', l: 'Sent to Mica (sanitized)' }] as const"
                   :key="t.k"
                   role="tab"
                   :aria-selected="sourceTab === t.k"
@@ -249,7 +250,7 @@ const redactionText = computed(() => {
                 <template v-else>
                   <template v-if="data.analysis_input">
                     <p class="mb-3 text-[12.5px] text-ink-3">
-                      Exactly what left for analysis. Removed before sending: {{ redactionText }}. Kept until {{ day(data.analysis_input.expires_at) }}, then deleted.
+                      Exactly what Mica sent to the AI. Removed before sending: {{ redactionText }}. Kept until {{ day(data.analysis_input.expires_at) }}, then deleted.
                     </p>
                     <pre class="text-[13px] leading-relaxed whitespace-pre-wrap text-ink-2 font-sans">{{ data.analysis_input.sanitized_text }}</pre>
                   </template>
@@ -276,20 +277,20 @@ const redactionText = computed(() => {
           <!-- Draft: what will be delivered once verified -->
           <section class="min-w-0 space-y-5">
             <div v-if="data.report.status === 'submitted' || data.report.status === 'processing'" class="card px-5 py-8 text-center">
-              <p class="text-[15px] font-medium">Preparing the draft…</p>
-              <p class="mt-1 text-[14px] text-ink-2">The report is being sanitized and analyzed. This page updates automatically.</p>
+              <p class="flex items-center justify-center gap-2 text-[15px] font-medium"><MicaMascot :size="28" state="processing" animated />Mica is preparing the draft…</p>
+              <p class="mt-1 text-[14px] text-ink-2">Mica is removing private details and checking the report. This page updates automatically.</p>
               <p v-if="failedRuns.length" class="mt-2 text-[13px] text-warn">{{ failedRuns.length }} earlier attempt(s) failed and will be retried.</p>
             </div>
 
             <template v-else-if="reviewing">
               <div v-if="run?.is_simulated" class="rounded-lg border border-warn/25 bg-warn-soft px-4 py-3 text-[13.5px] text-warn">
-                <span class="font-medium">Simulated draft.</span> Development mode: produced by local rules, not by an AI model. Verify it like any other draft.
+                <span class="font-medium">Mica practice draft.</span> No AI is connected, so Mica's built-in rules produced this draft. Verify it like any other draft.
               </div>
               <div v-else-if="run" class="flex flex-wrap gap-x-4 text-[12.5px] text-ink-3">
-                <span>AI draft · {{ run.model ?? run.engine }}</span><span>Prompt v{{ run.prompt_version }}</span><span v-if="run.latency_ms">{{ (run.latency_ms / 1000).toFixed(1) }}s</span>
+                <span class="flex items-center gap-1.5 font-medium text-ink-2"><MicaMascot :size="20" />Prepared by Mica</span><span>{{ run.model ?? run.engine }}</span><span>Prompt v{{ run.prompt_version }}</span><span v-if="run.latency_ms">{{ (run.latency_ms / 1000).toFixed(1) }}s</span>
               </div>
               <div v-else class="rounded-lg border border-bad/25 bg-bad-soft px-4 py-3 text-[13.5px] text-bad">
-                <span class="font-medium">AI draft unavailable.</span> Analysis failed after {{ failedRuns.length }} attempt(s). Write the handover from the original submission, or re-run the analysis.
+                <span class="font-medium">Mica couldn't prepare a draft.</span> It failed after {{ failedRuns.length }} attempt(s). Write the handover from the original submission, or ask Mica to try again.
               </div>
 
               <div v-if="flags.length" class="card p-5">

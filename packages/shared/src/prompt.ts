@@ -99,7 +99,11 @@ export function escapeForDelimiters(text: string): string {
 }
 
 export function renderSystemPrompt(version: PromptVersion): string {
-  const p = PROMPTS[version];
+  return renderPromptElements(PROMPTS[version], version);
+}
+
+/** The six elements as one system prompt. Mica's prompts use the same layout (see mica-prompt.ts). */
+export function renderPromptElements(p: PromptElements, version: string): string {
   return [
     `# Prompt version ${version}`,
     '## 1. Role',

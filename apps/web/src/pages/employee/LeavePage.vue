@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { useMica } from '@/stores/mica';
+import { useAuth } from '@/stores/auth';
 import PageHeader from '@/components/ui/PageHeader.vue';
 import StateBlock from '@/components/ui/StateBlock.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
@@ -32,11 +35,12 @@ interface Request {
 }
 
 const toast = useToast();
+const route=useRoute(),router=useRouter(),mica=useMica(),auth=useAuth();
 const types = useAsync(() => api.get<LeaveType[]>('/leave-types'));
 const { data, loading, error, reload } = useAsync(() => api.get<Request[]>('/leave'), [], { refreshMs: 60_000 });
 const activeTypes = computed(() => (types.data.value ?? []).filter((t) => t.is_active));
 
-const today = new Date().toISOString().slice(0, 10);
+const today = new Intl.DateTimeFormat('en-CA',{timeZone:auth.profile?.department_timezone ?? 'UTC',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date(Date.now()+auth.clockSkew));
 const upcoming = computed(() => (data.value ?? []).filter((r) => r.status === 'approved' && r.end_date >= today));
 const pending = computed(() => (data.value ?? []).filter((r) => r.status === 'pending'));
 const history = computed(() => (data.value ?? []).filter((r) => !pending.value.includes(r) && !upcoming.value.includes(r)));
@@ -51,6 +55,14 @@ function openForm() {
   errors.value = {};
   form.value = { leave_type_id: activeTypes.value[0]?.id ?? '', start_date: today, end_date: today, reason: '' };
 }
+// Handoff contains dates only. Private reasons are entered and submitted here.
+watch([()=>route.query.prepare,activeTypes],()=>{
+  if(route.query.prepare!=='mica' || !activeTypes.value.length) return;
+  openForm();
+  if(mica.leaveDraft && form.value) {form.value.start_date=mica.leaveDraft.start_date;form.value.end_date=mica.leaveDraft.end_date;}
+  mica.leaveDraft=null;
+  void router.replace({path:'/leave',query:{}});
+},{immediate:true});
 // Keep the last day on or after the first.
 watch(() => form.value?.start_date, (s) => form.value && s && form.value.end_date < s && (form.value.end_date = s));
 const formProblem = computed(() => {

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue';
 import type { ReportDraftContent } from '@sh/shared';
+import MicaMascot from '@/components/MicaMascot.vue';
 import PipelineSteps, { type PipelineView } from '@/components/PipelineSteps.vue';
 import ReportForm from '@/components/ReportForm.vue';
 import PageHeader from '@/components/ui/PageHeader.vue';
@@ -13,7 +14,8 @@ import { useAsync } from '@/lib/useAsync';
 import { useToast } from '@/stores/toast';
 
 /**
- * The AI pipeline, step by step, for the administrator (IT).
+ * Mica's AI pipeline, step by step, for the administrator (IT). Mica is the system's one AI: the
+ * same provider and key prepare the supervisor's report draft and answer in the Mica assistant.
  * - Real reports: what actually went to the AI for a submitted report — censored (names as
  *   codes, contact and health details removed) — and what came back. Never the original.
  * - Try an example: an example report runs through the same functions; nothing is saved.
@@ -93,9 +95,32 @@ async function run(content: ReportDraftContent) {
 <template>
   <div class="mx-auto max-w-5xl">
     <PageHeader
-      title="AI pipeline"
-      description="What happens behind the scenes between a submitted report and the AI: the template, the privacy redactions, the injection check, the prompt, the answer and the checks."
+      title="Mica's AI pipeline"
+      description="What Mica does behind the scenes between a submitted report and the draft your supervisors review: the template, the privacy redactions, the injection check, the prompt, the answer and the checks."
     />
+
+    <section class="card mb-6 grid gap-5 p-5 md:grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)]" aria-labelledby="mica-about-h">
+      <MicaMascot :size="56" state="attentive" />
+      <div>
+        <h2 id="mica-about-h" class="text-[15px] font-semibold">Mica is the AI of Silent Handover</h2>
+        <p class="mt-1 text-[13px] leading-relaxed text-ink-2">One provider and one key, connected on <RouterLink to="/admin" class="link">Integrations</RouterLink>, power both of Mica's jobs:</p>
+        <ul class="mt-2 space-y-1.5 text-[13px] text-ink-2">
+          <li><span class="font-medium text-ink">Cleaning reports.</span> Each submitted report becomes the draft and flags a supervisor reviews. That is the trip shown below.</li>
+          <li><span class="font-medium text-ink">The assistant.</span> Employees prepare reports and leave dates; supervisors and administrators ask about their pages.</li>
+        </ul>
+        <p class="mt-3 text-[12.5px] text-ink-3">{{ settings.data.value ? (providerReady ? `Connected: ${providerLabel}` : 'No AI connected: Mica uses its practice simulator for drafts and the page guide in the assistant.') : 'Checking the connection…' }}</p>
+      </div>
+      <div class="rounded-lg bg-canvas p-4 text-[12.5px] leading-relaxed text-ink-2">
+        <p class="font-medium text-ink">The same safeguards everywhere</p>
+        <ul class="mt-1.5 list-disc space-y-1 pl-4">
+          <li>Names become codes; health, contact and ID details are removed before anything is sent.</li>
+          <li>Six-part prompt; the user's words stay inside &lt;raw_input&gt; and never count as instructions.</li>
+          <li>Every answer is checked. A failed or invented answer is never shown; work continues by hand.</li>
+          <li>Records shown in the assistant and leave reasons are never sent to the AI.</li>
+          <li>Mica never approves, submits or decides. People do.</li>
+        </ul>
+      </div>
+    </section>
 
     <div class="mb-5 flex gap-1 border-b border-line" role="tablist">
       <button
@@ -122,7 +147,7 @@ async function run(content: ReportDraftContent) {
           :error="runs.error.value"
           :empty="!runs.data.value?.length"
           empty-title="No reports processed yet"
-          empty-text="When an employee submits a report, its trip through the AI appears here."
+          empty-text="When an employee submits a report, its trip through Mica appears here."
           @retry="runs.reload()"
         >
           <ul class="stagger card divide-y divide-line overflow-hidden">
@@ -142,7 +167,7 @@ async function run(content: ReportDraftContent) {
                   {{ r.department_name }} · {{ dateTime(r.created_at) }}<template v-if="r.attempt > 1"> · attempt {{ r.attempt }}</template>
                 </span>
                 <span class="block text-[12px] text-ink-3">
-                  {{ r.is_simulated ? 'Simulator' : (r.engine ?? '—') }}<template v-if="r.flag_count"> · {{ r.flag_count }} flag{{ r.flag_count === 1 ? '' : 's' }}</template>
+                  {{ r.is_simulated ? 'Mica practice simulator' : `Mica · ${r.engine ?? '—'}` }}<template v-if="r.flag_count"> · {{ r.flag_count }} flag{{ r.flag_count === 1 ? '' : 's' }}</template>
                 </span>
               </button>
             </li>
@@ -168,7 +193,7 @@ async function run(content: ReportDraftContent) {
           <span class="font-medium">Generate example</span>), leave the optional boxes empty to see fallbacks, then run it.
         </p>
         <div class="flex rounded-md border border-line p-0.5 text-[13px]" role="radiogroup" aria-label="Which AI answers">
-          <button type="button" role="radio" :aria-checked="engine === 'simulator'" class="rounded px-3 py-1.5" :class="engine === 'simulator' ? 'bg-sunken font-medium' : 'text-ink-3'" @click="engine = 'simulator'">Simulator</button>
+          <button type="button" role="radio" :aria-checked="engine === 'simulator'" class="rounded px-3 py-1.5" :class="engine === 'simulator' ? 'bg-sunken font-medium' : 'text-ink-3'" @click="engine = 'simulator'">Practice simulator</button>
           <button
             type="button"
             role="radio"
@@ -179,7 +204,7 @@ async function run(content: ReportDraftContent) {
             :title="providerReady ? '' : 'Connect an AI on the Integrations page first'"
             @click="engine = 'provider'"
           >
-            {{ providerReady ? providerLabel : 'Connected AI (none yet)' }}
+            {{ providerReady ? `Mica · ${providerLabel}` : 'Mica’s AI (not connected)' }}
           </button>
         </div>
       </div>

@@ -9,3 +9,4 @@ export * from './template';
 export * from './assistant';
 export * from './experience';
 export * from './assistant-context';
+export * from './mica-prompt';

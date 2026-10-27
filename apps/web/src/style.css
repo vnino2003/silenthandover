@@ -118,8 +118,60 @@ textarea { resize: vertical; }
 .assistant-compact .assistant-hero > div { grid-template-columns: 1fr; }
 .assistant-compact aside > section:last-child { display: none; }
 .assistant-compact .card { box-shadow: none; }
-.mica-thinking { animation: mica-breathe 1.8s ease-in-out infinite; }
-@keyframes mica-breathe { 50% { opacity: .55; transform: translateY(-2px); } }
+/* Folio: independently articulated paper, face and hands. */
+.mica-mascot { display:inline-flex;position:relative;vertical-align:middle; }
+.mica-folio { width:100%;height:100%;overflow:visible; }
+.folio-core { transform-origin:80px 154px; }
+.folio-pages { transform-origin:80px 105px; transition:transform 400ms var(--ease-out); }
+.folio-face { transition:transform 350ms var(--ease-out); }
+.folio-eyes { transform-box:fill-box;transform-origin:center; }
+.folio-hand { transition:transform 400ms var(--ease-out); }
+.folio-hand-left { transform-origin:32px 105px; }
+.folio-hand-right { transform-origin:128px 106px; }
+.folio-brow { transition:transform 350ms var(--ease-out); }
+.mica-animated .folio-core { animation:folio-breathe 6s ease-in-out infinite; }
+.mica-animated .folio-eyes { animation:folio-blink 9.2s ease-in-out infinite;animation-delay:var(--mica-blink-delay,0s); }
+.mica-state-attentive .folio-pages, .mica-state-listening .folio-pages { transform:rotate(-2deg); }
+.mica-state-attentive .folio-hand-right { transform:translateY(-3px) rotate(-9deg); }
+.mica-state-processing .folio-hand-right { transform:translate(-14px,-25px) rotate(-28deg); }
+.mica-state-processing .folio-face { transform:translate(1px,1px); }
+.mica-state-processing .folio-brow-left { transform:translateY(-2px); }
+.mica-animated.mica-state-processing .folio-pages { animation:folio-consider 3s ease-in-out infinite; }
+.mica-state-requesting .folio-brow-right, .mica-state-unavailable .folio-brow-right { transform:translateY(-2px); }
+.mica-state-listening .folio-hand-left { transform:translate(-1px,-5px) rotate(12deg); }
+.mica-state-transcribing .folio-pages { transform:rotate(1deg); }
+.mica-animated.mica-state-response .folio-hand-right { animation:folio-acknowledge 650ms var(--ease-out) both; }
+.mica-animated.mica-state-recorded .folio-pages { animation:folio-nod 650ms var(--ease-out) both; }
+@keyframes folio-breathe { 50% { transform:translateY(-.6px) scaleY(1.008); } }
+@keyframes folio-blink { 0%,40%,44%,100% { transform:scaleY(1); } 42% { transform:scaleY(.08); } }
+@keyframes folio-consider { 0%,100% { transform:rotate(1deg); } 50% { transform:rotate(-2deg); } }
+@keyframes folio-acknowledge { 45% { transform:translateY(-5px) rotate(-12deg); } }
+@keyframes folio-nod { 40% { transform:translateY(2px) rotate(2deg); } }
+.mica-panel { transform-origin: bottom right; }
+.mica-panel-enter-active { transition: transform 280ms var(--ease-out), opacity 180ms ease; }
+.mica-panel-leave-active { transition: transform 160ms ease-in, opacity 140ms ease; pointer-events: none; position: absolute; bottom: 0; }
+.mica-panel-enter-from, .mica-panel-leave-to { opacity: 0; transform: translateY(12px) scale(.975); }
+.mica-launcher-enter-active { transition: transform 220ms var(--ease-out), opacity 160ms ease; }
+.mica-launcher-leave-active { transition: opacity 90ms ease; position: absolute; bottom: 0; pointer-events: none; }
+.mica-launcher-enter-from, .mica-launcher-leave-to { opacity: 0; transform: translateY(4px) scale(.96); }
+.mica-launcher { transition: transform 180ms var(--ease-out), border-color 150ms ease, box-shadow 180ms ease; }
+.mica-launcher:active { transform: scale(.96); }
+.mica-launcher:focus-visible .folio-hand-right { transform:translateY(-4px) rotate(-12deg); }
+.mica-reply, .mica-message, .mica-receipt, .mica-context, .mica-mode-content { animation: mica-arrive 240ms var(--ease-out) backwards; }
+.mica-message:has(.mica-mascot) { animation-delay: 60ms; }
+@keyframes mica-arrive { from { opacity: 0; transform: translateY(5px); } }
+.mica-suggestion, .mica-mode { transition: transform 160ms var(--ease-out), background-color 150ms ease, border-color 150ms ease; }
+.mica-suggestion:active:not(:disabled) { transform: scale(.99); }
+.assistant-composer { transition: border-color 180ms ease, box-shadow 180ms ease; }
+.assistant-composer:focus-within, .mica-listening-composer { border-color: var(--color-accent); box-shadow: 0 0 0 3px rgb(18 126 124 / .08); }
+@media (hover: hover) and (pointer: fine) {
+  .mica-launcher:hover { transform: translateY(-2px); }
+  .mica-launcher:hover .folio-hand-right { transform:translateY(-4px) rotate(-12deg); }
+  .mica-suggestion:hover:not(:disabled) { transform: translateY(-1px); }
+}
+/* Pause decorative work when the document is hidden, or the dock is behind a modal. */
+html[data-mica-paused] .mica-mascot *,
+body:has([aria-modal='true']) .assistant-dock .mica-mascot * { animation-play-state: paused; }
 body:has([aria-modal='true']) .assistant-dock { visibility: hidden; }
 @media (max-width: 639px) {
   .mica-launcher { padding-right: .5rem; }
@@ -157,7 +209,7 @@ mark.evidence {
 }
 
 /* ---- Motion ------------------------------------------------------------------
- * Short and purposeful: things that appear rise a few pixels and fade in; nothing bounces.
+ * Short and purposeful: content rises a few pixels and fades in.
  * Everything here is cancelled by the prefers-reduced-motion rule below.
  */
 :root {
@@ -396,6 +448,8 @@ mark.evidence {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .mica-mascot, .mica-mascot *, .mica-reply, .mica-message, .mica-receipt, .mica-context, .mica-mode-content { animation: none !important; }
+  .mica-launcher, .mica-panel, .mica-suggestion { transform: none !important; transition: none !important; }
   *,
   *::before,
   *::after {
@@ -404,3 +458,15 @@ mark.evidence {
     animation-iteration-count: 1 !important;
   }
 }
+
+/* Contextual work companion. Fixed composer leaves long answers independently scrollable. */
+.assistant-dock .mica-panel { height:min(560px,calc(var(--mica-available-height,100dvh) - var(--dock-space,0px) - 2rem)); }
+.assistant-dock[data-keyboard='true'] { --dock-space:0px;bottom:calc(var(--mica-keyboard-offset,0px) + .5rem); }
+.mica-embedded .mica-panel { width:100%;height:min(780px,calc(100dvh - 12rem));min-height:420px;box-shadow:none; }
+.mica-answer-text { overflow-wrap:anywhere; }
+.mica-content { scrollbar-width:thin; }
+.assistant-compact .assistant-composer { position:sticky;bottom:-1rem;z-index:1;border-color:var(--color-line); }
+@media(max-width:639px) { .mica-embedded .mica-panel { height:calc(100dvh - 15rem); } .mica-intro { gap:.5rem; } }
+@media(prefers-reduced-motion:reduce) { .mica-mascot *, .mica-mascot:hover *, .mica-launcher:hover *, .mica-launcher:focus-visible * { animation:none!important;transition:none!important;transform:none!important; } }
+
+.assistant-dock .mica-panel.mica-expanded-content { height:min(700px,calc(var(--mica-available-height,100dvh) - var(--dock-space,0px) - 2rem)); }

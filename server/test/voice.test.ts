@@ -10,9 +10,10 @@ class SpeechFixture {
   onresult: ((e: { results: { transcript: string }[][] }) => void) | null = null;
   onerror: ((e: { error: string }) => void) | null = null;
   onend: (() => void) | null = null;
+  onstart: (()=>void)|null=null;
   aborted = false;
   constructor() { SpeechFixture.last = this; }
-  start() { if (SpeechFixture.failStart) throw new Error('microphone unavailable'); }
+  start() { if (SpeechFixture.failStart) throw new Error('microphone unavailable'); this.onstart?.(); }
   stop() { this.onend?.(); }
   abort() { this.aborted = true; this.onend?.(); }
 }

@@ -234,9 +234,9 @@ const ms = (v: number) => (v < 1000 ? `${v} ms` : `${(v / 1000).toFixed(1)} s`);
       <button type="button" class="flex w-full items-start gap-3 px-5 py-4 text-left" :aria-expanded="open[5]" @click="toggle(5)">
         <span class="grid size-7 shrink-0 place-items-center rounded-full bg-accent text-[13px] font-semibold text-white">5</span>
         <span class="min-w-0 flex-1">
-          <span class="block text-[15px] font-semibold">{{ view.ai.simulated ? 'Simulator answer' : 'AI answer' }}</span>
+          <span class="block text-[15px] font-semibold">{{ view.ai.simulated ? 'Mica practice answer' : 'Mica’s AI answer' }}</span>
           <span class="block text-[13px] text-ink-3">
-            {{ view.ai.simulated ? 'Made by the built-in rule-based simulator (no AI called), in the same format an AI must use.' : `Answered by ${view.ai.engine}${view.ai.model ? ` · ${view.ai.model}` : ''}.` }}
+            {{ view.ai.simulated ? 'Made by Mica’s built-in rule-based simulator (no AI called), in the same format the AI must use.' : `Mica answered through ${view.ai.engine}${view.ai.model ? ` · ${view.ai.model}` : ''}.` }}
             {{ real ? 'Names are still codes here.' : '' }}
           </span>
         </span>

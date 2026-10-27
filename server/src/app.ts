@@ -97,6 +97,10 @@ export function createApp(services: Services) {
   });
   const writeLimiter = rateLimit({ windowMs: 60_000, max: 120, key: (cc) => `w:${cc.get('userId')}` });
   authed.use('*', (c, next) => (c.req.method === 'GET' ? next() : writeLimiter(c, next)));
+  // Each Mica request can call the AI provider: a tighter limit keeps cost and abuse in check.
+  const micaLimiter = rateLimit({ windowMs: 60_000, max: services.config.MICA_REQUESTS_PER_MINUTE, key: (cc) => `mica:${cc.get('userId')}` });
+  authed.use('/assistant/help', micaLimiter);
+  authed.use('/assistant/message', micaLimiter);
   authed.route('/', meRoutes());
   authed.route('/', employeeRoutes());
   authed.route('/', leaveRoutes());

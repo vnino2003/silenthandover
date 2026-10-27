@@ -3,7 +3,8 @@
   "compilerOptions": {
     "noEmit": true,
     "lib": ["ES2023", "DOM"],
-    "types": ["node"]
+    "types": ["node", "vite/client"],
+    "paths": { "@/*": ["../apps/web/src/*"] }
   },
   "include": ["src", "test"]
 }

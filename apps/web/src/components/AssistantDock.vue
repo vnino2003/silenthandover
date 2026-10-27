@@ -1,90 +1,106 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
-import { useRoute } from 'vue-router';
-import type { AssistantPageContext } from '@sh/shared';
+import { computed, nextTick, onBeforeUnmount, ref, watch, useId } from 'vue';
+import { useRoute, useRouter } from 'vue-router';
+import { storeToRefs } from 'pinia';
 import { useAuth } from '@/stores/auth';
-import { api, errorMessage } from '@/lib/api';
+import { useMica } from '@/stores/mica';
+import { micaSuggestions, type MicaSuggestion } from '@/lib/mica-context';
+import { useDictation } from '@/lib/useDictation';
 import AssistantWorkbench from './AssistantWorkbench.vue';
 import MicaMascot from './MicaMascot.vue';
 import UiButton from './ui/UiButton.vue';
-
-const route = useRoute();
-const auth = useAuth();
-const open = ref(false);
-const initialized = ref(false);
-const mode = ref<'help' | 'prepare'>('help');
-const launcher = ref<HTMLButtonElement | null>(null);
-const panel = ref<HTMLElement | null>(null);
-const question = ref('');
-const answer = ref('');
-const engine = ref('');
-const busy = ref(false);
-const error = ref('');
-const page = computed<AssistantPageContext>(() => {
-  const p = route.path;
-  if (p === '/') return 'today';
-  if (p === '/manager') return 'review';
-  if (p.startsWith('/manager/reports/')) return 'review';
-  if (p.startsWith('/reports/')) return 'report';
-  if (p.includes('/shifts/') && p.endsWith('/report')) return 'report';
-  if (p === '/manager/shifts') return 'today';
-  if (/\/(tasks|issues)\//.test(p)) return 'issue';
-  if (p.endsWith('/tasks') || p.endsWith('/issues')) return 'issues';
-  if (p.endsWith('/ai-pipeline')) return 'pipeline';
-  if (p === '/admin') return 'integrations';
-  const last = p.split('/').filter(Boolean).at(-1);
-  return (['reports','handover','schedule','records','departments','users','settings','profile','notifications','audit','assistant'].includes(last ?? '') ? last : 'assistant') as AssistantPageContext;
-});
-const context = computed(() => ({ page: page.value, ...(typeof route.params.id === 'string' ? { entity_id: route.params.id } : {}) }));
-const title = computed(() => String(route.meta.title ?? 'Current page'));
-watch(page, () => { answer.value = ''; error.value = ''; });
+const props=defineProps<{embedded?:boolean}>();
+const route=useRoute(),router=useRouter(),auth=useAuth(),session=useMica();
+const {open,initialized,mode,question,helpBusy,helpError}=storeToRefs(session);
+const launcher=ref<HTMLButtonElement|null>(null),panel=ref<HTMLElement|null>(null);
+const workbench=ref<InstanceType<typeof AssistantWorkbench>|null>(null);
+const panelId=useId(), questionId=useId();
+const context=computed(()=>route.path==='/assistant' && session.workspaceContext ? session.workspaceContext : ({page:route.meta.assistantPage ?? 'assistant',...(typeof route.params.id==='string'?{entity_id:route.params.id}:{})}));
+const contextKey=computed(()=>session.key(context.value));
+const title=computed(()=>route.path==='/assistant' && session.workspaceTitle ? session.workspaceTitle : String(route.meta.title ?? 'Workspace'));
+const turns=computed(()=>session.turns.filter(t=>t.key===contextKey.value));
+const latest=computed(()=>turns.value.at(-1));
+const factRows=computed(()=>latest.value?.answer.facts.filter(g=>!g.title.startsWith('Proposed dates')).flatMap(g=>g.items.length?g.items.map(i=>({label:g.title+' · '+i.label,value:i.value,href:i.link})):[{label:g.title,value:g.empty ?? 'None',href:undefined}]) ?? []);
+const suggestions=computed(()=>micaSuggestions(context.value.page,auth.role));
+if(props.embedded && typeof route.query.preparation==='string') mode.value='prepare';
+const visible=computed(()=>props.embedded || (open.value && route.path!=='/assistant'));
+const dictation=useDictation(text=>{question.value=[question.value.trim(),text].filter(Boolean).join(' ').slice(0,2000);});
+watch(dictation.phase,phase=>{if(visible.value && mode.value==='help') session.voice=phase;});
+watch([visible,mode],()=>{if(!visible.value || mode.value!=='help') {dictation.cancel();session.voice='idle';}});
+watch(contextKey,()=>{session.stopHelp();helpError.value='';dictation.cancel();});
 async function toggle() {
-  open.value = !open.value;
-  if (open.value) { initialized.value = true; await nextTick(); panel.value?.querySelector<HTMLButtonElement>('button')?.focus(); }
-  else launcher.value?.focus();
+  if(props.embedded) {open.value=false;await router.push(session.workspaceReturnPath || auth.homePath);return;}
+  open.value=!open.value;
+  if(open.value) {initialized.value=true;session.lastEvent='attentive';await nextTick();panel.value?.querySelector<HTMLButtonElement>('button')?.focus({preventScroll:true});}
+  else {dictation.cancel();await nextTick();launcher.value?.focus({preventScroll:true});}
 }
-function onKey(e: KeyboardEvent) {
-  if (e.key === 'Escape' && open.value && !document.querySelector('[aria-modal="true"]')) { open.value = false; launcher.value?.focus(); }
+function onKey(e:KeyboardEvent) {if(e.key==='Escape' && visible.value && !document.querySelector('[aria-modal="true"]')) {e.preventDefault();void toggle();}}
+function onOpen(e:Event) {
+  if(route.path==='/assistant') return;
+  mode.value=auth.role==='employee' && (e as CustomEvent).detail==='prepare'?'prepare':'help';
+  if(!open.value) void toggle();
 }
-function onOpen(e: Event) { mode.value = auth.role === 'employee' && (e as CustomEvent).detail === 'prepare' ? 'prepare' : 'help'; if (!open.value) void toggle(); }
-window.addEventListener('sh:assistant-open',onOpen);
-document.addEventListener('keydown',onKey);
-onBeforeUnmount(() => { document.removeEventListener('keydown',onKey); window.removeEventListener('sh:assistant-open',onOpen); });
-async function help(text = question.value || 'How do I use this page?') {
-  if (busy.value) return;
-  const requestedPage = page.value;
-  busy.value = true; error.value = '';
-  try {
-    const response = await api.post<{ reply: string; engine: string }>('/assistant/help',{ message: text, page: requestedPage });
-    if (page.value === requestedPage) { answer.value = response.reply; engine.value = response.engine; question.value = ''; }
-  } catch(e) { error.value = errorMessage(e); }
-  finally { busy.value = false; }
+const availableHeight=ref(700),keyboardOffset=ref(0);
+function syncViewport() {const vv=window.visualViewport;availableHeight.value=vv?.height ?? window.innerHeight;keyboardOffset.value=Math.max(0,window.innerHeight-(vv?.height ?? window.innerHeight)-(vv?.offsetTop ?? 0));}
+function syncVisibility() {document.documentElement.toggleAttribute('data-mica-paused',document.hidden);if(document.hidden) {dictation.cancel();session.voice='idle';}}
+if(!props.embedded) {window.addEventListener('sh:assistant-open',onOpen);document.addEventListener('keydown',onKey);document.addEventListener('visibilitychange',syncVisibility);window.visualViewport?.addEventListener('resize',syncViewport);syncVisibility();syncViewport();}
+onBeforeUnmount(()=>{if(!props.embedded) {window.removeEventListener('sh:assistant-open',onOpen);document.removeEventListener('keydown',onKey);document.removeEventListener('visibilitychange',syncVisibility);window.visualViewport?.removeEventListener('resize',syncViewport);document.documentElement.removeAttribute('data-mica-paused');}dictation.cancel();});
+async function prepare(text:string) {dictation.cancel();mode.value='prepare';session.message=text;session.initialized=true;await nextTick();workbench.value?.start(text);await nextTick();if(session.draft.intent==='report' && !session.shiftId)panel.value?.querySelector<HTMLSelectElement>('.assistant-compact select')?.focus({preventScroll:true});}
+async function choose(item:MicaSuggestion) {if(item.kind==='prepare' && auth.role==='employee') return prepare(item.message);if(item.kind==='leave') return openLeave();await session.ask(context.value,item.message);}
+async function ask() {
+  if(!question.value.trim()) return;
+  const text=question.value.trim();dictation.cancel();
+  if(auth.role==='employee' && /\b(prepare|draft|record|report)\b.*\b(handover|shift report|incident|concern)\b/i.test(text)) {question.value='';return prepare(text);}
+  await session.ask(context.value,text);
 }
+async function openLeave() {session.leaveDraft=latest.value?.answer.leave_draft ?? null;session.open=false;await router.push({path:'/leave',query:{prepare:'mica'}});}
 </script>
 <template>
-  <div v-show="route.path !== '/assistant'" class="assistant-dock" :class="{ 'mica-is-open': open }">
-    <section v-if="initialized" v-show="open" id="mica-panel" ref="panel" role="dialog" aria-label="Mica workplace assistant" aria-modal="false" class="mica-panel flex flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-pop">
-      <header class="flex shrink-0 items-center gap-3 border-b border-line px-4 py-3">
-        <MicaMascot :size="40" /><div class="min-w-0 flex-1"><h2 class="text-[14px] font-semibold">Mica <span class="ml-1 font-normal text-ink-3">· your work companion</span></h2><p class="truncate text-[11px] text-ink-3">{{ auth.profile?.department_name ?? 'Organization workspace' }}</p></div>
-        <button type="button" class="grid size-9 shrink-0 place-items-center rounded-md text-ink-2 hover:bg-sunken" aria-label="Close Mica" @click="toggle">✕</button>
-      </header>
-      <div class="flex shrink-0 items-center justify-between gap-2 border-b border-line bg-canvas px-4 py-2 text-[12px]">
-        <span class="truncate text-ink-3">On this page: <span class="text-ink-2">{{ title }}</span></span>
-        <div v-if="auth.role === 'employee'" class="flex shrink-0 gap-1" role="group" aria-label="Assistant mode"><button class="rounded px-2 py-1" :class="mode === 'help' ? 'bg-accent-soft text-accent-ink' : 'text-ink-3'" :aria-pressed="mode === 'help'" @click="mode = 'help'">Help</button><button class="rounded px-2 py-1" :class="mode === 'prepare' ? 'bg-accent-soft text-accent-ink' : 'text-ink-3'" :aria-pressed="mode === 'prepare'" @click="mode = 'prepare'">Prepare</button></div>
-      </div>
-      <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
-        <div v-show="mode === 'help'" class="space-y-4">
-          <div v-if="!answer" class="py-2"><MicaMascot :size="64" /><h3 class="mt-3 text-[17px] font-semibold">A little help, right where you are.</h3><p class="mt-2 text-[13px] leading-relaxed text-ink-2">I can explain {{ title.toLowerCase() }} and the next steps available to your role.</p><UiButton class="mt-4" size="sm" :loading="busy" @click="help('How do I use this page?')">Guide me through this page</UiButton></div>
-          <div v-else class="rounded-lg border border-line bg-canvas p-4 text-[13px] leading-relaxed whitespace-pre-wrap"><p class="mb-2 flex items-center gap-2 font-medium"><MicaMascot :size="24" />Mica <span class="text-[10px] font-normal text-ink-3">{{ engine === 'guide' ? 'Page guide · no AI connected' : 'AI assisted' }}</span></p>{{ answer }}</div>
-          <p v-if="busy" role="status" class="flex items-center gap-2 text-[12px] text-ink-3"><MicaMascot :size="28" thinking />Looking into your question…</p>
-          <p v-if="error" role="alert" class="rounded-md bg-bad-soft p-3 text-[13px] text-bad">{{ error }}</p>
-          <form class="space-y-2" @submit.prevent="help()"><label for="mica-question" class="sr-only">Ask Mica about this page</label><textarea id="mica-question" v-model="question" class="field-input" rows="2" maxlength="2000" placeholder="Ask about this page…" :disabled="busy" /><UiButton type="submit" size="sm" :disabled="!question.trim()" :loading="busy">Ask Mica</UiButton></form>
-          <button v-if="auth.role === 'employee'" class="w-full rounded-md border border-accent/20 bg-accent-soft px-3 py-3 text-left text-[12px] text-accent-ink" @click="mode = 'prepare'">Prepare a report, record a concern, or update a task →</button>
-          <p class="text-[11px] leading-relaxed text-ink-3">{{ auth.experience.privacy_hint }} Help does not submit or approve anything.</p>
+  <div v-show="embedded || route.path !== '/assistant'" :class="embedded ? 'mica-embedded' : ['assistant-dock',{'mica-is-open':open}]" :data-keyboard="keyboardOffset>80" :style="{'--mica-available-height':`${availableHeight}px`,'--mica-keyboard-offset':`${keyboardOffset}px`}">
+    <Transition name="mica-panel">
+      <section v-if="initialized || embedded" v-show="open || embedded" :id="panelId" ref="panel" role="dialog" aria-label="Mica workplace assistant" aria-modal="false" :class="{'mica-expanded-content': Boolean(latest) || mode==='prepare'}" class="mica-panel flex flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-pop">
+        <header class="flex shrink-0 items-center gap-3 border-b border-line px-4 py-3">
+          <MicaMascot :size="48" :state="session.state" :animated="visible" />
+          <div class="min-w-0 flex-1"><h2 class="text-[14px] font-semibold">Mica <span class="ml-1 text-[11px] font-normal text-ink-3">your work companion</span></h2><p class="mica-state-label mt-0.5 text-[11px] text-ink-3" role="status" aria-live="polite">{{ session.stateLabel }}</p></div>
+          <RouterLink v-if="!embedded" to="/assistant" @click="session.workspaceContext=context;session.workspaceTitle=title;session.workspaceReturnPath=route.fullPath" class="grid size-9 place-items-center rounded-md text-ink-3 hover:bg-sunken" aria-label="Expand Mica workspace">↗</RouterLink>
+          <button type="button" class="grid size-9 shrink-0 place-items-center rounded-md text-ink-2 hover:bg-sunken" aria-label="Close Mica" @click="toggle">✕</button>
+        </header>
+        <div class="flex shrink-0 items-center justify-between gap-2 border-b border-line bg-canvas/60 px-4 py-2 text-[11px]">
+          <span :key="contextKey" class="mica-context truncate text-ink-3">{{ auth.profile?.department_name ?? 'Organization' }} <span class="mx-1">/</span>{{ title }}</span>
+          <button v-if="mode==='prepare'" class="shrink-0 text-accent hover:underline" @click="mode='help'">← Page help</button>
+          <button v-else-if="session.preparation && auth.role==='employee'" class="shrink-0 text-accent hover:underline" @click="mode='prepare'">Resume draft →</button>
         </div>
-        <AssistantWorkbench v-if="auth.role === 'employee'" v-show="mode === 'prepare'" compact :active="open && mode === 'prepare' && route.path !== '/assistant'" :context="context" />
-      </div>
-    </section>
-    <button v-show="!open" ref="launcher" type="button" class="mica-launcher flex items-center gap-2 rounded-full border border-line bg-surface py-1.5 pr-4 pl-1.5 shadow-pop hover:border-accent/40" aria-label="Open Mica assistant" aria-controls="mica-panel" :aria-expanded="open" @click="toggle"><MicaMascot :size="36" /><span class="text-[12px] font-semibold text-ink-2">Ask Mica</span></button>
+        <p class="sr-only" aria-live="polite" aria-atomic="true">{{ latest?.answer.reply ?? '' }}</p>
+        <div class="mica-content min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
+          <div v-show="mode==='help'" class="mica-mode-content space-y-5">
+            <div v-if="!latest" class="mica-intro flex items-start gap-3 py-2">
+              <img src="/assistant/mica-folio.png" alt="" width="72" height="88" class="h-[88px] w-[72px] shrink-0 object-contain" />
+              <div class="pt-2"><h3 class="text-[17px] leading-snug font-semibold">Let’s move your work forward.</h3><p class="mt-2 text-[13px] leading-relaxed text-ink-2">Ask about this page, or turn a rough note into your next step.</p></div>
+            </div>
+            <div class="mica-suggestions flex flex-wrap gap-2" aria-label="Suggested next steps"><button v-for="item in suggestions" :key="item.label" type="button" class="mica-suggestion rounded-full border border-line bg-surface px-3 py-2 text-left text-[12px] text-ink-2 hover:border-accent/40 disabled:opacity-50" :disabled="helpBusy" @click="choose(item)">{{ item.label }}<span class="ml-1 text-ink-3" aria-hidden="true">↗</span></button></div>
+            <details v-if="turns.length>1" class="text-[12px] text-ink-3"><summary class="cursor-pointer">Earlier on this page · {{ turns.length-1 }}</summary><div v-for="(turn,index) in turns.slice(0,-1)" :key="index" class="mt-3 space-y-2 border-l border-line pl-3"><p class="font-medium text-ink-2">{{ turn.question }}</p><p class="whitespace-pre-wrap leading-relaxed">{{ turn.answer.reply }}</p></div></details>
+            <section v-if="latest" :key="turns.length" class="mica-reply" aria-label="Mica response">
+              <p class="mb-3 border-l-2 border-accent/30 pl-3 text-[12px] leading-relaxed text-ink-3">{{ latest.question }}</p>
+              <p class="mb-2 text-[10px] font-medium tracking-wide text-ink-3 uppercase">{{ latest.answer.engine==='records' ? 'From your records' : latest.answer.engine==='guide' ? 'Page guide' : 'Mica · AI guidance' }}</p>
+              <div class="mica-answer-text space-y-3 text-[13px] leading-relaxed text-ink-2"><p v-for="(paragraph,index) in latest.answer.reply.split(/\n\s*\n/)" :key="index" class="whitespace-pre-wrap">{{ paragraph }}</p></div>
+              <p v-if="latest.answer.notices.length" class="mt-3 text-[12px] leading-relaxed text-ink-3" role="status">{{ latest.answer.notices.join(' ') }}</p>
+              <div v-if="latest.answer.leave_draft && auth.role!=='admin'" class="mt-4 rounded-lg border border-accent/20 bg-accent-soft p-3"><p class="text-[11px] font-medium text-accent-ink">Proposed dates · nothing submitted</p><p class="mt-1 text-[13px] text-ink-2">{{ latest.answer.leave_draft.start_date }} — {{ latest.answer.leave_draft.end_date }}</p><UiButton class="mt-3" size="sm" @click="openLeave">Review dates in Leave →</UiButton></div>
+              <details v-if="factRows.length" class="mt-4 rounded-lg border border-line bg-canvas/50 p-3" open><summary class="cursor-pointer text-[12px] font-medium">From your authorized records <span class="font-normal text-ink-3">· {{ new Date(latest.answer.checked_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}) }}</span></summary><dl class="mt-2 divide-y divide-line"><div v-for="(fact,index) in factRows" :key="index" class="py-3"><dt class="mb-1 text-[11px] font-medium text-ink-3">{{ fact.label }}</dt><dd class="whitespace-pre-wrap text-[12px] leading-relaxed text-ink-2">{{ fact.value }}</dd><RouterLink v-if="fact.href" :to="fact.href" class="mt-1 inline-block text-[11px] text-accent hover:underline">Open source →</RouterLink></div></dl><p class="text-[10px] leading-relaxed text-ink-3">These facts stay inside Silent Handover. They are not sent to the AI provider.</p></details>
+
+            </section>
+            <div v-if="helpBusy" class="mica-working flex items-center justify-between gap-3 py-3 text-[12px] text-ink-3" role="status"><span>Working on your question…</span><button class="shrink-0 rounded-md border border-line px-3 py-1.5 text-ink-2" @click="session.stopHelp">Stop waiting</button></div>
+            <div v-if="helpError" role="alert" class="rounded-lg border border-bad/20 bg-bad-soft p-3 text-[12px] leading-relaxed text-bad">{{ helpError }}<button class="mt-2 block font-medium underline" @click="ask">Try again</button></div>
+          </div>
+          <AssistantWorkbench ref="workbench" v-if="auth.role==='employee'" v-show="mode==='prepare'" compact :restore-route="embedded" :active="visible && mode==='prepare'" :context="context" />
+        </div>
+        <form v-show="mode==='help'" class="mica-composer shrink-0 border-t border-line bg-surface p-3" @submit.prevent="ask">
+          <label :for="questionId" class="sr-only">Ask Mica</label><textarea :id="questionId" v-model="question" class="field-input min-h-16 resize-none border-transparent bg-canvas shadow-none" rows="2" maxlength="2000" placeholder="Ask, describe, or follow up…" @keydown.ctrl.enter.prevent="ask" @keydown.meta.enter.prevent="ask" :disabled="dictation.phase.value!=='idle'" />
+          <div class="mt-2 flex items-center justify-between gap-2"><div class="flex items-center gap-2"><button type="button" class="rounded-md px-2 py-1.5 text-[12px] text-ink-2 hover:bg-sunken disabled:opacity-40" :disabled="!dictation.supported || helpBusy" :aria-pressed="dictation.listening.value" @click="dictation.phase.value==='idle' ? dictation.start(session.language) : dictation.stop()">{{ dictation.phase.value==='idle' ? 'Use voice' : 'Stop voice' }}</button><select v-model="session.language" class="max-w-24 rounded border border-line bg-surface p-1 text-[11px]" aria-label="Voice language" :disabled="dictation.phase.value!=='idle'"><option value="en-PH">English</option><option value="fil-PH">Filipino</option></select></div><UiButton type="submit" size="sm" variant="primary" :disabled="!question.trim() || helpBusy || dictation.phase.value!=='idle'">Ask Mica <span aria-hidden="true">↑</span></UiButton></div>
+          <p v-if="dictation.error.value" role="alert" class="mt-2 text-[11px] text-bad">{{ dictation.error.value }}</p>
+          <p class="mt-2 text-[10px] leading-relaxed text-ink-3">{{ dictation.phase.value!=='idle' ? session.stateLabel+' · review the transcript before sending.' : 'Voice becomes editable text; your browser may process audio externally.' }} Nothing is submitted from page help.</p>
+        </form>
+      </section>
+    </Transition>
+    <Transition name="mica-launcher"><button v-if="!embedded" v-show="!open" ref="launcher" type="button" class="mica-launcher flex items-center gap-2 rounded-full border border-line bg-surface py-1 pr-4 pl-1 shadow-pop hover:border-accent/40" aria-label="Open Mica assistant" :aria-controls="panelId" :aria-expanded="open" @click="toggle"><MicaMascot :size="40" :state="session.busy?'processing':'ready'" /><span class="text-[12px] font-semibold text-ink-2">Ask Mica</span><i v-if="session.preparation" class="size-1.5 rounded-full bg-accent" aria-label="Preparation available" /></button></Transition>
   </div>
 </template>
