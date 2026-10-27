@@ -43,6 +43,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'manager/audit', component: () => import('@/pages/shared/AuditPage.vue'), meta: { roles: manager, title: 'Audit log' } },
 
       { path: 'admin', component: () => import('@/pages/admin/IntegrationsPage.vue'), meta: { roles: admin, title: 'Integrations' } },
+      { path: 'admin/ai-pipeline', component: () => import('@/pages/admin/AiPipelinePage.vue'), meta: { roles: admin, title: 'AI pipeline' } },
       { path: 'admin/users', component: () => import('@/pages/admin/UsersPage.vue'), meta: { roles: admin, title: 'Users' } },
       { path: 'admin/departments', component: () => import('@/pages/admin/DepartmentsPage.vue'), meta: { roles: admin, title: 'Departments' } },
       { path: 'admin/shifts', redirect: '/admin' },

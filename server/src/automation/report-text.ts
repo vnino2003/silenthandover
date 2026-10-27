@@ -1,4 +1,4 @@
-import { problemLine, type ReportDraftContent } from '@sh/shared';
+import { fillTemplate, problemLine, type FilledTemplate, type ReportDraftContent } from '@sh/shared';
 
 export const SECTION_HEADERS = {
   completed_work: 'COMPLETED WORK',
@@ -10,36 +10,57 @@ export const SECTION_HEADERS = {
   issue_updates: 'UPDATES ON EXISTING ISSUES',
 } as const;
 
+/**
+ * How a submitted report is laid out for the AI. Every core section is always present: a field
+ * the employee left blank becomes "(none stated)", so the model is told plainly that nothing was
+ * said instead of guessing. Evidence references and updates on existing issues are added after
+ * these sections only when the employee filled them in.
+ */
+export const REPORT_TEMPLATE = [
+  `${SECTION_HEADERS.completed_work}:\n{{completed_work | "(none stated)"}}`,
+  `${SECTION_HEADERS.unresolved_issues}:\n{{unresolved_issues | "(none stated)"}}`,
+  `${SECTION_HEADERS.pending_tasks}:\n{{pending_tasks | "(none stated)"}}`,
+  `${SECTION_HEADERS.operational_concerns}:\n{{operational_concerns | "(none stated)"}}`,
+  `${SECTION_HEADERS.handover_notes}:\n{{handover_notes | "(none stated)"}}`,
+].join('\n\n');
+
 export interface IssueRef {
   id: string;
   code: string;
   title: string;
 }
 
-/** Flattens a structured submission into the text the AI (or the simulator) reads. */
-export function renderReportText(content: ReportDraftContent, issues: IssueRef[]): string {
+/** Fills the report template, showing which fields used their fallback. */
+export function fillReportTemplate(content: ReportDraftContent, issues: IssueRef[]): FilledTemplate {
   const byId = new Map(issues.map((i) => [i.id, i]));
-  const parts: string[] = [];
-  const add = (header: string, body: string) => parts.push(`${header}:\n${body.trim() || '(none stated)'}`);
-  add(SECTION_HEADERS.completed_work, content.completed_work);
   // Each listed problem is its own line, so it is also its own item for the AI and the simulator.
   const problems = [...(content.problems ?? []).map(problemLine), content.unresolved_issues.trim()].filter(Boolean).join('\n');
-  add(SECTION_HEADERS.unresolved_issues, content.no_unresolved_issues ? 'Employee confirmed: no unresolved issues.' : problems);
-  add(SECTION_HEADERS.pending_tasks, content.no_pending_tasks ? 'Employee confirmed: no pending tasks.' : content.pending_tasks);
-  add(SECTION_HEADERS.operational_concerns, content.operational_concerns);
-  add(SECTION_HEADERS.handover_notes, content.handover_notes);
-  if (content.evidence_refs.trim()) add(SECTION_HEADERS.evidence_refs, content.evidence_refs);
+  const filled = fillTemplate(REPORT_TEMPLATE, {
+    completed_work: content.completed_work.trim(),
+    unresolved_issues: (content.no_unresolved_issues ? 'Employee confirmed: no unresolved issues.' : problems).trim(),
+    pending_tasks: (content.no_pending_tasks ? 'Employee confirmed: no pending tasks.' : content.pending_tasks).trim(),
+    operational_concerns: content.operational_concerns.trim(),
+    handover_notes: content.handover_notes.trim(),
+  });
+  const extra: string[] = [];
+  if (content.evidence_refs.trim()) extra.push(`${SECTION_HEADERS.evidence_refs}:\n${content.evidence_refs.trim()}`);
   if (content.issue_updates.length) {
-    add(
-      SECTION_HEADERS.issue_updates,
-      content.issue_updates
-        .map((u) => {
-          const issue = byId.get(u.issue_id);
-          const label = issue ? `${issue.code} (${issue.title})` : 'Unknown issue';
-          return `- ${label}: employee says ${u.claimed_status.replace('_', ' ')} — ${u.note}`;
-        })
-        .join('\n'),
+    extra.push(
+      `${SECTION_HEADERS.issue_updates}:\n` +
+        content.issue_updates
+          .map((u) => {
+            const issue = byId.get(u.issue_id);
+            const label = issue ? `${issue.code} (${issue.title})` : 'Unknown issue';
+            return `- ${label}: employee says ${u.claimed_status.replace('_', ' ')} — ${u.note}`;
+          })
+          .join('\n')
+          .trim(),
     );
   }
-  return parts.join('\n\n');
+  return { text: [filled.text, ...extra].join('\n\n'), fields: filled.fields };
+}
+
+/** Flattens a structured submission into the text the AI (or the simulator) reads. */
+export function renderReportText(content: ReportDraftContent, issues: IssueRef[]): string {
+  return fillReportTemplate(content, issues).text;
 }

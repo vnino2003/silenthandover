@@ -59,6 +59,13 @@ Ben to the next one. Juan can start a draft during his shift and submit in the l
 reporting window). On the report form, **Generate example** fills in an example report to edit.
 The admin's **Reset activity** (local mode only) clears shifts, reports, tickets and source records to start over.
 
+**See what the AI does:** as the admin, open **AI pipeline**. *Real reports (censored)* shows, for each
+submitted report, exactly what happened before and after the AI: the template and its `{{ }}` fallbacks for
+blank answers, the privacy redactions (`[EMP-…]`, `[PHONE-REDACTED]`, …), the injection check, the six-element
+prompt, the answer, the format check and the verification flags. Only the censored version is shown: never
+the original report, who wrote it, or the code-to-name list. *Try an example* runs a report you type through
+the same steps without saving anything.
+
 ### How shifts work
 
 1. **Shift types** — e.g. Morning 6:00 AM–2:00 PM. Reporting opens 30 minutes before the end and

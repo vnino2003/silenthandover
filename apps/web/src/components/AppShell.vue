@@ -34,6 +34,7 @@ const NAV = {
   ],
   admin: [
     { to: '/admin', label: 'Integrations', exact: true },
+    { to: '/admin/ai-pipeline', label: 'AI pipeline' },
     { to: '/admin/users', label: 'Users' },
     { to: '/admin/departments', label: 'Departments' },
     { to: '/admin/settings', label: 'Settings' },

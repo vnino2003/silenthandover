@@ -446,3 +446,93 @@ describe('AI provider connected by the administrator', () => {
     expect((await h.call(null, 'GET', '/api/config')).body.integrations.ai.simulated).toBe(true);
   });
 });
+
+describe('AI pipeline preview (admin)', () => {
+  let h: Harness;
+  beforeAll(async () => {
+    h = await setup();
+  });
+  afterAll(async () => h?.close());
+
+  it('is for administrators only', async () => {
+    expect((await h.call('manager', 'POST', '/api/admin/ai/preview', { content: {} })).status).toBe(403);
+    expect((await h.call('juan', 'POST', '/api/admin/ai/preview', { content: {} })).status).toBe(403);
+  });
+
+  it('shows every step for an example report, using the real pipeline', async () => {
+    const res = await h.call('admin', 'POST', '/api/admin/ai/preview', { content: { ...DEMO_SAMPLE_REPORT, problems: [], unresolved_issues: '' } });
+    expect(res.status).toBe(200);
+    const p = res.body;
+    // 1. Template: the blank box used its fallback; the filled ones came from the employee.
+    expect(p.template.report).toContain('{{completed_work | "(none stated)"}}');
+    expect(p.template.report_fields.find((f: any) => f.name === 'unresolved_issues')).toMatchObject({ usedFallback: true, value: '(none stated)' });
+    expect(p.template.report_fields.find((f: any) => f.name === 'completed_work').usedFallback).toBe(false);
+    // 2. Privacy: names and contact details are gone from what the AI receives.
+    expect(p.report_text).toContain('Ana Lim');
+    expect(p.sanitized.text).not.toContain('Ana Lim');
+    expect(p.sanitized.text).toMatch(/\[EMP-[A-Z0-9]{6}\]/);
+    expect(p.sanitized.counts.employee_name).toBeGreaterThan(0);
+    // 3. The embedded instruction is found.
+    expect(p.injection.length).toBeGreaterThan(0);
+    // 4. The six-element prompt with the report between delimiters; empty lists use "(none)".
+    expect(Object.keys(p.prompt.elements)).toEqual(['rolePersona', 'taskObjective', 'contextAndPolicyRules', 'injectionShield', 'negativeConstraints', 'outputFormat']);
+    expect(p.prompt.user).toContain('<raw_input>');
+    expect(p.template.prompt_fields.find((f: any) => f.name === 'open_issues')).toMatchObject({ usedFallback: true, value: '(none)' });
+    // 5–7. Simulator answer, accepted by the format check, with flags from the grounding check.
+    expect(p.ai).toMatchObject({ engine: 'dev-simulator', simulated: true });
+    expect(p.validation.ok).toBe(true);
+    expect(p.grounding.flags.map((f: any) => f.type)).toContain('possible_prompt_injection');
+    // Recorded that it ran, never what was typed.
+    const [audit] = await h.sql(`select details from public.audit_logs where action = 'ai.preview_run'`);
+    expect(audit.details).toEqual({ engine: 'dev-simulator', model: null });
+  });
+
+  it('never expands text that only looks like a template field', async () => {
+    const res = await h.call('admin', 'POST', '/api/admin/ai/preview', { content: { completed_work: 'Typed {{raw_input}} and {{open_issues | "x"}} on purpose' } });
+    expect(res.body.report_text).toContain('Typed {{raw_input}} and {{open_issues | "x"}} on purpose');
+    expect(res.body.template.report_fields.filter((f: any) => f.usedFallback)).toHaveLength(4);
+  });
+
+  it('asks for a connected AI before using one', async () => {
+    const res = await h.call('admin', 'POST', '/api/admin/ai/preview', { content: {}, engine: 'provider' });
+    expect(res.status).toBe(409);
+    expect(res.body.error.code).toBe('no_provider');
+  });
+});
+
+describe('real reports in the AI pipeline view (admin, censored)', () => {
+  let h: Harness;
+  let reportId: string;
+  beforeAll(async () => {
+    h = await setup();
+    ({ reportId } = await submitSample(h));
+    await h.drain();
+  });
+  afterAll(async () => h?.close());
+
+  it('lists recent AI runs for administrators only', async () => {
+    expect((await h.call('manager', 'GET', '/api/admin/ai/runs')).status).toBe(403);
+    expect((await h.call('juan', 'GET', '/api/admin/ai/runs')).status).toBe(403);
+    const runs = await h.call('admin', 'GET', '/api/admin/ai/runs');
+    expect(runs.status).toBe(200);
+    const [ref] = await h.sql('select reference_code from public.shift_reports where id = $1', [reportId]);
+    expect(runs.body[0]).toMatchObject({ reference_code: ref.reference_code, department_name: 'Warehouse Inventory', status: 'succeeded' });
+  });
+
+  it('shows what really went to the AI, censored — never names, contact details or the author', async () => {
+    const runs = await h.call('admin', 'GET', '/api/admin/ai/runs');
+    const res = await h.call('admin', 'GET', `/api/admin/ai/runs/${runs.body[0].id}`);
+    expect(res.status).toBe(200);
+    const all = JSON.stringify(res.body);
+    for (const secret of ['Ana Lim', 'Ben Torres', 'Juan Dela Cruz', '0917', '555 0142', 'fever', 'name_mapping']) expect(all).not.toContain(secret);
+    expect(res.body.sanitized.text).toMatch(/\[EMP-[A-Z0-9]{6}\]/);
+    expect(res.body.sanitized.text).toContain('[PHONE-REDACTED]');
+    expect(res.body.injection.length).toBeGreaterThan(0);
+    expect(res.body.prompt.user).toContain('<raw_input>');
+    expect(res.body.template.report_fields.find((f: any) => f.name === 'unresolved_issues').usedFallback).toBe(false);
+    expect(res.body.validation.ok).toBe(true);
+    expect(res.body.grounding.flags.length).toBeGreaterThan(0);
+    const [audit] = await h.sql(`select entity_id from public.audit_logs where action = 'ai.run_viewed'`);
+    expect(audit.entity_id).toBe(runs.body[0].id);
+  });
+});

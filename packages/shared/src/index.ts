@@ -5,3 +5,4 @@ export * from './approval';
 export * from './prompt';
 export * from './time';
 export * from './demo';
+export * from './template';

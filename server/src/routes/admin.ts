@@ -1,11 +1,12 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { ROLES } from '@sh/shared';
+import { ReportDraftContent, ROLES, type PromptVersion } from '@sh/shared';
 import { maskAddress } from '../automation/notifications';
 import { ApiError } from '../http/errors';
 import { asUser, idParam, parseBody, parseQuery, requireRole, svc, type AppEnv } from '../http/context';
 import { resetActivity } from '../seed/demo';
 import { AI_PROVIDERS, callProvider, ProviderError } from '../automation/ai-provider';
+import { describeStoredRun, previewPipeline, type StoredRun } from '../automation/preview';
 
 const optionalUuid = z.uuid().nullable().default(null);
 
@@ -73,6 +74,91 @@ export function adminRoutes() {
       }, Math.min(config.AI_REQUEST_TIMEOUT_MS, 30000));
       return c.json({ ok: true, provider: b.provider, model, latency_ms: reply.latencyMs });
     } catch (err) {
+      if (err instanceof ProviderError) throw new ApiError(502, 'provider_error', err.message);
+      throw err;
+    }
+  });
+
+  // ---- Real AI runs, censored ------------------------------------------------------
+  // What really went to the AI for recent reports. Only the censored text and the answer with
+  // names still as codes; never the original report or the code-to-name list.
+  r.get('/ai/runs', async (c) => {
+    const rows = await svc(c).db.asService((q) =>
+      q.query(
+        `select r.id, sr.reference_code, d.name as department_name, s.label as shift_label, r.revision_no, r.attempt,
+                r.status, r.engine, r.model, r.is_simulated, r.created_at,
+                coalesce(jsonb_array_length(r.flags), 0) as flag_count
+           from public.ai_analysis_runs r
+           join public.shift_reports sr on sr.id = r.report_id
+           join public.shifts s on s.id = sr.shift_id
+           join public.departments d on d.id = sr.department_id
+          order by r.created_at desc limit 30`,
+      ),
+    );
+    return c.json(rows);
+  });
+
+  r.get('/ai/runs/:id', async (c) => {
+    const id = idParam(c);
+    const { db } = svc(c);
+    const [run] = await db.asService((q) =>
+      q.query<StoredRun & { department_name: string; created_at: Date; revision_no: number; attempt: number }>(
+        `select sr.reference_code, s.label || ' ' || s.shift_date::text as shift_label, r.prompt_version, a.sanitized_text, a.redaction_counts,
+                a.injection_findings, r.engine, r.model, r.is_simulated, r.latency_ms, r.status, r.draft, r.flags, r.validation_errors,
+                d.name as department_name, r.created_at, r.revision_no, r.attempt
+           from public.ai_analysis_runs r
+           join public.shift_reports sr on sr.id = r.report_id
+           join public.shifts s on s.id = sr.shift_id
+           join public.departments d on d.id = sr.department_id
+           left join internal.analysis_inputs a on a.report_id = r.report_id and a.revision_no = r.revision_no
+          where r.id = $1`,
+        [id],
+      ),
+    );
+    if (!run) throw new ApiError(404, 'not_found', 'Run not found');
+    await db.asService((q) =>
+      q.query(`insert into public.audit_logs (actor_id, actor_role, action, entity_type, entity_id, details) values ($1, 'admin', 'ai.run_viewed', 'ai_analysis_run', $2, '{}'::jsonb)`, [
+        c.get('userId'),
+        id,
+      ]),
+    );
+    return c.json({
+      run: { reference_code: run.reference_code, department_name: run.department_name, shift_label: run.shift_label, created_at: run.created_at, revision_no: run.revision_no, attempt: run.attempt },
+      ...describeStoredRun(run),
+    });
+  });
+
+  // ---- AI pipeline preview ---------------------------------------------------------
+  // Runs an example report through every real step and shows what each one produced. The
+  // administrator never sees real reports here: only the example they type. Nothing is stored.
+  r.post('/ai/preview', async (c) => {
+    const b = await parseBody(
+      c,
+      z.strictObject({ content: ReportDraftContent, engine: z.enum(['simulator', 'provider']).default('simulator') }),
+    );
+    const { aiSettings, config, fetchImpl, db } = svc(c);
+    const roster = await db.asService((q) =>
+      q.query<{ full_name: string; pseudonym: string }>('select full_name, pseudonym from public.profiles where is_active'),
+    );
+    try {
+      const result = await previewPipeline({
+        content: b.content,
+        roster,
+        promptVersion: config.PROMPT_VERSION as PromptVersion,
+        engine: b.engine,
+        aiSettings,
+        fetchImpl,
+        timeoutMs: Math.min(config.AI_REQUEST_TIMEOUT_MS, 60000),
+      });
+      await db.asService((q) =>
+        q.query(`insert into public.audit_logs (actor_id, actor_role, action, entity_type, details) values ($1, 'admin', 'ai.preview_run', 'system', $2::jsonb)`, [
+          c.get('userId'),
+          JSON.stringify({ engine: result.ai.engine, model: result.ai.model }),
+        ]),
+      );
+      return c.json(result);
+    } catch (err) {
+      if (err instanceof Error && err.message === 'no_provider') throw new ApiError(409, 'no_provider', 'No AI provider is connected yet — run it with the simulator, or connect one first');
       if (err instanceof ProviderError) throw new ApiError(502, 'provider_error', err.message);
       throw err;
     }

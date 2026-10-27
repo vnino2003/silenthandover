@@ -1,4 +1,5 @@
 import { handoverDraftJsonSchema } from './ai-output';
+import { fillTemplate, type TemplateField } from './template';
 
 /**
  * TESDA six-element bounded prompt for the Generative AI node.
@@ -116,31 +117,46 @@ export function renderSystemPrompt(version: PromptVersion): string {
   ].join('\n\n');
 }
 
+/**
+ * The user message, as a template. Each `{{field}}` is filled in for every report; lists that
+ * are empty use their fallback so the model is told explicitly that there are none. The tags
+ * around each block are the delimiters the system prompt refers to.
+ */
+export const USER_PROMPT_TEMPLATE = [
+  'report_id: {{report_id}}',
+  'shift: {{shift}}',
+  '<open_issues>',
+  '{{open_issues | "(none)"}}',
+  '</open_issues>',
+  '<approved_records>',
+  '{{approved_records | "(none)"}}',
+  '</approved_records>',
+  '<raw_input>',
+  '{{raw_input}}',
+  '</raw_input>',
+  'Produce the JSON object now.',
+].join('\n');
+
 export function buildHandoverPrompt(version: PromptVersion, input: PromptInput): RenderedPrompt {
-  const issues = input.openIssues.length
-    ? input.openIssues.map((i) => `- ${i.code} | ${escapeForDelimiters(i.title)} | ${i.status}`).join('\n')
-    : '(none)';
-  const records = input.approvedRecords.length
-    ? input.approvedRecords
-        .map(
-          (r) =>
-            `- type=${r.type} | ref=${escapeForDelimiters(r.reference)} | ${r.recorded_at} | ${escapeForDelimiters(r.title)}: ${escapeForDelimiters(r.details)}`,
-        )
-        .join('\n')
-    : '(none)';
-  const user = [
-    `report_id: ${input.reportId}`,
-    `shift: ${escapeForDelimiters(input.shiftLabel)}`,
-    '<open_issues>',
-    issues,
-    '</open_issues>',
-    '<approved_records>',
-    records,
-    '</approved_records>',
-    '<raw_input>',
-    escapeForDelimiters(input.sanitizedReport),
-    '</raw_input>',
-    'Produce the JSON object now.',
-  ].join('\n');
-  return { version, system: renderSystemPrompt(version), user, responseSchema: handoverDraftJsonSchema() };
+  return fillHandoverPrompt(version, input).prompt;
+}
+
+/** The rendered prompt plus how each template field was filled (shown in the admin AI pipeline view). */
+export function fillHandoverPrompt(version: PromptVersion, input: PromptInput): { prompt: RenderedPrompt; fields: TemplateField[] } {
+  const filled = fillTemplate(USER_PROMPT_TEMPLATE, {
+    report_id: input.reportId,
+    shift: escapeForDelimiters(input.shiftLabel),
+    open_issues: input.openIssues.map((i) => `- ${i.code} | ${escapeForDelimiters(i.title)} | ${i.status}`).join('\n'),
+    approved_records: input.approvedRecords
+      .map(
+        (r) =>
+          `- type=${r.type} | ref=${escapeForDelimiters(r.reference)} | ${r.recorded_at} | ${escapeForDelimiters(r.title)}: ${escapeForDelimiters(r.details)}`,
+      )
+      .join('\n'),
+    raw_input: escapeForDelimiters(input.sanitizedReport),
+  });
+  return {
+    prompt: { version, system: renderSystemPrompt(version), user: filled.text, responseSchema: handoverDraftJsonSchema() },
+    fields: filled.fields,
+  };
 }
