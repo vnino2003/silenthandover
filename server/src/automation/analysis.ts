@@ -1,4 +1,4 @@
-import { AiHandoverDraft, buildHandoverPrompt, ReportDraftContent, type PromptVersion, type RenderedPrompt } from '@sh/shared';
+import { AiHandoverDraft, buildHandoverPrompt, DepartmentExperience, ReportDraftContent, type DepartmentGuidance, type PromptVersion, type RenderedPrompt } from '@sh/shared';
 import type { Config } from '../config';
 import type { Db, Queryable } from '../db/types';
 import { callWithFallback, type AiSettings } from './ai-provider';
@@ -104,11 +104,12 @@ export class AnalysisPipeline {
   private async prepare(ev: EventRow): Promise<AnalysisJob> {
     const rules = await currentRules(this.db);
     return this.db.asService(async (q) => {
-      const [row] = await q.query<{ reference_code: string; department_id: string; content: unknown; label: string; shift_date: string; starts_at: Date; ends_at: Date }>(
-        `select r.reference_code, r.department_id, v.content, s.label, s.shift_date::text as shift_date, s.starts_at, s.ends_at
+      const [row] = await q.query<{ reference_code: string; department_id: string; department_name: string; experience: unknown; content: unknown; label: string; shift_date: string; starts_at: Date; ends_at: Date }>(
+        `select r.reference_code, r.department_id, d.name as department_name, d.experience, v.content, s.label, s.shift_date::text as shift_date, s.starts_at, s.ends_at
            from public.shift_reports r
            join public.report_revisions v on v.report_id = r.id and v.revision_no = $2
            join public.shifts s on s.id = r.shift_id
+           join public.departments d on d.id = r.department_id
           where r.id = $1`,
         [ev.report_id, ev.revision_no],
       );
@@ -138,6 +139,7 @@ export class AnalysisPipeline {
         reportId: row.reference_code,
         sanitizedReport: sanitized.text,
         shiftLabel: `${row.label} ${row.shift_date}`,
+        department: guidanceFor(row.department_name, row.experience),
         openIssues: issues.map((i) => ({ code: i.code, title: sanitize(i.title, roster).text, status: i.status })),
         approvedRecords: records.map((r) => ({
           type: r.record_type,
@@ -253,6 +255,12 @@ export class AnalysisPipeline {
       return r!.result;
     });
   }
+}
+
+/** The department's terms and privacy guidance for the report prompt (configuration, never personal data). */
+export function guidanceFor(name: string, experience: unknown): DepartmentGuidance {
+  const e = DepartmentExperience.parse(experience ?? {});
+  return { name, industry: e.industry, staff_label: e.staff_label, supervisor_label: e.supervisor_label, report_label: e.report_label, issue_label: e.issue_label, privacy_hint: e.privacy_hint };
 }
 
 async function openIssues(q: Queryable, departmentId: string) {

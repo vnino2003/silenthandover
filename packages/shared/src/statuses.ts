@@ -5,7 +5,7 @@ export type Role = (typeof ROLES)[number];
 export const ROLE_LABELS: Record<Role, string> = {
   employee: 'Team member',
   manager: 'Supervisor',
-  admin: 'Admin',
+  admin: 'Administrator',
 };
 
 export const REPORT_STATUSES = [

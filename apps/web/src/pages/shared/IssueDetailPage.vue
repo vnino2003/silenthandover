@@ -124,7 +124,7 @@ const KIND_LABEL: Record<string, string> = {
 
 <template>
   <div class="mx-auto max-w-3xl">
-    <RouterLink :to="base" class="text-[13px] text-ink-3 hover:text-ink">← Issues</RouterLink>
+    <RouterLink :to="base" class="text-[13px] text-ink-3 hover:text-ink">← {{ auth.terms.issues }}</RouterLink>
     <StateBlock class="mt-3" :loading="loading" :error="error" :lines="5" @retry="reload()">
       <template v-if="data">
         <PageHeader class="mt-3" :eyebrow="data.issue.code" :title="data.issue.title">

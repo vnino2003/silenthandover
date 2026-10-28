@@ -55,10 +55,10 @@ async function raise() {
 <template>
   <div class="mx-auto max-w-5xl">
     <PageHeader
-      :title="isManager ? 'Issues' : 'Open issues'"
+      :title="isManager ? auth.terms.issues : `Open ${auth.terms.issues.toLowerCase()}`"
       description="Unresolved problems carry over from shift to shift until an authorized person verifies they are resolved."
     >
-      <UiButton variant="primary" @click="raising = true">Report an issue</UiButton>
+      <UiButton variant="primary" @click="raising = true">Report {{ auth.terms.aIssue }}</UiButton>
     </PageHeader>
 
     <div class="mb-4 flex gap-1 border-b border-line" role="tablist">
@@ -80,7 +80,7 @@ async function raise() {
         <table class="w-full text-left text-[14px]">
           <thead class="hidden border-b border-line bg-canvas text-[12px] tracking-wide text-ink-3 uppercase sm:table-header-group">
             <tr>
-              <th class="px-5 py-2.5 font-medium">Issue</th>
+              <th class="px-5 py-2.5 font-medium">{{ auth.terms.issue }}</th>
               <th class="px-3 py-2.5 font-medium">Severity</th>
               <th class="px-3 py-2.5 font-medium">Assignee</th>
               <th class="px-3 py-2.5 font-medium">Last update</th>
@@ -129,7 +129,7 @@ async function raise() {
       </form>
       <template #footer>
         <UiButton variant="ghost" @click="raising = false">Cancel</UiButton>
-        <UiButton variant="primary" type="submit" form="raise-form" :loading="saving">Report issue</UiButton>
+        <UiButton variant="primary" type="submit" form="raise-form" :loading="saving">Report {{ auth.terms.issue.toLowerCase() }}</UiButton>
       </template>
     </UiDialog>
   </div>

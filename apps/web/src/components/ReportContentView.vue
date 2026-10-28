@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { problemLine, REPORT_SECTIONS, type ReportDraftContent } from '@sh/shared';
+import { useAuth } from '@/stores/auth';
+
+const auth = useAuth();
 
 /** Read-only rendering of an employee's own words, with optional evidence highlighting. */
 const props = defineProps<{
@@ -48,7 +51,7 @@ function render(text: string) {
       <p class="mt-1 text-[14px] whitespace-pre-wrap" v-html="render(content.evidence_refs)" />
     </section>
     <section v-if="content.issue_updates?.length">
-      <h4 class="eyebrow">Updates on existing issues</h4>
+      <h4 class="eyebrow">Updates on existing {{ auth.terms.issues.toLowerCase() }}</h4>
       <ul class="mt-1 space-y-1.5 text-[14px]">
         <li v-for="u in content.issue_updates" :key="u.issue_id">
           <span class="font-medium">{{ issueLabels?.[u.issue_id] ?? 'Existing issue' }}</span>

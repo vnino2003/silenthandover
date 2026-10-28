@@ -1,8 +1,8 @@
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import { z } from 'zod';
-import { AssistantPageContext, type MicaAnswer, type Role } from '@sh/shared';
-import { parseBody, svc, type AppEnv } from '../http/context';
+import { AssistantPageContext, DepartmentExperience, GENERIC_EXPERIENCE, type MicaAnswer, type Role } from '@sh/shared';
+import { asUser, parseBody, svc, type AppEnv } from '../http/context';
 import { ApiError } from '../http/errors';
 import { askMica, plainEngine } from '../automation/mica';
 import { currentRules } from '../automation/ai-rules';
@@ -47,8 +47,21 @@ export function assistantHelpRoutes() {
     c.header('Cache-Control', 'no-store');
     const body = await parseBody(c, z.strictObject({ message: z.string().trim().min(1).max(2000), page: AssistantPageContext, entity_id: z.uuid().optional() }));
     const profile = c.get('profile');
-    const guide = GUIDES[body.page]!;
+    const guide = { ...GUIDES[body.page]! };
     if (!guide.roles.includes(profile.role)) throw new ApiError(403, 'forbidden', 'This page is outside your role');
+    // The guides use general words; say what this department calls things, so answers use its terms.
+    if (profile.department_id) {
+      const [d] = await asUser(c, (q) => q.query<{ experience: unknown }>('select experience from public.departments where id = app.my_department()'));
+      const e = DepartmentExperience.parse(d?.experience ?? {});
+      const g = GENERIC_EXPERIENCE;
+      const words = [
+        e.issue_label !== g.issue_label && `issues are called “${e.issue_label}s”`,
+        e.report_label !== g.report_label && `shift reports are “${e.report_label}s”`,
+        e.staff_label !== g.staff_label && `team members are “${e.staff_label}s”`,
+        e.supervisor_label !== g.supervisor_label && `the supervisor is the “${e.supervisor_label}”`,
+      ].filter(Boolean);
+      if (words.length) guide.text = `${guide.text} In this department, ${words.join(', ')}.`;
+    }
     const facts = await micaFacts(c, body.page, body.entity_id);
     const base = { page: body.page, facts, checked_at: new Date().toISOString() };
 

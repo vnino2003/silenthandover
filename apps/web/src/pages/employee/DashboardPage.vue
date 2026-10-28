@@ -153,7 +153,7 @@ const pendingAcks = computed(() => data.value?.incoming.filter((i) => !i.acknowl
         <div class="mt-5 grid gap-5 lg:grid-cols-2 [&>*]:min-w-0">
           <section class="card" aria-labelledby="tasks-h">
             <div class="flex items-baseline justify-between px-5 pt-4">
-              <h2 id="tasks-h" class="text-[15px] font-semibold">Open issues in your department</h2>
+              <h2 id="tasks-h" class="text-[15px] font-semibold">Open {{ auth.terms.issues.toLowerCase() }} in your department</h2>
               <RouterLink to="/tasks" class="text-[13px] link">All</RouterLink>
             </div>
             <ul v-if="data.tasks.length" class="mt-2 divide-y divide-line">
@@ -170,7 +170,7 @@ const pendingAcks = computed(() => data.value?.incoming.filter((i) => !i.acknowl
                 </RouterLink>
               </li>
             </ul>
-            <p v-else class="px-5 pt-2 pb-5 text-[14px] text-ink-3">No open issues.</p>
+            <p v-else class="px-5 pt-2 pb-5 text-[14px] text-ink-3">No open {{ auth.terms.issues.toLowerCase() }}.</p>
           </section>
 
           <section class="card" aria-labelledby="recent-h">

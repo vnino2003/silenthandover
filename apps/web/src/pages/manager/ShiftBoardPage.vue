@@ -13,6 +13,9 @@ import { dateTime, longDate, shiftRange, time } from '@/lib/format';
 import type { ShiftView } from '@/lib/types';
 import { useAsync } from '@/lib/useAsync';
 import { useToast } from '@/stores/toast';
+import { useAuth } from '@/stores/auth';
+
+const auth = useAuth();
 
 /**
  * The supervisor's day: who is working right now, every shift of the day in order with its
@@ -280,7 +283,7 @@ async function grant() {
 
         <p v-if="data.counts.safety_open" class="rounded-md border border-bad/30 bg-bad-soft px-4 py-3 text-[13.5px] text-bad">
           {{ data.counts.safety_open }} open safety {{ data.counts.safety_open === 1 ? 'problem' : 'problems' }} in your department —
-          <RouterLink to="/manager/issues" class="font-medium underline">check the issues list</RouterLink>.
+          <RouterLink to="/manager/issues" class="font-medium underline">check the {{ auth.terms.issues.toLowerCase() }} list</RouterLink>.
         </p>
       </div>
     </StateBlock>

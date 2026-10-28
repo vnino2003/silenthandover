@@ -51,7 +51,7 @@ function highlight(text: string, pattern: RegExp, kind: Part['kind']): Part[] {
 }
 const FIELD_RE = /\{\{[^}]+\}\}/g;
 const TOKEN_RE = /\[(?:EMP-[A-Z0-9]{6}|PERSON-\d+|[A-Z]+-REDACTED)\]/g;
-const TAG_RE = /<\/?(?:open_issues|approved_records|raw_input)>/g;
+const TAG_RE = /<\/?(?:department_guidance|open_issues|approved_records|raw_input)>/g;
 const PART_CLASS: Record<Part['kind'], string> = {
   plain: '',
   field: 'rounded bg-info-soft px-0.5 text-info',

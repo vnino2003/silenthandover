@@ -8,6 +8,7 @@ import {
   renderSystemPrompt,
   templateFields,
   USER_PROMPT_TEMPLATE,
+  type DepartmentGuidance,
   type OrganizationRules,
   type PromptVersion,
   type ReportDraftContent,
@@ -57,6 +58,7 @@ export function describeStoredRun(run: StoredRun) {
     report_id: run.reference_code,
     shift: escapeForDelimiters(run.shift_label),
     // These lists are rebuilt from the department's data for every run and are not kept.
+    department_guidance: '(the department’s terms and privacy guidance at that time — not kept)',
     open_issues: '(the department’s open tickets at that time — not kept)',
     approved_records: '(the department’s source records at that time — not kept)',
     raw_input: escapeForDelimiters(text),
@@ -97,6 +99,7 @@ export async function previewPipeline(opts: {
   roster: RosterEntry[];
   promptVersion: PromptVersion;
   orgRules: OrganizationRules;
+  department?: DepartmentGuidance | null;
   engine: 'simulator' | 'provider';
   aiSettings: AiSettings;
   fetchImpl: typeof fetch;
@@ -120,6 +123,7 @@ export async function previewPipeline(opts: {
     shiftLabel: 'Example shift',
     openIssues: [],
     approvedRecords: [],
+    department: opts.department ?? null,
   }, opts.orgRules);
 
   // 5. The model (or the labeled simulator) answers.

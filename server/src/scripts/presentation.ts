@@ -28,7 +28,7 @@ if (existsSync(join(targetDir, 'local-db.tar.gz')) && !process.argv.includes('--
 
 const PEOPLE = [
   { key: 'admin', name: 'Alex Reyes', role: 'admin', title: null },
-  { key: 'maria', name: 'Maria Santos', role: 'manager', title: 'Shift lead' },
+  { key: 'maria', name: 'Maria Santos', role: 'manager', title: 'Unit supervisor' },
   { key: 'juan', name: 'Juan Dela Cruz', role: 'employee', title: 'Nursing attendant' },
   { key: 'ana', name: 'Ana Lim', role: 'employee', title: 'Staff nurse' },
   { key: 'ben', name: 'Ben Torres', role: 'employee', title: 'Staff nurse' },
@@ -146,13 +146,13 @@ try {
         if (c!.shift === s.label && !c!.rest.includes(isoWeekday(s.shift_date))) await q.query('select app.assign_to_shift($1, $2)', [s.id, ids[key as Key]]);
       }
     }
-    // Source records and two open concerns, as the shift lead recorded them.
-    await q.query(`select app.add_operational_record('policy', 'POL-NC-01', 'Operational handover and equipment escalation', 'Use approved service references in operational handovers; report equipment faults to the shift lead and the authorized engineering team. Clinical information stays in the approved clinical record.', now() - interval '30 days')`);
+    // Source records and two open concerns, as the supervisor recorded them.
+    await q.query(`select app.add_operational_record('policy', 'POL-NC-01', 'Operational handover and equipment escalation', 'Use approved service references in operational handovers; report equipment faults to the supervisor and the authorized engineering team. Clinical information stays in the approved clinical record.', now() - interval '30 days')`);
     await q.query(`select app.add_operational_record('quality', 'NC-READY-01', 'Newborn unit readiness checklist', 'Rooms 1–4 prepared; emergency supply seals checked against the local checklist. No patient information is included.', now() - interval '9 hours')`);
     await q.query(`select app.add_operational_record('maintenance', 'BIO-NC-020', 'Unit equipment readiness review', 'Biomedical engineering completed the scheduled inspection of the spare equipment set. NB-02 is excluded pending a separate wheel-lock inspection.', now() - interval '11 hours')`);
     await q.query(`select app.add_operational_record('staffing', 'NC-ROSTER-01', 'Care-team coverage and incoming briefing', 'Incoming briefing covers open service requests and unit-readiness references.', now() - interval '7 hours')`);
     const bassinet = await val<{ id: string }>(q, `select app.raise_issue('Bassinet NB-02 wheel lock needs inspection', 'Removed from use in the preparation room. Biomedical engineering request BIO-NC-021 is awaiting inspection.', 'high', true) as v`);
-    const bell = await val<{ id: string }>(q, `select app.raise_issue('Family consultation room call bell intermittent', 'Facilities request FAC-NC-014 is open. Shift lead has been informed.', 'medium', false) as v`);
+    const bell = await val<{ id: string }>(q, `select app.raise_issue('Family consultation room call bell intermittent', 'Facilities request FAC-NC-014 is open. The supervisor has been informed.', 'medium', false) as v`);
     await q.query(`select app.transition_issue($1, 'in_progress', 'Facilities acknowledged FAC-NC-014; inspection is in progress.')`, [bell.id]);
     await q.query('select app.assign_issue($1, $2)', [bassinet.id, ids.juan]);
   });
@@ -192,12 +192,12 @@ try {
     completed_work: 'Prepared rooms 1–4 for the day: bassinets cleaned and made up, warming station checked, and the readiness checklist NC-READY-01 completed. Restocked the supply cart with 12 swaddle packs and 2 boxes of diaper sets. Helped Ana Lim with the 10:00 equipment round.',
     unresolved_issues: 'Bassinet NB-02 is still out of use; the wheel lock is waiting for biomedical inspection (ISS-000001). The supply room label printer jams on every third label.',
     pending_tasks: 'Confirm the 15:00 linen delivery and put it away. Follow up with biomedical engineering on BIO-NC-021 before the end of the evening.',
-    handover_notes: 'The room 3 wall thermometer reads about 0.5 degrees higher than the warming station display; I told the shift lead.',
+    handover_notes: 'The room 3 wall thermometer reads about 0.5 degrees higher than the warming station display; I told the supervisor.',
     evidence_refs: 'NC-READY-01, BIO-NC-021',
   });
   // Paolo's Day report: waiting for the supervisor's review (to review live).
-  await submit('paolo', 'Late report agreed with the shift lead', {
-    completed_work: 'Completed the noon stock count of the newborn supply room and matched it against the order sheet. Checked the oxygen and suction set-ups in rooms 1 and 2 with the shift lead. Fixed the loose shelf bracket in the linen store myself, should be okay now.',
+  await submit('paolo', 'Late report agreed with the supervisor', {
+    completed_work: 'Completed the noon stock count of the newborn supply room and matched it against the order sheet. Checked the oxygen and suction set-ups in rooms 1 and 2 with the supervisor. Fixed the loose shelf bracket in the linen store myself, should be okay now.',
     unresolved_issues: 'The stock count shows 18 glove boxes but the order sheet says 20; needs a recount. The family consultation room call bell still cuts out (FAC-NC-014).',
     pending_tasks: 'Recount the gloves before the 16:00 order cut-off tomorrow. Ask facilities for an update on FAC-NC-014.',
     handover_notes: 'Sir Ramos from facilities said he would come back after 3 PM.',

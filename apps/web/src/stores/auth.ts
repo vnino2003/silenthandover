@@ -28,6 +28,15 @@ export const useAuth = defineStore('auth', () => {
   const profile = ref<Profile | null>(null);
   const experience = ref(DepartmentExperience.parse({}));
   const roleLabel = (role: Role) => role === 'employee' ? experience.value.staff_label : role === 'manager' ? experience.value.supervisor_label : ROLE_LABELS[role];
+  /** The department's own words (e.g. "Operational concern" for an issue), for text written into pages. */
+  const terms = computed(() => {
+    const e = experience.value;
+    const plural = (s: string) => (/s$/i.test(s) ? s : `${s}s`);
+    return { issue: e.issue_label, issues: plural(e.issue_label), aIssue: `${/^[aeiou]/i.test(e.issue_label) ? 'an' : 'a'} ${e.issue_label.toLowerCase()}`, report: e.report_label, reports: plural(e.report_label), staff: e.staff_label, staffPlural: plural(e.staff_label), supervisor: e.supervisor_label };
+  });
+  /** Page titles that name issues follow the department's word for them. */
+  const pageTitle = (title: string | undefined) =>
+    title === 'Issues' || title === 'Open issues' ? terms.value.issues : title === 'Issue' ? terms.value.issue : title;
   const ready = ref(false);
   const bootError = ref<string | null>(null);
   /** Server clock minus browser clock, in ms. Countdowns use server time. */
@@ -114,5 +123,5 @@ export const useAuth = defineStore('auth', () => {
   const homePath = computed(() => (role.value === 'admin' ? '/admin' : role.value === 'manager' ? '/manager' : '/'));
   const serverNow = () => Date.now() + clockSkew.value;
 
-  return { config, profile, experience, roleLabel, ready, bootError, role, homePath, clockSkew, init, signIn, signOut, loadProfile, serverNow };
+  return { config, profile, experience, terms, pageTitle, roleLabel, ready, bootError, role, homePath, clockSkew, init, signIn, signOut, loadProfile, serverNow };
 });

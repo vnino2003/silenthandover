@@ -13,7 +13,7 @@ Open http://localhost:5173. Every account uses the local demo password (see `REA
 | Role | Name | Sign-in |
 |---|---|---|
 | Administrator | Alex Reyes | alex.reyes.starlight@gmail.com |
-| Supervisor (shift lead) | Maria Santos | maria.santos.starlight@gmail.com |
+| Supervisor (unit head) | Maria Santos | maria.santos.starlight@gmail.com |
 | Day shift | Juan Dela Cruz, Ana Lim, Paolo Garcia, Rosa Villanueva | `firstname.lastname.starlight@gmail.com` (Juan: juan.dela.cruz.starlight@gmail.com) |
 | Evening shift | Ben Torres, Grace Aquino, Mae Santiago | same pattern |
 | Night shift | Carla Mendoza, Daniel Ramos, Leo Fernandez | same pattern |
@@ -49,6 +49,7 @@ The addresses only sign in. Email sending is not set up ("coming soon"), so noth
 1. **Supervisor (Maria):**
    - On **Review queue**, open Paolo's report. Compare the original with Mica's draft, go through each flag, check the source records, then approve.
    - On **Leave requests**, open Leo's request. Check the staffing impact, then decide.
+   - On **Team**, see everyone in the department: who is on duty, their next shift and their leave. Accounts are still created by the administrator.
    - On **Schedule → By person**, look at the week and the coverage.
    - Open **Ask Mica** and try "Pending decisions".
 2. **Employee (Juan):**

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue';
-import type { OrganizationRules, ReportDraftContent } from '@sh/shared';
+import { DepartmentExperience, type OrganizationRules, type ReportDraftContent } from '@sh/shared';
 import MicaMascot from '@/components/MicaMascot.vue';
 import MicaPromptsView from '@/components/MicaPromptsView.vue';
 import OrganizationRulesEditor, { type RulesView } from '@/components/OrganizationRulesEditor.vue';
@@ -87,6 +87,14 @@ const providerLabel = computed(() => {
   return `${s.providers[s.provider]?.label ?? s.provider} · ${s.model ?? s.resolved_model ?? 'newest model'}`;
 });
 const engine = ref<'simulator' | 'provider'>('simulator');
+// The administrator belongs to no department: the example uses a chosen department's form and wording.
+const departments = useAsync(() => api.get<{ id: string; name: string; experience: unknown }[]>('/admin/departments'));
+const departmentId = ref<string | null>(null);
+watch(() => departments.data.value, (rows) => { if (!departmentId.value && rows?.length) departmentId.value = rows[0]!.id; });
+const exampleExperience = computed(() => {
+  const d = departments.data.value?.find((x) => x.id === departmentId.value);
+  return d ? DepartmentExperience.parse(d.experience ?? {}) : undefined;
+});
 const example = ref<PipelineView | null>(null);
 const runs_ = ref(0);
 const busy = ref(false);
@@ -94,7 +102,7 @@ const resultsEl = ref<HTMLElement | null>(null);
 async function run(content: ReportDraftContent) {
   busy.value = true;
   try {
-    example.value = await api.post<PipelineView>('/admin/ai/preview', { content, engine: engine.value });
+    example.value = await api.post<PipelineView>('/admin/ai/preview', { content, engine: engine.value, department_id: departmentId.value });
     runs_.value++;
     await nextTick();
     resultsEl.value?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -216,6 +224,11 @@ async function run(content: ReportDraftContent) {
           This is the <span class="font-medium text-ink">same form an employee fills in</span> at the end of a shift. Fill it in (or press
           <span class="font-medium">Generate example</span>), leave the optional boxes empty to see fallbacks, then run it.
         </p>
+        <label v-if="(departments.data.value?.length ?? 0) > 1" class="flex items-center gap-2 text-[13px] text-ink-2">Department
+          <select v-model="departmentId" class="rounded-md border border-line bg-surface px-2 py-1.5 text-[13px]">
+            <option v-for="d in departments.data.value" :key="d.id" :value="d.id">{{ d.name }}</option>
+          </select>
+        </label>
         <div class="flex rounded-md border border-line p-0.5 text-[13px]" role="radiogroup" aria-label="Which AI answers">
           <button type="button" role="radio" :aria-checked="engine === 'simulator'" class="rounded px-3 py-1.5" :class="engine === 'simulator' ? 'bg-sunken font-medium' : 'text-ink-3'" @click="engine = 'simulator'">Practice simulator</button>
           <button
@@ -241,6 +254,7 @@ async function run(content: ReportDraftContent) {
         :submit-blocked-reason="null"
         :open-issues="[]"
         preview
+        :experience="exampleExperience"
         :preview-busy="busy"
         @preview="run"
       />

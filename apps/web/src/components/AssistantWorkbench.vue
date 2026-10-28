@@ -161,7 +161,7 @@ function clearProblems() {
         </div>
 
         <div v-if="draft.intent === 'report' || (!compact && !preparation)" class="card p-4">
-          <label :for="`${fieldPrefix}-shift`" class="block text-[13px] font-medium">Reporting shift <span class="font-normal text-ink-3">· required for shift reports</span></label>
+          <label :for="`${fieldPrefix}-shift`" class="block text-[13px] font-medium">Reporting shift <span class="font-normal text-ink-3">· required for {{ auth.terms.reports.toLowerCase() }}</span></label>
           <select :id="`${fieldPrefix}-shift`" v-model="shiftId" class="field-input mt-2" :disabled="Boolean(preparation) || busy">
             <option value="">Select an assigned shift</option>
             <option v-for="s in selectableShifts" :key="s.id" :value="s.id">{{ s.label }} · {{ dateTime(s.starts_at) }} · {{ shiftRange(s) }}</option>
@@ -210,7 +210,7 @@ function clearProblems() {
         <section v-if="status" class="card p-5" aria-label="Current status">
           <div class="flex flex-wrap items-center justify-between gap-2"><h2 class="font-semibold">Your latest records</h2><UiButton size="sm" @click="refreshStatus">Refresh status</UiButton></div>
           <p class="mt-1 text-[12px] text-ink-3">Checked {{ dateTime(status.checked_at) }}</p>
-          <p v-if="!status.reports.length && !status.issues.length" class="mt-4 text-[14px] text-ink-3">No reports or department issues yet.</p>
+          <p v-if="!status.reports.length && !status.issues.length" class="mt-4 text-[14px] text-ink-3">No {{ auth.terms.reports.toLowerCase() }} or department {{ auth.terms.issues.toLowerCase() }} yet.</p>
           <ul class="mt-3 divide-y divide-line">
             <li v-for="r in status.reports" :key="r.id" class="flex flex-wrap items-center justify-between gap-2 py-3"><RouterLink :to="`/reports/${r.id}`" class="link text-[14px]">{{ r.reference_code }}</RouterLink><StatusBadge :report="r.status" /></li>
             <li v-for="i in status.issues" :key="i.id" class="flex flex-wrap items-center justify-between gap-2 py-3"><RouterLink :to="`/tasks/${i.id}`" class="link text-[14px]">{{ i.code }} · {{ i.title }}</RouterLink><StatusBadge :issue="i.status" /></li>
@@ -243,7 +243,7 @@ function clearProblems() {
               <label class="flex items-center gap-2 text-[13px]"><input v-model="draft.is_safety" type="checkbox" class="size-4 accent-accent" />Safety concern</label>
             </template>
             <template v-else-if="draft.intent === 'task_update'">
-              <label class="block text-[13px]">Issue code<input v-model="draft.issue_code" class="field-input mt-1" placeholder="ISS-000001" /></label>
+              <label class="block text-[13px]">{{ auth.terms.issue }} code<input v-model="draft.issue_code" class="field-input mt-1" placeholder="ISS-000001" /></label>
               <label class="block text-[13px]">Update<select v-model="draft.transition" class="field-input mt-1"><option value="in_progress">Being worked on</option><option value="resolution_submitted">Done — request supervisor check</option></select></label>
               <label class="block text-[13px]">What did you do?<textarea v-model="draft.note" class="field-input mt-1" rows="4" maxlength="2000" /></label>
             </template>
@@ -255,7 +255,7 @@ function clearProblems() {
         <section class="rounded-lg border border-line bg-surface/50 p-5 text-[13px] text-ink-2">
           <h2 class="font-semibold text-ink">You stay in control</h2>
           <ol class="mt-3 space-y-3"><li><span class="mr-2 text-accent">01</span>Describe your work or request</li><li><span class="mr-2 text-accent">02</span>Review the prepared summary</li><li><span class="mr-2 text-accent">03</span>Confirm before anything is sent</li></ol>
-          <p class="mt-4 border-t border-line pt-4 text-[12px] text-ink-3">Your supervisor still reviews reports and verifies resolved issues. Only your authorized workplace data is available.</p>
+          <p class="mt-4 border-t border-line pt-4 text-[12px] text-ink-3">Your {{ auth.terms.supervisor.toLowerCase() }} still reviews {{ auth.terms.reports.toLowerCase() }} and verifies resolved {{ auth.terms.issues.toLowerCase() }}. Only your authorized workplace data is available.</p>
           <RouterLink to="/reports" class="link mt-3 inline-block text-[12px]">View my reports →</RouterLink>
         </section>
         <UiButton v-if="preparation && !preparation.result && draft.intent === 'report' && preparation.shift_id" block :disabled="busy" @click="openReportForm">Open in report form</UiButton>

@@ -8,6 +8,7 @@ import {
   PROBLEM_CATEGORY_LABELS,
   ReportDraftContent,
   ReportSubmission,
+  type DepartmentExperience,
   type IssueUpdateInput,
   type ProblemInput,
 } from '@sh/shared';
@@ -33,10 +34,17 @@ const props = defineProps<{
    */
   preview?: boolean;
   previewBusy?: boolean;
+  /** Admin AI pipeline: show the form as this department sees it (the administrator has none). */
+  experience?: DepartmentExperience;
 }>();
 const emit = defineEmits<{ submitted: []; preview: [content: ReportDraftContent] }>();
 
 const auth = useAuth();
+const exp = computed(() => props.experience ?? auth.experience);
+const words = computed(() => {
+  const l = exp.value.issue_label;
+  return { issue: l, issues: /s$/i.test(l) ? l : `${l}s`, aIssue: `${/^[aeiou]/i.test(l) ? 'an' : 'a'} ${l.toLowerCase()}` };
+});
 const toast = useToast();
 const backupKey = `sh.draft.${props.reportId}`;
 
@@ -122,7 +130,7 @@ function discardBackup() {
   }
 }
 function useSample() {
-  content.value = structuredClone(auth.experience.industry === 'Newborn care operations' ? DEMO_SAMPLE_REPORT : GENERIC_SAMPLE_REPORT);
+  content.value = structuredClone(exp.value.industry === 'Newborn care operations' ? DEMO_SAMPLE_REPORT : GENERIC_SAMPLE_REPORT);
   showMore.value = true;
 }
 
@@ -264,7 +272,7 @@ const choice = (active: boolean) =>
 
 <template>
   <div>
-    <button v-if="!preview" type="button" class="mb-4 text-[13px] font-medium text-accent hover:underline" @click="openWorkAssistant">Prepare this {{ auth.experience.report_label.toLowerCase() }} with Mica ↗</button>
+    <button v-if="!preview" type="button" class="mb-4 text-[13px] font-medium text-accent hover:underline" @click="openWorkAssistant">Prepare this {{ exp.report_label.toLowerCase() }} with Mica ↗</button>
     <div v-if="backup" class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-info/25 bg-info-soft px-4 py-3 text-[14px]">
       <span class="text-info">This device has unsaved changes from {{ time(backup.at) }}.</span>
       <span class="flex gap-2">
@@ -282,26 +290,26 @@ const choice = (active: boolean) =>
       <div class="flex items-center justify-between gap-3">
         <div>
           <p class="text-[13.5px] font-semibold">Report progress</p>
-          <p class="mt-0.5 text-[12.5px] text-ink-3">Answer the three main questions. Earlier issues are optional unless you checked them.</p>
+          <p class="mt-0.5 text-[12.5px] text-ink-3">Answer the three main questions. Earlier {{ words.issues.toLowerCase() }} are optional unless you checked them.</p>
         </div>
         <span class="shrink-0 text-[13px] font-medium text-ink-2 tnum">{{ coreProgress.completed }}/{{ coreProgress.total }}</span>
       </div>
       <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-sunken" role="progressbar" :aria-valuenow="coreProgress.completed" :aria-valuemax="coreProgress.total" aria-label="Report completion">
         <div class="h-full rounded-full bg-accent transition-all" :style="{ width: `${coreProgress.percent}%` }" />
       </div>
-      <p class="mt-2 text-[12px] text-ink-3">{{ auth.experience.privacy_hint }}</p>
+      <p class="mt-2 text-[12px] text-ink-3">{{ exp.privacy_hint }}</p>
     </div>
 
     <form class="space-y-4" novalidate @submit.prevent="requestSubmit">
       <!-- 1. Work completed -->
       <section class="card p-5" :data-error="Boolean(errors.completed_work)">
         <h3 class="text-[16px] font-semibold"><span class="mr-2 text-ink-3 tnum">1</span>What did you finish this shift?</h3>
-        <p class="mt-1 text-[13.5px] text-ink-3">{{ auth.experience.completed_hint }}</p>
+        <p class="mt-1 text-[13.5px] text-ink-3">{{ exp.completed_hint }}</p>
         <textarea
           v-model="content.completed_work"
           class="field-input mt-3 min-h-24"
           rows="3"
-          :placeholder="auth.experience.completed_hint"
+          :placeholder="exp.completed_hint"
           aria-label="What did you finish this shift?"
           :aria-invalid="Boolean(errors.completed_work)"
         />
@@ -310,11 +318,11 @@ const choice = (active: boolean) =>
 
       <!-- 2. New unresolved issues -->
       <section class="card p-5" :data-error="Boolean(errors.unresolved_issues)">
-        <h3 class="text-[16px] font-semibold"><span class="mr-2 text-ink-3 tnum">2</span>Any {{ auth.experience.issue_label.toLowerCase() }} to hand over?</h3>
-        <p class="mt-1 text-[13.5px] text-ink-3">{{ auth.experience.unresolved_hint }} Each item is tracked after review.</p>
+        <h3 class="text-[16px] font-semibold"><span class="mr-2 text-ink-3 tnum">2</span>Any {{ exp.issue_label.toLowerCase() }} to hand over?</h3>
+        <p class="mt-1 text-[13.5px] text-ink-3">{{ exp.unresolved_hint }} Each item is tracked after review.</p>
         <div class="mt-3 grid grid-cols-2 gap-2">
-          <button type="button" class="h-12 rounded-md border text-[15px] transition-colors" :class="choice(problemsAnswer === 'yes')" @click="answerProblems('yes')">Add a issue</button>
-          <button type="button" class="h-12 rounded-md border text-[15px] transition-colors" :class="choice(problemsAnswer === 'no')" @click="answerProblems('no')">No new issues</button>
+          <button type="button" class="h-12 rounded-md border text-[15px] transition-colors" :class="choice(problemsAnswer === 'yes')" @click="answerProblems('yes')">Add {{ words.aIssue }}</button>
+          <button type="button" class="h-12 rounded-md border text-[15px] transition-colors" :class="choice(problemsAnswer === 'no')" @click="answerProblems('no')">No new {{ words.issues.toLowerCase() }}</button>
         </div>
 
         <template v-if="problemsAnswer === 'yes'">
@@ -333,10 +341,10 @@ const choice = (active: boolean) =>
           </ul>
 
           <div v-if="adding" class="mt-4 rounded-md border border-accent/40 bg-canvas p-4">
-            <p class="text-[13.5px] font-medium">New handover issue</p>
+            <p class="text-[13.5px] font-medium">New {{ words.issue.toLowerCase() }}</p>
             <div class="mt-2 flex flex-wrap gap-1.5">
               <button
-                v-for="c in auth.experience.categories"
+                v-for="c in exp.categories"
                 :key="c"
                 type="button"
                 class="rounded-full border px-3 py-1.5 text-[13.5px]"
@@ -374,8 +382,8 @@ const choice = (active: boolean) =>
       <details v-if="openIssues.length" class="card overflow-hidden">
         <summary class="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4">
           <span>
-            <span class="block text-[16px] font-semibold"><span class="mr-2 text-ink-3 tnum">3</span>Update an existing issue <span class="font-normal text-ink-3">(optional)</span></span>
-            <span class="mt-1 block text-[13px] text-ink-3">Open this only if you personally checked an earlier issue.</span>
+            <span class="block text-[16px] font-semibold"><span class="mr-2 text-ink-3 tnum">3</span>Update an existing {{ words.issue.toLowerCase() }} <span class="font-normal text-ink-3">(optional)</span></span>
+            <span class="mt-1 block text-[13px] text-ink-3">Open this only if you personally checked an earlier {{ words.issue.toLowerCase() }}.</span>
           </span>
           <span class="shrink-0 text-[12.5px] text-ink-3">{{ openIssues.length }} open</span>
         </summary>
@@ -423,7 +431,7 @@ const choice = (active: boolean) =>
           v-model="content.pending_tasks"
           class="field-input mt-3"
           rows="3"
-          :placeholder="auth.experience.pending_hint"
+          :placeholder="exp.pending_hint"
           aria-label="What the next shift must do"
           :aria-invalid="Boolean(errors.pending_tasks)"
         />
@@ -441,7 +449,7 @@ const choice = (active: boolean) =>
         </button>
         <div v-if="showMore" class="space-y-3 border-t border-line px-5 py-4">
           <label class="block text-[13.5px] font-medium">Equipment or safety worries
-            <textarea v-model="content.operational_concerns" class="field-input mt-1" rows="2" :placeholder="auth.experience.concerns_hint" />
+            <textarea v-model="content.operational_concerns" class="field-input mt-1" rows="2" :placeholder="exp.concerns_hint" />
           </label>
           <label class="block text-[13.5px] font-medium">Other notes
             <textarea v-model="content.handover_notes" class="field-input mt-1" rows="2" />

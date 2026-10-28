@@ -21,7 +21,7 @@ export type DepartmentExperience = z.infer<typeof DepartmentExperience>;
 export const GENERIC_EXPERIENCE = DepartmentExperience.parse({});
 export const NEWBORN_EXPERIENCE = DepartmentExperience.parse({
   organization_name: 'Starlight Community Hospital', industry: 'Newborn care operations',
-  staff_label: 'Care team member', supervisor_label: 'Shift lead', report_label: 'Unit handover', issue_label: 'Operational concern',
+  staff_label: 'Team member', supervisor_label: 'Supervisor', report_label: 'Handover report', issue_label: 'Concern',
   completed_hint: 'Summarize unit readiness checks, room preparation, supply checks, family-support coordination and completed service requests. Keep patient details in the approved clinical record.',
   unresolved_hint: 'Describe equipment, staffing, facilities or supply concerns that still need attention. Include the unit area and the action already taken.',
   pending_hint: 'List operational follow-ups for the incoming care team, such as a pending equipment inspection or replenishment request.',

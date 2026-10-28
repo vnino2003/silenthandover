@@ -195,6 +195,45 @@ export function leaveRoutes() {
     return c.json(await asUser(c, async (q) => boardFor(q, (await q.query<{ d: string }>('select app.my_department() as d'))[0]!.d, from, to)));
   });
 
+  // The supervisor's team: everyone active in the department, with today's status, the next shift,
+  // this week's shifts and leave. A list only: accounts are created and changed by the administrator.
+  r.get('/manager/team', async (c) => {
+    requireRole(c, 'manager');
+    return c.json(
+      await asUser(c, async (q) => {
+        const departmentId = (await q.query<{ d: string }>('select app.my_department() as d'))[0]!.d;
+        const [{ today }] = (await q.query<{ today: string }>(`select (now() at time zone timezone)::date::text as today from public.departments where id = $1`, [departmentId])) as [{ today: string }];
+        const offset = (n: number) => new Date(Date.parse(`${today}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+        // From yesterday, so a night shift that started yesterday still counts as on duty now.
+        const board = await boardFor(q, departmentId, offset(-1), offset(6));
+        const pending = await q.query<{ employee_id: string; n: number }>(
+          `select employee_id, count(*)::int as n from public.leave_requests where department_id = $1 and status = 'pending' group by employee_id`,
+          [departmentId],
+        );
+        const now = Date.now();
+        return {
+          today,
+          members: board.employees.map((e) => {
+            const all = board.shifts.filter((s) => s.status === 'scheduled' && s.assignees.includes(e.id));
+            const mine = all.filter((s) => s.shift_date >= today);
+            const onNow = all.find((s) => Date.parse(s.starts_at) <= now && Date.parse(s.ends_at) > now);
+            const next = all.find((s) => Date.parse(s.starts_at) > now);
+            const leave = board.leave.find((l) => l.employee_id === e.id && l.status === 'approved' && today >= l.start_date && today <= l.end_date);
+            const mark = board.marks.find((m) => m.employee_id === e.id && m.day === today);
+            const status = onNow ? 'on_duty' : leave ? 'on_leave' : mark ? mark.kind : mine.some((s) => s.shift_date === today) ? 'scheduled_today' : 'off_today';
+            return {
+              id: e.id, full_name: e.full_name, job_title: e.job_title, photo_version: e.photo_version, status,
+              next_shift: next ? { label: next.label, starts_at: next.starts_at, ends_at: next.ends_at } : null,
+              shifts_this_week: mine.length,
+              upcoming_leave: board.leave.filter((l) => l.employee_id === e.id && l.status === 'approved' && l.end_date >= today).map((l) => ({ leave_type: l.leave_type, start_date: l.start_date, end_date: l.end_date })),
+              pending_leave: pending.find((p) => p.employee_id === e.id)?.n ?? 0,
+            };
+          }),
+        };
+      }),
+    );
+  });
+
   r.get('/manager/leave', async (c) => {
     requireRole(c, 'manager');
     const { scope } = parseQuery(c, z.object({ scope: z.enum(['pending', 'all']).default('pending') }));

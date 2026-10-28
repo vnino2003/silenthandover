@@ -88,6 +88,18 @@ describe('six-element bounded prompt', () => {
     expect(p.system).toContain(`# Prompt version ${version}`);
   });
 
+  it("gives the AI the department's own terms and privacy guidance, as tagged data", () => {
+    const department = { name: 'Newborn Care <Department>', industry: 'Newborn care operations', staff_label: 'Care team member', supervisor_label: 'Shift lead', report_label: 'Unit handover', issue_label: 'Operational concern', privacy_hint: 'Do not enter baby or parent names.' };
+    const p = buildHandoverPrompt('1.0', { reportId: 'x', sanitizedReport: 'ok', shiftLabel: 'Day', openIssues: [], approvedRecords: [], department });
+    const block = p.user.split('<department_guidance>\n')[1]!.split('\n</department_guidance>')[0]!;
+    expect(block).toContain('a report a "Unit handover", an issue an "Operational concern"');
+    expect(block).toContain('privacy guidance: Do not enter baby or parent names.');
+    expect(block).toContain('Newborn Care ‹Department›');
+    expect(p.system).toContain('<department_guidance>');
+    // Without a department the block says so instead of guessing.
+    expect(buildHandoverPrompt('1.0', { reportId: 'x', sanitizedReport: 'ok', shiftLabel: 'Day', openIssues: [], approvedRecords: [] }).user).toContain('<department_guidance>\n(none)\n</department_guidance>');
+  });
+
   it('produces a provider-ready JSON schema with every property required', () => {
     const { responseSchema } = buildHandoverPrompt('1.0', { reportId: 'x', sanitizedReport: '', shiftLabel: '', openIssues: [], approvedRecords: [] });
     const s = responseSchema as { properties: Record<string, unknown>; required: string[]; additionalProperties: boolean };

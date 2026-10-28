@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import SeverityTag from '@/components/ui/SeverityTag.vue';
 import type { Decision } from '@/lib/types';
+import { useAuth } from '@/stores/auth';
+
+const auth = useAuth();
 
 defineProps<{ content: NonNullable<Decision['approved_content']> }>();
 </script>
@@ -10,7 +13,7 @@ defineProps<{ content: NonNullable<Decision['approved_content']> }>();
     <p class="text-[15px] leading-relaxed whitespace-pre-wrap">{{ content.summary }}</p>
 
     <section v-if="content.unresolved_issues.length">
-      <h4 class="eyebrow">Unresolved issues</h4>
+      <h4 class="eyebrow">Unresolved {{ auth.terms.issues.toLowerCase() }}</h4>
       <ul class="mt-2 divide-y divide-line rounded-md border border-line">
         <li v-for="(i, n) in content.unresolved_issues" :key="n" class="px-3.5 py-2.5">
           <div class="flex flex-wrap items-center gap-x-3 gap-y-1">

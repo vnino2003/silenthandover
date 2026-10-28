@@ -32,6 +32,7 @@ const NAV = {
     { to: '/manager/shifts', label: 'Today', group: 'Daily work' },
     { to: '/manager', label: 'Review queue', exact: true, group: 'Daily work', count: 'review' },
     { to: '/manager/schedule', label: 'Schedule', group: 'Daily work' },
+    { to: '/manager/team', label: 'Team', group: 'Daily work' },
     { to: '/manager/leave', label: 'Leave requests', group: 'Daily work', count: 'leave' },
     { to: '/manager/issues', label: 'Issues', group: 'Daily work' },
     { to: '/manager/reports', label: 'Report history', exact: true, group: 'Records' },
@@ -222,7 +223,7 @@ async function signOut() {
 
       <main id="workspace-main" tabindex="-1" class="workspace-main min-w-0 flex-1 px-4 pt-6 sm:px-6 lg:px-10 lg:py-8">
         <div class="workspace-topline mb-7 hidden items-center justify-between border-b border-line pb-4 lg:flex">
-          <p class="text-[12px] font-medium text-ink-3">WORKSPACE <span class="mx-2 text-line-strong">/</span> <span class="text-ink-2">{{ route.meta.title ?? 'Overview' }}</span></p>
+          <p class="text-[12px] font-medium text-ink-3">WORKSPACE <span class="mx-2 text-line-strong">/</span> <span class="text-ink-2">{{ auth.pageTitle(route.meta.title as string | undefined) ?? 'Overview' }}</span></p>
           <span class="rounded-full border border-line bg-surface px-3 py-1 text-[12px] text-ink-2">{{ auth.role ? auth.roleLabel(auth.role) : '' }} portal</span>
         </div>
         <!-- Each new page fades in with a CSS animation. Unlike a Vue transition it never waits on

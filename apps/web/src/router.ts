@@ -41,6 +41,7 @@ const routes: RouteRecordRaw[] = [
       { path: 'manager/reports/:id', component: () => import('@/pages/manager/ReviewPage.vue'), meta: { assistantPage: 'review', roles: manager, title: 'Review' } },
       { path: 'manager/shifts', component: () => import('@/pages/manager/ShiftBoardPage.vue'), meta: { assistantPage: 'today', roles: manager, title: 'Today' } },
       { path: 'manager/schedule', component: () => import('@/pages/manager/SchedulePage.vue'), meta: { assistantPage: 'schedule', roles: manager, title: 'Schedule' } },
+      { path: 'manager/team', component: () => import('@/pages/manager/TeamPage.vue'), meta: { assistantPage: 'today', roles: manager, title: 'Team' } },
       { path: 'manager/leave', component: () => import('@/pages/manager/LeaveRequestsPage.vue'), meta: { assistantPage: 'leave_requests', roles: manager, title: 'Leave requests' } },
       { path: 'manager/issues', component: () => import('@/pages/shared/IssuesPage.vue'), meta: { assistantPage: 'issues', roles: manager, title: 'Issues' } },
       { path: 'manager/issues/:id', component: () => import('@/pages/shared/IssueDetailPage.vue'), meta: { assistantPage: 'issue', roles: manager, title: 'Issue' } },
@@ -93,5 +94,6 @@ router.beforeEach(async (to) => {
 });
 
 router.afterEach((to) => {
-  document.title = to.meta.title ? `${to.meta.title} · Silent Handover` : 'Silent Handover';
+  const title = useAuth().pageTitle(to.meta.title as string | undefined);
+  document.title = title ? `${title} · Silent Handover` : 'Silent Handover';
 });

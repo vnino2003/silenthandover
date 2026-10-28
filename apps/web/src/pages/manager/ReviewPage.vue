@@ -25,6 +25,9 @@ import { dateTime, day, shiftRange, time } from '@/lib/format';
 import type { AnalysisRun, Decision, DeliveryRow, Revision, ShiftView } from '@/lib/types';
 import { useAsync } from '@/lib/useAsync';
 import { useToast } from '@/stores/toast';
+import { useAuth } from '@/stores/auth';
+
+const auth = useAuth();
 
 interface ReviewData {
   report: { id: string; reference_code: string; status: ReportStatus; analysis_state: string; current_revision: number; last_submitted_at: string; is_late: boolean; employee_name: string; employee_pseudonym: string };
@@ -310,8 +313,8 @@ const redactionText = computed(() => {
 
                 <div>
                   <div class="flex items-baseline justify-between">
-                    <h3 class="text-[14px] font-medium">Unresolved issues</h3>
-                    <button class="text-[13px] link" @click="addIssue">Add issue</button>
+                    <h3 class="text-[14px] font-medium">Unresolved {{ auth.terms.issues.toLowerCase() }}</h3>
+                    <button class="text-[13px] link" @click="addIssue">Add {{ auth.terms.issue.toLowerCase() }}</button>
                   </div>
                   <p class="mt-0.5 text-[13px] text-ink-3">Each becomes a tracked problem, or updates one you link. Tasks below become the next shift’s checklist. Nothing is merged automatically.</p>
                   <ul class="mt-3 space-y-3">
@@ -325,7 +328,7 @@ const redactionText = computed(() => {
                       <textarea v-model="i.description" class="field-input mt-2" rows="2" maxlength="1000" :aria-label="`Issue ${n + 1} description`" placeholder="Description" />
                       <div class="mt-2 grid gap-2 sm:grid-cols-2">
                         <select v-model="i.link_issue_id" class="field-input text-[13.5px]" :aria-label="`Issue ${n + 1} link`">
-                          <option :value="null">New issue</option>
+                          <option :value="null">New {{ auth.terms.issue.toLowerCase() }}</option>
                           <option v-for="o in data.open_issues" :key="o.id" :value="o.id">Update {{ o.code }} — {{ o.title }}</option>
                         </select>
                         <select v-if="!i.link_issue_id" v-model="i.initial_status" class="field-input text-[13.5px]" :aria-label="`Issue ${n + 1} status`">
@@ -344,7 +347,7 @@ const redactionText = computed(() => {
                       </div>
                     </li>
                   </ul>
-                  <p v-if="!issues.length" class="mt-2 text-[13px] text-ink-3">No unresolved issues in this handover.</p>
+                  <p v-if="!issues.length" class="mt-2 text-[13px] text-ink-3">No unresolved {{ auth.terms.issues.toLowerCase() }} in this handover.</p>
                 </div>
 
                 <div v-for="list in [{ key: 'pending', title: 'Tasks for the next shift', items: pending }, { key: 'completed', title: 'Completed tasks', items: completed }] as const" :key="list.key">

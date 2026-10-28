@@ -8,6 +8,9 @@ import StatusBadge from '@/components/ui/StatusBadge.vue';
 import { api } from '@/lib/api';
 import { dateTime, day } from '@/lib/format';
 import { useAsync } from '@/lib/useAsync';
+import { useAuth } from '@/stores/auth';
+
+const auth = useAuth();
 
 const router = useRouter();
 
@@ -50,7 +53,7 @@ const { data, loading, refreshing, error, reload } = useAsync(
       <div class="table-region card overflow-x-auto" tabindex="0" role="region" aria-label="Report history — scroll horizontally to see all columns">
         <table class="w-full min-w-[620px] text-left text-[14px]">
           <thead class="border-b border-line bg-canvas text-[12px] tracking-wide text-ink-3 uppercase">
-            <tr><th class="px-5 py-2.5 font-medium">Report</th><th class="px-3 py-2.5 font-medium">Employee</th><th class="px-3 py-2.5 font-medium">Shift</th><th class="px-3 py-2.5 font-medium">Submitted</th><th class="px-5 py-2.5 text-right font-medium">Status</th></tr>
+            <tr><th class="px-5 py-2.5 font-medium">Report</th><th class="px-3 py-2.5 font-medium">{{ auth.terms.staff }}</th><th class="px-3 py-2.5 font-medium">Shift</th><th class="px-3 py-2.5 font-medium">Submitted</th><th class="px-5 py-2.5 text-right font-medium">Status</th></tr>
           </thead>
           <tbody class="stagger divide-y divide-line">
             <tr v-for="r in data" :key="r.id" class="cursor-pointer transition-colors hover:bg-canvas" @click="router.push(`/manager/reports/${r.id}`)">

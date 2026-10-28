@@ -60,7 +60,7 @@ const inFlight = computed(() => queue.data.value?.filter((r) => r.status !== 'pe
       <div class="bg-surface px-4 py-3"><p class="text-[12.5px] text-ink-3">Being prepared</p><p class="text-[20px] font-semibold tnum">{{ summary.data.value.processing }}</p></div>
       <RouterLink to="/manager/issues" class="bg-surface px-4 py-3 hover:bg-canvas"><p class="text-[12.5px] text-ink-3">Resolutions to verify</p><p class="text-[20px] font-semibold tnum">{{ summary.data.value.awaiting_verification }}</p></RouterLink>
       <RouterLink to="/manager/issues" class="bg-surface px-4 py-3 hover:bg-canvas">
-        <p class="text-[12.5px] text-ink-3">Open safety issues</p>
+        <p class="text-[12.5px] text-ink-3">Open safety {{ auth.terms.issues.toLowerCase() }}</p>
         <p class="text-[20px] font-semibold tnum" :class="summary.data.value.open_safety ? 'text-bad' : ''">{{ summary.data.value.open_safety }}</p>
       </RouterLink>
     </div>

@@ -16,7 +16,7 @@ const RULES: { rule: string; re: RegExp }[] = [
   { rule: 'approval_manipulation', re: /\b(auto-?approve|approve (this|the|my) (report|handover)|mark (it|this|everything|all( issues)?) (as )?(approved|resolved|safe|verified)|no need (for|to) (review|verif|check))/i },
   { rule: 'skip_review', re: /\b(skip|bypass|do not|don'?t)\b[^.\n]{0,20}\b(review|verification|flag|human|supervisor)\b/i },
   { rule: 'secret_exfiltration', re: /\b(reveal|print|show|output|repeat)\b[^.\n]{0,30}\b(system prompt|instructions|api key|secret|password|token|prompt)\b/i },
-  { rule: 'delimiter_tampering', re: /<\/?\s*(raw_input|system|instructions?|open_issues|approved_records|assistant|user)\s*>/i },
+  { rule: 'delimiter_tampering', re: /<\/?\s*(raw_input|system|instructions?|open_issues|approved_records|department_guidance|assistant|user)\s*>/i },
   { rule: 'output_tampering', re: /("requires_human_review"\s*:\s*false|"report_id"\s*:|```json|respond only with)/i },
 ];
 

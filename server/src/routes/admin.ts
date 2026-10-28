@@ -6,6 +6,7 @@ import { maskAddress } from '../automation/notifications';
 import { ApiError } from '../http/errors';
 import { asUser, idParam, parseBody, parseQuery, requireRole, svc, type AppEnv, type Ctx } from '../http/context';
 import { checkRules, currentRules } from '../automation/ai-rules';
+import { guidanceFor } from '../automation/analysis';
 import { resetActivity } from '../seed/demo';
 import { AI_PROVIDERS, callWithFallback, listModels, pickModel, ProviderError } from '../automation/ai-provider';
 import { describeStoredRun, previewPipeline, type StoredRun } from '../automation/preview';
@@ -152,7 +153,7 @@ export function adminRoutes() {
   r.post('/ai/preview', async (c) => {
     const b = await parseBody(
       c,
-      z.strictObject({ content: ReportDraftContent, engine: z.enum(['simulator', 'provider']).default('simulator') }),
+      z.strictObject({ content: ReportDraftContent, engine: z.enum(['simulator', 'provider']).default('simulator'), department_id: z.uuid().nullable().default(null) }),
     );
     const { aiSettings, config, fetchImpl, db } = svc(c);
     const roster = await db.asService((q) =>
@@ -164,6 +165,13 @@ export function adminRoutes() {
         roster,
         promptVersion: config.PROMPT_VERSION as PromptVersion,
         orgRules: await currentRules(db),
+        department: b.department_id
+          ? await db.asService(async (q) => {
+              const [d] = await q.query<{ name: string; experience: unknown }>('select name, experience from public.departments where id = $1', [b.department_id]);
+              if (!d) throw new ApiError(404, 'not_found', 'Department not found');
+              return guidanceFor(d.name, d.experience);
+            })
+          : null,
         engine: b.engine,
         aiSettings,
         fetchImpl,

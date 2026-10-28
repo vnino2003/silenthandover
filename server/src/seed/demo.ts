@@ -106,11 +106,11 @@ export async function seedDemo(
       `select app.add_operational_record('quality', 'NC-READY-01', 'Newborn unit readiness checklist', 'Rooms 1–4 prepared; emergency supply seals checked against the local checklist. No patient information is included.', now() - interval '6 hours')`,
     );
     await q.query(
-      `select app.add_operational_record('policy', 'POL-NC-01', 'Operational handover and equipment escalation', 'Synthetic demo policy: use approved service references in operational handovers; report equipment faults to the shift lead and authorized engineering team. Clinical information stays in the approved clinical record.', now() - interval '30 days')`,
+      `select app.add_operational_record('policy', 'POL-NC-01', 'Operational handover and equipment escalation', 'Synthetic demo policy: use approved service references in operational handovers; report equipment faults to the supervisor and authorized engineering team. Clinical information stays in the approved clinical record.', now() - interval '30 days')`,
     );
     await q.query(`select app.add_operational_record('staffing', 'NC-ROSTER-01', 'Care-team coverage and incoming briefing', 'Incoming briefing covers open service requests and unit-readiness references.', now() - interval '2 hours')`);
     const equipment = await val<{ id: string }>(q, `select app.raise_issue('Bassinet NB-02 wheel lock needs inspection', 'Removed from use in the preparation room. Biomedical engineering request BIO-NC-021 is awaiting inspection.', 'high', true) as v`);
-    const facilities = await val<{ id: string }>(q, `select app.raise_issue('Family consultation room call bell intermittent', 'Facilities request FAC-NC-014 is open. Shift lead has been informed.', 'medium', false) as v`);
+    const facilities = await val<{ id: string }>(q, `select app.raise_issue('Family consultation room call bell intermittent', 'Facilities request FAC-NC-014 is open. The supervisor has been informed.', 'medium', false) as v`);
     await q.query(`select app.transition_issue($1, 'in_progress', 'Facilities team acknowledged FAC-NC-014; inspection is in progress.')`, [facilities.id]);
     await q.query('select app.assign_issue($1, $2)', [equipment.id, ids.juan]);
   });
