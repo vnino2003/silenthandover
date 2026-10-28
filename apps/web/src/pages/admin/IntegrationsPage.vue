@@ -21,7 +21,7 @@ interface Integrations {
     scheduler: { internal: boolean; interval_ms: number };
   };
   eventCounts: { kind: string; status: string; count: number }[];
-  events: { id: string; kind: string; status: string; adapter: string | null; attempts: number; max_attempts: number; last_error: string | null; created_at: string; department_name: string | null; next_attempt_at: string }[];
+  events: { id: string; kind: string; status: string; adapter: string | null; attempts: number; max_attempts: number; last_error: string | null; created_at: string; department_name: string | null; next_attempt_at: string; superseded: boolean }[];
   deliveryCounts: { channel: string; status: string; count: number }[];
   deliveries: { id: string; channel: string; status: string; provider: string | null; attempts: number; max_attempts: number; last_error: string | null; created_at: string; recipient_name: string }[];
   overview: { department_name: string; status: string; count: number }[] | null;
@@ -83,7 +83,12 @@ const aiTitle = computed(() => {
   if (!ai) return '';
   if (ai.provider === 'gemini') return 'Google Gemini';
   if (ai.provider === 'grok') return 'xAI Grok';
-  return ai.adapter === 'n8n' && !ai.simulated ? 'n8n workflow' : 'Development simulator';
+  return ai.adapter === 'n8n' && !ai.simulated ? 'n8n workflow' : 'Mica practice simulator';
+});
+// n8n is optional and not part of this setup: its card shows only when it is actually in use.
+const showN8n = computed(() => {
+  const a = data.value?.adapters;
+  return !!a && (a.ai.adapter === 'n8n' || a.sms.connected || a.callbacks.enabled);
 });
 const ai = ref<AiSettingsView | null>(null);
 const aiForm = ref<{ provider: Provider; model: string; api_key: string; removeKey: boolean } | null>(null);
@@ -170,7 +175,7 @@ const retryEvent = (id: string) => act(id, () => api.post(`/admin/events/${id}/r
 const retryDelivery = (id: string) => act(id, () => api.post(`/admin/deliveries/${id}/retry`), 'Retry queued');
 
 const STATUS_TONE: Record<string, Tone> = { pending: 'neutral', dispatched: 'info', queued: 'info', completed: 'ok', sent: 'ok', simulated: 'warn', skipped: 'neutral', failed: 'bad', dead: 'bad' };
-const failedEvents = computed(() => data.value?.events.filter((e) => e.status === 'failed' || e.status === 'dead') ?? []);
+const failedEvents = computed(() => data.value?.events.filter((e) => (e.status === 'failed' || e.status === 'dead') && !e.superseded) ?? []);
 const overviewGroups = computed(() => {
   const groups = new Map<string, { status: string; count: number }[]>();
   for (const r of data.value?.overview ?? []) groups.set(r.department_name, [...(groups.get(r.department_name) ?? []), r]);
@@ -187,7 +192,7 @@ const counts = (rows: { status: string; count: number }[]) => rows.reduce<Record
 
     <StateBlock :loading="loading" :error="error" :lines="6" @retry="reload()">
       <template v-if="data">
-        <div class="stagger grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="stagger grid gap-4 sm:grid-cols-2" :class="showN8n ? 'lg:grid-cols-4' : 'lg:grid-cols-3'">
           <div class="card flex flex-col p-4">
             <p class="eyebrow">AI processing</p>
             <p class="mt-1.5 text-[15px] font-medium">{{ aiTitle }}</p>
@@ -201,18 +206,18 @@ const counts = (rows: { status: string; count: number }[]) => rows.reduce<Record
           </div>
           <div class="card p-4">
             <p class="eyebrow">Email</p>
-            <p class="mt-1.5 text-[15px] font-medium capitalize">{{ data.adapters.email.simulated ? 'Dev outbox' : data.adapters.email.transport }}</p>
-            <p class="mt-0.5 text-[13px]" :class="data.adapters.email.simulated ? 'text-warn' : 'text-ink-2'">
-              {{ data.adapters.email.simulated ? 'Recorded only. Nothing is sent.' : `From ${data.adapters.email.from}` }}
+            <p class="mt-1.5 flex items-center gap-2 text-[15px] font-medium" :class="{ capitalize: !data.adapters.email.simulated }">{{ data.adapters.email.simulated ? 'In-app only' : data.adapters.email.transport }}<StatusBadge v-if="data.adapters.email.simulated" tone="neutral" label="Coming soon" /></p>
+            <p class="mt-0.5 text-[13px] text-ink-2">
+              {{ data.adapters.email.simulated ? 'Notifications appear in the app. Email sending is not set up yet; previews are kept below.' : `From ${data.adapters.email.from}` }}
             </p>
           </div>
           <div class="card p-4">
             <p class="eyebrow">SMS</p>
-            <p class="mt-1.5 text-[15px] font-medium">{{ data.adapters.sms.connected ? 'n8n workflow' : 'Not connected' }}</p>
-            <p class="mt-0.5 text-[13px]" :class="data.adapters.sms.connected ? 'text-ink-2' : 'text-ink-3'">{{ data.adapters.sms.note }}</p>
+            <p class="mt-1.5 flex items-center gap-2 text-[15px] font-medium">{{ data.adapters.sms.connected ? 'n8n workflow' : 'Not set up' }}<StatusBadge v-if="!data.adapters.sms.connected" tone="neutral" label="Coming soon" /></p>
+            <p class="mt-0.5 text-[13px] text-ink-2">{{ data.adapters.sms.connected ? data.adapters.sms.note : 'Text-message alerts are planned. Nothing is sent by SMS.' }}</p>
             <p v-if="data.adapters.sms.connected" class="mt-2 text-[12.5px] text-ink-3">Sender: {{ data.adapters.sms.from }}</p>
           </div>
-          <div class="card p-4">
+          <div v-if="showN8n" class="card p-4">
             <p class="eyebrow">n8n callbacks</p>
             <p class="mt-1.5 text-[15px] font-medium">{{ data.adapters.callbacks.enabled ? 'Enabled' : 'Disabled' }}</p>
             <p class="mt-0.5 text-[13px] text-ink-2">Scheduler: {{ data.adapters.scheduler.internal ? `internal, every ${Math.round(data.adapters.scheduler.interval_ms / 1000)}s` : 'external (n8n cron)' }}</p>
@@ -262,7 +267,7 @@ const counts = (rows: { status: string; count: number }[]) => rows.reduce<Record
                   <td class="px-3 py-2">{{ e.kind.replace('_', ' ') }}<span class="block text-[12px] text-ink-3">{{ e.department_name }}</span></td>
                   <td class="px-3 py-2 text-ink-2">{{ e.adapter ?? '—' }}</td>
                   <td class="px-3 py-2 tnum">{{ e.attempts }}/{{ e.max_attempts }}</td>
-                  <td class="px-4 py-2"><StatusBadge :tone="STATUS_TONE[e.status] ?? 'neutral'" :label="e.status" class="capitalize" /></td>
+                  <td class="px-4 py-2"><StatusBadge :tone="e.superseded ? 'neutral' : (STATUS_TONE[e.status] ?? 'neutral')" :label="e.superseded ? 'Failed, then retried' : e.status" class="capitalize" /></td>
                 </tr>
               </tbody>
             </table>
@@ -297,8 +302,8 @@ const counts = (rows: { status: string; count: number }[]) => rows.reduce<Record
         </section>
 
         <section v-if="data.adapters.email.simulated" class="mt-6">
-          <h2 class="text-[15px] font-semibold">Dev outbox</h2>
-          <p class="mb-2 text-[13px] text-ink-3">What would have been emailed. Nothing here left this machine.</p>
+          <h2 class="text-[15px] font-semibold">Email previews</h2>
+          <p class="mb-2 text-[13px] text-ink-3">What would be emailed once email sending is set up. Nothing here has been sent.</p>
           <StateBlock :empty="!data.outbox.length" empty-title="Empty">
             <ul class="stagger card divide-y divide-line">
               <li v-for="o in data.outbox" :key="o.id" class="px-5 py-3">

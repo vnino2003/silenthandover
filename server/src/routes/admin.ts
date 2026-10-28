@@ -353,7 +353,11 @@ export function adminRoutes() {
       );
       const events = await q.query(
         `select e.id, e.kind, e.status, e.adapter, e.attempts, e.max_attempts, e.next_attempt_at, e.dispatched_at, e.completed_at,
-                e.last_error, e.created_at, e.idempotency_key, d.name as department_name
+                e.last_error, e.created_at, e.idempotency_key, d.name as department_name,
+                -- A failed analysis that a later run of the same revision completed needs no action.
+                (e.kind = 'report_analysis' and e.status in ('failed', 'dead') and exists (
+                  select 1 from public.automation_events x where x.kind = 'report_analysis' and x.status = 'completed'
+                     and x.report_id = e.report_id and x.revision_no = e.revision_no and x.created_at > e.created_at)) as superseded
            from public.automation_events e left join public.departments d on d.id = e.department_id
           order by e.created_at desc limit 50`,
       );

@@ -26,6 +26,8 @@ Requires Node 20.12 or newer. Run `npm install`, then `npm run dev`. Open [the a
 
 To switch an older local demo, stop the local API and run `npm run demo:hospital`. It creates a separate newborn-care database, preserves the entire prior database including custom accounts and activity, and changes only `LOCAL_DB_DIR` in `server/.env`. A configured encrypted AI connection is carried forward if present. This command is local-demo-only and does not run on hosted databases. The previous database can be reopened by restoring its former `LOCAL_DB_DIR` value.
 
+For a presentation, `npm run presentation:prepare` (with the app stopped) builds a separate, clean database with a small set of real workflow activity and switches the local app to it; the current database is kept. See [docs/presentation-guide.md](docs/presentation-guide.md).
+
 ## Try the workflow
 
 1. Sign in as Juan. Continue the prepared unit handover or open **Mica** using the small floating launcher. Mica can prepare a handover, incident, assistance request or task update without leaving the current page.

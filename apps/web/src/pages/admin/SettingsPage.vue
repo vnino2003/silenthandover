@@ -3,10 +3,12 @@ import { ref, watch } from 'vue';
 import LeaveTypesEditor from '@/components/LeaveTypesEditor.vue';
 import PageHeader from '@/components/ui/PageHeader.vue';
 import StateBlock from '@/components/ui/StateBlock.vue';
+import StatusBadge from '@/components/ui/StatusBadge.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import { api, errorMessage } from '@/lib/api';
 import { relative } from '@/lib/format';
 import { useAsync } from '@/lib/useAsync';
+import { useAuth } from '@/stores/auth';
 import { useToast } from '@/stores/toast';
 
 interface Setting {
@@ -23,6 +25,7 @@ interface Template {
 }
 
 const toast = useToast();
+const auth = useAuth();
 const settings = useAsync(() => api.get<Setting[]>('/admin/settings'));
 const templates = useAsync(() => api.get<Template[]>('/admin/notification-templates'));
 const values = ref<Record<string, number | boolean>>({});
@@ -75,11 +78,11 @@ const LABELS: Record<string, string> = {
       <ul class="stagger card divide-y divide-line">
         <li v-for="s in settings.data.value" :key="s.key" class="flex flex-wrap items-center justify-between gap-3 px-5 py-3.5">
           <div class="min-w-0 flex-1">
-            <p class="text-[14px] font-medium">{{ LABELS[s.key] ?? s.key }}</p>
-            <p class="text-[13px] text-ink-3">{{ s.description }}<template v-if="s.key === 'sms_enabled'"> No SMS provider is connected, so queued messages are recorded as skipped.</template></p>
+            <p class="flex items-center gap-2 text-[14px] font-medium">{{ LABELS[s.key] ?? s.key }}<StatusBadge v-if="s.key === 'sms_enabled' && !auth.config?.integrations.sms.connected" tone="neutral" label="Coming soon" /></p>
+            <p class="text-[13px] text-ink-3">{{ s.description }}<template v-if="s.key === 'sms_enabled' && !auth.config?.integrations.sms.connected"> Text messages are not set up yet, so nothing is sent by SMS.</template></p>
           </div>
           <div class="flex items-center gap-2">
-            <input v-if="typeof s.value === 'boolean'" v-model="values[s.key]" type="checkbox" class="size-4 accent-accent" :aria-label="LABELS[s.key] ?? s.key" />
+            <input v-if="typeof s.value === 'boolean'" v-model="values[s.key]" type="checkbox" class="size-4 accent-accent" :aria-label="LABELS[s.key] ?? s.key" :disabled="s.key === 'sms_enabled' && !auth.config?.integrations.sms.connected" />
             <input v-else v-model.number="values[s.key]" type="number" min="0" class="field-input h-9 w-24 py-0 text-[14px] tnum" :aria-label="LABELS[s.key] ?? s.key" />
             <UiButton size="sm" :disabled="values[s.key] === s.value" :loading="busy === s.key" @click="saveSetting(s.key)">Save</UiButton>
           </div>

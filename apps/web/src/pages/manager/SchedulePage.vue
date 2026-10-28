@@ -329,7 +329,7 @@ async function saveShiftSetup() {
         </div>
         <UiButton variant="primary" @click="openShiftSetup">Set up shifts</UiButton>
       </section>
-      <section v-else class="card mb-6 flex flex-col gap-3 px-5 py-4 md:flex-row md:items-center" aria-label="Daily shifts">
+      <section v-else class="card mb-6 flex flex-col gap-3 px-5 py-4 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6" aria-label="Daily shifts">
         <template v-for="(p, i) in patterns" :key="p.id">
           <div class="flex items-center gap-3">
             <span class="grid size-9 shrink-0 place-items-center rounded-full text-[12px] font-semibold" :class="i % 2 ? 'bg-info-soft text-info' : 'bg-warn-soft text-warn'">{{ i + 1 }}</span>
@@ -338,7 +338,7 @@ async function saveShiftSetup() {
               <p class="text-[13px] text-ink-2 tnum">{{ clock(p.start_time) }} – {{ clock(p.end_time) }}</p>
             </div>
           </div>
-          <p class="flex items-center gap-2 text-[12.5px] text-ink-3 md:flex-1 md:justify-center">
+          <p class="flex items-center gap-2 text-[12.5px] whitespace-nowrap text-ink-3">
             <span aria-hidden="true">→</span>
             hands over at {{ clock(p.end_time) }}{{ i === patterns.length - 1 ? ` to the next ${patterns[0]!.name}` : '' }}
           </p>

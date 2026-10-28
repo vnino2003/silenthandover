@@ -16,6 +16,7 @@
     "seed": "npm run seed -w server --",
     "demo:hospital": "npm run demo:hospital -w server",
     "demo:schedule": "npm run demo:schedule -w server",
+    "presentation:prepare": "npm run presentation:prepare -w server --",
     "prompt:eval": "npm run prompt:eval -w server --"
   },
   "devDependencies": {

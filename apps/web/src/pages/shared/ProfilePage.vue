@@ -2,6 +2,7 @@
 import { ref } from 'vue';
 import { ROLE_LABELS } from '@sh/shared';
 import PageHeader from '@/components/ui/PageHeader.vue';
+import StatusBadge from '@/components/ui/StatusBadge.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import UiField from '@/components/ui/UiField.vue';
 import UserAvatar from '@/components/UserAvatar.vue';
@@ -105,9 +106,9 @@ async function save() {
       <h2 class="text-[15px] font-semibold">Notifications</h2>
       <p class="text-[13px] text-ink-3">You always receive notifications in the app. Emails contain a link only, never report content.</p>
       <label class="flex items-center gap-2 text-[14px]"><input v-model="form.notify_email" type="checkbox" class="size-4 accent-accent" /> Email me</label>
-      <label class="flex items-center gap-2 text-[14px]"><input v-model="form.notify_sms" type="checkbox" class="size-4 accent-accent" /> Text me (SMS)</label>
+      <label class="flex items-center gap-2 text-[14px]" :class="{ 'text-ink-3': !auth.config?.integrations.sms.connected }"><input v-model="form.notify_sms" type="checkbox" class="size-4 accent-accent" :disabled="!auth.config?.integrations.sms.connected && !form.notify_sms" /> Text me (SMS)<StatusBadge v-if="!auth.config?.integrations.sms.connected" tone="neutral" label="Coming soon" /></label>
       <p v-if="form.notify_sms && !auth.config?.integrations.sms.connected" class="text-[13px] text-warn">
-        No SMS provider is connected yet, so text messages are not sent. Your preference is saved for when it is.
+        Text messages are not set up yet, so none are sent. Your preference is saved for when they are.
       </p>
       <UiField v-slot="{ id }" label="Mobile number" optional :error="errors.phone">
         <input :id="id" v-model="form.phone" class="field-input max-w-xs" type="tel" autocomplete="tel" placeholder="+63 9xx xxx xxxx" />
