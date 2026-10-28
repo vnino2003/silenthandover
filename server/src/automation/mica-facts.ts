@@ -252,25 +252,23 @@ async function managerFacts(c: Ctx, page: AssistantPageContext, entityId?: strin
   });
 }
 
-/** Organization-wide counts. Service access, but only aggregates leave it (the admin pages' rule). */
+/**
+ * Organization-wide counts of reports, AI runs and safety concerns. Service access, but only
+ * aggregates leave it (the admin pages' rule). Schedules and leave are not the administrator's.
+ */
 async function adminFacts(c: Ctx): Promise<MicaFactGroup[]> {
   const rows = await svc(c).db.asService((q) =>
-    q.query<{ name: string; pending_review: number; processing: number; failed_runs: number; open_safety: number; understaffed: number; pending_leave: number }>(
+    q.query<{ name: string; pending_review: number; processing: number; failed_runs: number; open_safety: number }>(
       `select d.name,
               (select count(*)::int from public.shift_reports r where r.department_id = d.id and r.status = 'pending_review') as pending_review,
               (select count(*)::int from public.shift_reports r where r.department_id = d.id and r.status in ('submitted','processing')) as processing,
               (select count(*)::int from public.ai_analysis_runs x join public.shift_reports r on r.id = x.report_id
                 where r.department_id = d.id and x.status in ('failed','invalid_output') and x.created_at > now() - interval '7 days') as failed_runs,
               (select count(*)::int from public.operational_issues i where i.department_id = d.id and i.is_safety
-                and i.status in ('reported','pending_verification','open','in_progress','resolution_submitted')) as open_safety,
-              (select count(*)::int from public.shifts s where s.department_id = d.id and s.status = 'scheduled' and s.min_staff > 0
-                and s.shift_date between (now() at time zone d.timezone)::date and (now() at time zone d.timezone)::date + 6
-                and (select count(*) from public.shift_assignments a where a.shift_id = s.id and a.removed_at is null) < s.min_staff) as understaffed,
-              (select count(*)::int from public.leave_requests l where l.department_id = d.id and l.status = 'pending') as pending_leave
+                and i.status in ('reported','pending_verification','open','in_progress','resolution_submitted')) as open_safety
          from public.departments d order by d.name`,
     ),
   );
-  const forAdmin = await asUser(c, (q) => q.query<{ n: number }>('select count(*)::int as n from app.admin_leave_queue()'));
   const ai = await svc(c).aiSettings.view();
   return [
     {
@@ -281,18 +279,15 @@ async function adminFacts(c: Ctx): Promise<MicaFactGroup[]> {
           `${r.pending_review} pending review`,
           `${r.processing} being prepared`,
           `${r.failed_runs} failed AI runs (7 days)`,
-          `${r.open_safety} open safety issues`,
-          `${r.understaffed} understaffed shifts (next 7 days)`,
-          `${r.pending_leave} pending leave`,
+          `${r.open_safety} open safety concerns`,
         ].join(' · '),
-        tone: r.open_safety || r.failed_runs || r.understaffed ? ('warn' as const) : undefined,
+        tone: r.open_safety || r.failed_runs ? ('warn' as const) : undefined,
       })),
       empty: 'No departments yet.',
     },
     {
       title: 'Waiting for you',
       items: [
-        { label: 'Leave approvals', value: `${forAdmin[0]?.n ?? 0} (supervisors' own leave with no other supervisor)`, link: '/admin/leave' },
         { label: "Mica's AI", value: ai.provider === 'simulator' || !ai.has_key ? 'Not connected (practice mode)' : `${ai.provider}, ${ai.model ?? ai.resolved_model ?? 'newest available model'}`, link: '/admin' },
       ],
     },

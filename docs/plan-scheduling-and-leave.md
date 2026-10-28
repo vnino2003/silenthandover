@@ -131,4 +131,6 @@ Run it while the local app is running with the Newborn Care demo. It adds five m
 
 - Supervisor (maria.santos@demo.test): **Schedule → By person** (day / week / month board), **Leave requests**.
 - Worker (e.g. leo.fernandez@demo.test): **My schedule**, **Leave**, and the week strip on **Today**.
-- Administrator (admin@demo.test): **Schedules** (read-only), **Leave approvals**, **Rules and emails → Leave types**, and job titles on **Users**.
+- Administrator (admin@demo.test): **Rules and emails → Leave types** and job titles on **Users**.
+
+**Changed on 29 October 2026:** administrators no longer see department schedules or leave, and no longer decide leave (questions A and D reversed). A supervisor's own leave needs another supervisor of the same department; without one it is refused with a clear message (migration `20261029000100`).

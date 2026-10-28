@@ -83,7 +83,7 @@ describe('Mica governance', () => {
     const own = await ask('juan', 'leave', 'What is my leave status?');
     expect(JSON.stringify(own.body.facts)).not.toContain('Sick leave, ');
     expect((await ask('juan', 'leave_requests', 'Show pending leave')).status).toBe(403);
-    expect((await ask('manager', 'admin_leave', 'Show pending leave')).status).toBe(403);
+    expect((await ask('manager', 'users', 'Show pending leave')).status).toBe(403);
   });
 
   it('pseudonymizes names in the question and restores them in the answer', async () => {

@@ -52,8 +52,6 @@ const routes: RouteRecordRaw[] = [
       { path: 'admin/ai-pipeline', component: () => import('@/pages/admin/AiPipelinePage.vue'), meta: { assistantPage: 'pipeline', roles: admin, title: 'Mica AI pipeline' } },
       { path: 'admin/users', component: () => import('@/pages/admin/UsersPage.vue'), meta: { assistantPage: 'users', roles: admin, title: 'Users' } },
       { path: 'admin/departments', component: () => import('@/pages/admin/DepartmentsPage.vue'), meta: { assistantPage: 'departments', roles: admin, title: 'Departments' } },
-      { path: 'admin/schedules', component: () => import('@/pages/admin/SchedulesPage.vue'), meta: { assistantPage: 'admin_schedules', roles: admin, title: 'Schedules' } },
-      { path: 'admin/leave', component: () => import('@/pages/manager/LeaveRequestsPage.vue'), meta: { assistantPage: 'admin_leave', roles: admin, title: 'Leave approvals' } },
       { path: 'admin/shifts', redirect: '/admin' },
       { path: 'admin/settings', component: () => import('@/pages/admin/SettingsPage.vue'), meta: { assistantPage: 'settings', roles: admin, title: 'Rules and emails' } },
       { path: 'admin/integrations', redirect: '/admin' },

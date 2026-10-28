@@ -316,23 +316,7 @@ export function leaveRoutes() {
   });
 
   // ---- Administrators -----------------------------------------------------------
-  r.get('/admin/board', async (c) => {
-    requireRole(c, 'admin');
-    const q0 = parseQuery(c, z.object({ department_id: z.uuid(), from: date, to: date }));
-    const { from, to } = Range.parse({ from: q0.from, to: q0.to });
-    return c.json(await asUser(c, (q) => boardFor(q, q0.department_id, from, to)));
-  });
-
-  r.get('/admin/leave', async (c) => {
-    requireRole(c, 'admin');
-    return c.json(await asUser(c, (q) => q.query(`select *, start_date::text as start_date, end_date::text as end_date, end_date - start_date + 1 as days from app.admin_leave_queue()`)));
-  });
-  r.post('/admin/leave/:id/decision', async (c) => {
-    requireRole(c, 'admin');
-    const id = idParam(c);
-    const b = await parseBody(c, Decision);
-    return c.json(await asUser(c, async (q) => (await q.query<{ r: unknown }>('select app.decide_leave($1, $2, $3) as r', [id, b.decision, b.note]))[0]!.r));
-  });
+  // Configuration only (leave types, job titles). Schedules and leave stay with the department.
 
   const LeaveType = z.strictObject({
     name: z.string().trim().min(2).max(60),

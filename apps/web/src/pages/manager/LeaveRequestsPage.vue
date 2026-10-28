@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { useRoute } from 'vue-router';
 import PageHeader from '@/components/ui/PageHeader.vue';
 import StateBlock from '@/components/ui/StateBlock.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
@@ -15,16 +14,14 @@ import { useAsync } from '@/lib/useAsync';
 import { useToast } from '@/stores/toast';
 
 /**
- * Leave decisions. Supervisors decide requests from their department (never their own); the
- * admin sees, at /admin/leave, only supervisors' requests that have no other supervisor to decide.
- * Before deciding, the supervisor sees what approval would do to staffing.
+ * Leave decisions. Supervisors decide requests from their department (never their own), and see
+ * what approval would do to staffing before deciding. Administrators have no part in leave.
  */
 interface Row {
   id: string;
   employee_id: string;
   employee_name: string;
   job_title?: string | null;
-  department_name?: string;
   leave_type: string;
   start_date: string;
   end_date: string;
@@ -42,22 +39,19 @@ interface Impact {
   others_on_leave: { name: string; start_date: string; end_date: string }[];
 }
 
-const route = useRoute();
-const isAdmin = computed(() => route.path.startsWith('/admin'));
-const base = computed(() => (isAdmin.value ? '/admin/leave' : '/manager/leave'));
 const toast = useToast();
 const scope = ref<'pending' | 'all'>('pending');
 const { data, loading, refreshing, error, reload } = useAsync(
-  () => api.get<Row[]>(isAdmin.value ? '/admin/leave' : `/manager/leave?scope=${scope.value}`),
+  () => api.get<Row[]>(`/manager/leave?scope=${scope.value}`),
   [scope],
   { refreshMs: 30_000 },
 );
-const rows = computed(() => (data.value ?? []).filter((r) => !isAdmin.value || scope.value === 'all' || r.status === 'pending'));
+const rows = computed(() => data.value ?? []);
 
 // Impact, loaded when a request is opened.
 const impacts = ref<Record<string, Impact | 'loading' | 'error'>>({});
 async function loadImpact(r: Row) {
-  if (isAdmin.value || impacts.value[r.id]) return;
+  if (impacts.value[r.id]) return;
   impacts.value[r.id] = 'loading';
   try {
     impacts.value[r.id] = await api.get<Impact>(`/manager/leave/${r.id}/impact`);
@@ -81,7 +75,7 @@ async function confirm() {
       await api.post(`/manager/leave/${d.row.id}/cancel`, { note: d.note.trim() });
       toast.ok('Leave cancelled — the employee was notified');
     } else {
-      const res = await api.post<{ removed_from_shifts: number; understaffed: unknown[] }>(`${base.value}/${d.row.id}/decision`, { decision: d.decision, note: d.note.trim() });
+      const res = await api.post<{ removed_from_shifts: number; understaffed: unknown[] }>(`/manager/leave/${d.row.id}/decision`, { decision: d.decision, note: d.note.trim() });
       toast.ok(d.decision === 'approved' ? 'Leave approved — the employee was notified' : 'Request declined — the employee was notified');
       if (res.removed_from_shifts) toast.info(`Removed from ${res.removed_from_shifts} shift${res.removed_from_shifts === 1 ? '' : 's'}${res.understaffed.length ? ` · ${res.understaffed.length} now understaffed — check the schedule` : ''}`);
     }
@@ -98,8 +92,8 @@ async function confirm() {
 <template>
   <div class="mx-auto max-w-4xl">
     <PageHeader
-      :title="isAdmin ? 'Leave approvals' : 'Leave requests'"
-      :description="isAdmin ? 'Supervisors’ own leave, when their department has no other supervisor to decide it.' : 'Approve or decline leave for your department. You see the effect on staffing before you decide.'"
+      title="Leave requests"
+      description="Approve or decline leave for your department. You see the effect on staffing before you decide."
     />
 
     <div class="mb-4 flex gap-1 border-b border-line" role="tablist">
@@ -129,7 +123,7 @@ async function confirm() {
             <div class="flex min-w-0 items-start gap-3">
               <UserAvatar :id="r.employee_id" :name="r.employee_name" :size="36" />
               <div class="min-w-0">
-                <p class="text-[15px] font-semibold">{{ r.employee_name }}<span v-if="r.job_title || r.department_name" class="font-normal text-ink-3"> · {{ r.job_title ?? r.department_name }}</span></p>
+                <p class="text-[15px] font-semibold">{{ r.employee_name }}<span v-if="r.job_title" class="font-normal text-ink-3"> · {{ r.job_title }}</span></p>
                 <p class="text-[13.5px] text-ink-2 tnum">{{ r.leave_type }} · {{ labelRange(r.start_date, r.end_date) }} · {{ r.days }} day{{ r.days === 1 ? '' : 's' }}</p>
                 <p v-if="r.reason" class="mt-1 text-[13px] text-ink-2">“{{ r.reason }}”</p>
                 <p class="mt-0.5 text-[12px] text-ink-3">Requested {{ dateTime(r.created_at) }}</p>
@@ -142,7 +136,7 @@ async function confirm() {
           </div>
 
           <!-- What approval would do -->
-          <div v-if="r.status === 'pending' && !isAdmin" class="border-t border-line bg-canvas/50 px-5 py-3 text-[13px]">
+          <div v-if="r.status === 'pending'" class="border-t border-line bg-canvas/50 px-5 py-3 text-[13px]">
             <template v-if="impactOf(r)">
               <p v-if="!impactOf(r)!.shifts.length" class="text-ink-2">Not on any shift on these days — approving leaves the schedule unchanged.</p>
               <template v-else>
@@ -164,7 +158,7 @@ async function confirm() {
             <button v-else type="button" class="text-ink-3 hover:text-ink" @click="loadImpact(r)">{{ impacts[r.id] === 'loading' ? 'Checking staffing…' : 'Check staffing impact' }}</button>
           </div>
 
-          <div v-if="(r.status === 'pending' && (isAdmin || r.can_decide)) || (r.status === 'approved' && !isAdmin)" class="flex flex-wrap justify-end gap-2 border-t border-line px-5 py-3">
+          <div v-if="(r.status === 'pending' && r.can_decide) || r.status === 'approved'" class="flex flex-wrap justify-end gap-2 border-t border-line px-5 py-3">
             <template v-if="r.status === 'pending'">
               <UiButton size="sm" variant="ghost" @click="deciding = { row: r, decision: 'rejected', note: '' }">Decline</UiButton>
               <UiButton size="sm" variant="primary" @click="(deciding = { row: r, decision: 'approved', note: '' }), loadImpact(r)">Approve</UiButton>

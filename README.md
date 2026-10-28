@@ -38,7 +38,7 @@ For a presentation, `npm run presentation:prepare` (with the app stopped) builds
 
 ## Scheduling and leave
 
-Supervisors plan staffing on **Schedule**: by shift, or by person with day / week / month views, coverage against each shift's minimum staff, and a list of conflicts. They decide **Leave requests** after seeing the staffing impact. Workers see **My schedule** (next shift first, list or calendar, rest days and leave) and request leave on **Leave**. Only approved leave changes the schedule, and nobody approves their own. Administrators configure leave types and scheduling rules, set job titles, and have a read-only view of every department. Every schedule change notifies the people affected.
+Supervisors plan staffing on **Schedule**: by shift, or by person with day / week / month views, coverage against each shift's minimum staff, and a list of conflicts. They decide **Leave requests** after seeing the staffing impact. Workers see **My schedule** (next shift first, list or calendar, rest days and leave) and request leave on **Leave**. Only approved leave changes the schedule, and nobody approves their own. Supervisors also see their whole **Team**. Administrators configure leave types and rules and set job titles, but do not see department schedules or anyone's leave; a supervisor's own leave is decided by another supervisor of the department. Every schedule change notifies the people affected.
 
 For a two-week staffing example, run this while the local app is running:
 

@@ -143,8 +143,7 @@ It uses the same authenticated delivery-result callback and idempotency checks a
 | PUT | `/manager/day-marks` | Supervisor | Mark or clear a rest day / day off |
 | POST | `/manager/rest-days` | Supervisor | Weekly rest days over a date range |
 | PATCH | `/manager/templates/:id/min-staff`, `/manager/schedule/:id/min-staff` | Supervisor | Staff needed per shift pattern / shift |
-| GET | `/admin/board?department_id&from&to` | Administrator | Read-only department board |
-| GET / POST | `/admin/leave`, `/admin/leave/:id/decision` | Administrator | Supervisors' own leave when no other supervisor can decide |
+| GET | `/manager/team` | Supervisor | Everyone active in the department: today's status, next shift, this week's shifts, leave (a list; accounts stay with the administrator) |
 | POST / PATCH | `/admin/leave-types` | Administrator | Configure leave types |
 | PATCH | `/admin/users/:id/job-title` | Administrator | Job title shown on schedules |
 

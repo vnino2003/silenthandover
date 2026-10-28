@@ -19,13 +19,13 @@ describe('Folio contextual experience and safe workflow handoffs',()=>{
   const guide=(who:string,page:string,message:string)=>h.call(who,'POST','/api/assistant/help',{page,message});
 
   it('maps employee schedules and every leave context to authorized, typed application facts',async()=>{
-    for(const [who,page] of [['juan','my_schedule'],['juan','leave'],['manager','leave_requests'],['admin','admin_schedules'],['admin','admin_leave']]){
+    for(const [who,page] of [['juan','my_schedule'],['juan','leave'],['manager','leave_requests'],['admin','pipeline']]){
       const response=await guide(who!,page!,'What do my records show?');
       expect(response.status).toBe(200);
       expect(MicaAnswer.safeParse(response.body).success).toBe(true);
     }
     expect((await guide('juan','schedule','Explain this page')).status).toBe(403);
-    expect((await guide('juan','admin_leave','Show records')).status).toBe(403);
+    expect((await guide('juan','users','Show records')).status).toBe(403);
     expect(micaSuggestions('my_schedule','employee').some(s=>s.kind==='leave')).toBe(true);
     expect(micaSuggestions('departments','admin').every(s=>s.kind!=='prepare')).toBe(true);
   });

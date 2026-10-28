@@ -66,7 +66,10 @@ describe('scheduling and leave', () => {
     expect((await h.call('juan', 'POST', `/api/manager/leave/${juanLeave}/decision`, { decision: 'approved' })).status).toBe(403);
     await expect(h.sqlAs('juan', `select app.decide_leave($1, 'approved', '')`, [juanLeave])).rejects.toThrow(/SH:forbidden/);
     expect((await h.call('facmanager', 'POST', `/api/manager/leave/${juanLeave}/decision`, { decision: 'approved' })).status).toBe(403);
-    expect((await h.call('admin', 'POST', `/api/admin/leave/${juanLeave}/decision`, { decision: 'approved' })).status).toBe(403);
+    // The administrator has no part in leave: no route, and the database refuses too.
+    expect((await h.call('admin', 'POST', `/api/admin/leave/${juanLeave}/decision`, { decision: 'approved' })).status).toBe(404);
+    await expect(h.sqlAs('admin', `select app.decide_leave($1, 'approved', '')`, [juanLeave])).rejects.toThrow(/SH:forbidden/);
+    expect(await h.sqlAs('admin', 'select id from public.leave_requests')).toEqual([]);
   });
 
   it('shows the supervisor what approving would do', async () => {
@@ -123,15 +126,11 @@ describe('scheduling and leave', () => {
     expect(await kinds('juan')).toContain('leave_changed');
   });
 
-  it('sends a supervisor’s own request to the admin when there is no other supervisor', async () => {
+  it('refuses a supervisor’s own leave when no other supervisor of the department can decide it', async () => {
     const req = await h.call('manager', 'POST', '/api/leave', { leave_type_id: vacation, start_date: day(4), end_date: day(4) });
-    expect(req.status).toBe(201);
-    expect(await kinds('admin')).toContain('leave_requested');
-    expect((await h.call('manager', 'POST', `/api/manager/leave/${req.body.id}/decision`, { decision: 'approved' })).status).toBe(403);
-    const queue = (await h.call('admin', 'GET', '/api/admin/leave')).body;
-    expect(queue.map((r: any) => r.id)).toContain(req.body.id);
-    expect((await h.call('admin', 'POST', `/api/admin/leave/${req.body.id}/decision`, { decision: 'approved', note: '' })).status).toBe(200);
-    expect(await kinds('manager')).toContain('leave_approved');
+    expect(req.status).toBe(409);
+    expect(req.body.error.message).toContain('No other supervisor');
+    expect(await kinds('admin')).not.toContain('leave_requested');
   });
 
   it('lets the supervisor set rest days, and warns when assigning on one', async () => {
@@ -188,10 +187,25 @@ describe('scheduling and leave', () => {
     const tooLong = await h.call('juan', 'POST', '/api/leave', { leave_type_id: created.body.id, start_date: day(8), end_date: day(14), reason: 'Board exam review' });
     expect(tooLong.status).toBe(422);
     expect((await h.call('admin', 'PATCH', `/api/admin/users/${h.ids.ana}/job-title`, { job_title: 'Staff nurse' })).status).toBe(200);
-    const [dept] = await h.sql<{ id: string }>(`select department_id as id from public.profiles where id = $1`, [h.ids.ana]);
-    const board = (await h.call('admin', 'GET', `/api/admin/board?department_id=${dept!.id}&from=${day(0)}&to=${day(6)}`)).body;
+    const board = (await h.call('manager', 'GET', `/api/manager/board?from=${day(0)}&to=${day(6)}`)).body;
     expect(board.employees.find((e: any) => e.id === h.ids.ana)).toMatchObject({ job_title: 'Staff nurse' });
     expect(board.leave.every((l: any) => !('reason' in l))).toBe(true);
-    expect((await h.call('manager', 'GET', `/api/admin/board?department_id=${dept!.id}&from=${day(0)}&to=${day(6)}`)).status).toBe(403);
+    // Schedules are the department's: the administrator cannot read them.
+    const [dept] = await h.sql<{ id: string }>(`select department_id as id from public.profiles where id = $1`, [h.ids.ana]);
+    expect((await h.call('admin', 'GET', `/api/admin/board?department_id=${dept!.id}&from=${day(0)}&to=${day(6)}`)).status).toBe(404);
+    expect(await h.sqlAs('admin', 'select id from public.shifts')).toEqual([]);
+    expect(await h.sqlAs('admin', 'select employee_id from public.schedule_day_marks')).toEqual([]);
+  });
+
+  it('shows the supervisor their whole team with today’s status and next shift', async () => {
+    const team = await h.call('manager', 'GET', '/api/manager/team');
+    expect(team.status).toBe(200);
+    expect(team.body.members.map((m: any) => m.full_name)).toContain('Ana Lim');
+    expect(team.body.members.every((m: any) => !('email' in m))).toBe(true);
+    for (const who of ['juan', 'admin', 'facmanager']) {
+      const r = await h.call(who, 'GET', '/api/manager/team');
+      if (who === 'facmanager') expect(r.body.members.map((m: any) => m.full_name)).not.toContain('Ana Lim');
+      else expect(r.status).toBe(403);
+    }
   });
 });

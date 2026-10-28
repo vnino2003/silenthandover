@@ -44,8 +44,6 @@ const NAV = {
   admin: [
     { to: '/admin/users', label: 'Users', group: 'People' },
     { to: '/admin/departments', label: 'Departments', group: 'People' },
-    { to: '/admin/schedules', label: 'Schedules', group: 'People' },
-    { to: '/admin/leave', label: 'Leave approvals', group: 'People' },
     { to: '/admin', label: 'Integrations', exact: true, group: 'Settings' },
     { to: '/admin/ai-pipeline', label: 'Mica AI pipeline', group: 'Settings' },
     { to: '/admin/settings', label: 'Rules and emails', group: 'Settings' },
