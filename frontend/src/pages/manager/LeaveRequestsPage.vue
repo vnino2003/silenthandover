@@ -37,7 +37,7 @@ interface Row {
   can_decide?: boolean;
 }
 interface Impact {
-  shifts: { shift_id: string; label: string; shift_date: string; starts_at: string; ends_at: string; min_staff: number; assigned: number; assigned_after: number }[];
+  shifts: { shift_id: string; label: string; shift_date: string; starts_at: string; ends_at: string; min_staff: number; assigned: number; assigned_after: number; overlap?: 'full' | 'partial' }[];
   others_on_leave: { name: string; start_date: string; end_date: string }[];
 }
 
@@ -63,7 +63,11 @@ async function loadImpact(r: Row) {
   }
 }
 const impactOf = (r: Row) => (typeof impacts.value[r.id] === 'object' ? (impacts.value[r.id] as Impact) : null);
-const shortAfter = (i: Impact) => i.shifts.filter((s) => s.min_staff > 0 && s.assigned_after < s.min_staff).length;
+/** Shifts approval removes the person from (on the leave days). */
+const removed = (i: Impact) => i.shifts.filter((s) => s.overlap !== 'partial');
+/** Overnight shifts from the day before that run into the leave: kept, shown for the Head Nurse to handle. */
+const partial = (i: Impact) => i.shifts.filter((s) => s.overlap === 'partial');
+const shortAfter = (i: Impact) => removed(i).filter((s) => s.min_staff > 0 && s.assigned_after < s.min_staff).length;
 
 // Decide or cancel
 const deciding = ref<{ row: Row; decision: 'approved' | 'rejected' | 'cancel'; note: string } | null>(null);
@@ -139,14 +143,19 @@ async function confirm() {
                       <p v-if="!impactOf(r)!.shifts.length" class="text-ink-2">Not on any shift on these days — approving leaves the schedule unchanged.</p>
                       <template v-else>
                         <p class="font-medium" :class="shortAfter(impactOf(r)!) ? 'text-warn' : 'text-ink-2'">
-                          Approving removes {{ r.employee_name.split(' ')[0] }} from {{ impactOf(r)!.shifts.length }} shift{{ impactOf(r)!.shifts.length === 1 ? '' : 's' }}<template v-if="shortAfter(impactOf(r)!)">; {{ shortAfter(impactOf(r)!) }} would be understaffed</template>.
+                          Approving removes {{ r.employee_name.split(' ')[0] }} from {{ removed(impactOf(r)!).length }} shift{{ removed(impactOf(r)!).length === 1 ? '' : 's' }}<template v-if="shortAfter(impactOf(r)!)">; {{ shortAfter(impactOf(r)!) }} would be understaffed</template>.
                         </p>
                         <ul class="mt-1.5 space-y-0.5 text-ink-2 tnum">
-                          <li v-for="s in impactOf(r)!.shifts" :key="s.shift_id" class="flex flex-wrap gap-x-2">
+                          <li v-for="s in removed(impactOf(r)!)" :key="s.shift_id" class="flex flex-wrap gap-x-2">
                             <span>{{ s.label }}, {{ labelDay(s.shift_date) }} · {{ time(s.starts_at) }}</span>
                             <span :class="s.min_staff > 0 && s.assigned_after < s.min_staff ? 'font-medium text-bad' : 'text-ink-3'">{{ s.assigned_after }} of {{ s.min_staff }} staff left</span>
                           </li>
                         </ul>
+                        <p v-if="partial(impactOf(r)!).length" class="mt-1.5 text-warn">
+                          Runs into the leave, not removed:
+                          {{ partial(impactOf(r)!).map((s) => `${s.label}, ${labelDay(s.shift_date)} · ${time(s.starts_at)}–${time(s.ends_at)}`).join('; ') }}.
+                          Change it on the duty schedule if needed.
+                        </p>
                       </template>
                       <p v-if="impactOf(r)!.others_on_leave.length" class="mt-1.5 text-ink-3">
                         Also on leave: {{ impactOf(r)!.others_on_leave.map((o) => `${o.name} (${labelRange(o.start_date, o.end_date)})`).join(', ') }}
@@ -175,8 +184,8 @@ async function confirm() {
               @close="deciding = null"
             >
               <div v-if="deciding" class="space-y-3">
-                <p v-if="deciding.decision === 'approved' && impactOf(deciding.row)?.shifts.length" class="rounded-md bg-warn-soft px-3 py-2 text-[13px] text-warn">
-                  {{ deciding.row.employee_name.split(' ')[0] }} will be removed from {{ impactOf(deciding.row)!.shifts.length }} shift{{ impactOf(deciding.row)!.shifts.length === 1 ? '' : 's' }} and told.
+                <p v-if="deciding.decision === 'approved' && (impactOf(deciding.row) && removed(impactOf(deciding.row)!).length)" class="rounded-md bg-warn-soft px-3 py-2 text-[13px] text-warn">
+                  {{ deciding.row.employee_name.split(' ')[0] }} will be removed from {{ removed(impactOf(deciding.row)!).length }} shift{{ removed(impactOf(deciding.row)!).length === 1 ? '' : 's' }} and told.
                   <template v-if="shortAfter(impactOf(deciding.row)!)"> {{ shortAfter(impactOf(deciding.row)!) }} will need cover.</template>
                 </p>
                 <p v-if="deciding.decision === 'cancel'" class="text-[13px] text-ink-2">They won’t be put back on shifts automatically — add them on the schedule if needed.</p>

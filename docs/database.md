@@ -45,3 +45,13 @@ employees to concrete `shifts`.
 `anon` / `authenticated` / `service_role` roles) so the same migrations run on embedded PostgreSQL.
 The local database is a snapshot file at `backend/.data/local-db.tar.gz`; delete it (or run
 `npm run seed -- --reset`) to start over.
+
+## Migration names
+
+The API applies `supabase/migrations/*.sql` itself, in filename order, and records each **full
+filename** in `public.schema_migrations`. Two files share the prefix `20261104000100`
+(`_email_sender_and_invitations` and `_hospital_terminology`); with this runner both apply and
+are tracked separately. They are kept as they are, because renaming an applied migration would make
+the runner apply it a second time. Tools that track only the numeric version (for example
+`supabase db push`) would treat them as one migration, so do not apply this folder with the
+Supabase CLI. New migrations use a fresh timestamp prefix.

@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { setup, type Harness } from './helpers';
+import { adhocShift, setup, type Harness } from './helpers';
 
 /**
  * Scheduling and leave. The seeded week (from tomorrow): Juan on Morning, Ana and Ben on Afternoon.
@@ -206,6 +206,44 @@ describe('scheduling and leave', () => {
       const r = await h.call(who, 'GET', '/api/manager/team');
       if (who === 'facmanager') expect(r.body.members.map((m: any) => m.full_name)).not.toContain('Ana Lim');
       else expect(r.status).toBe(403);
+    }
+  });
+
+  it('shows an overnight shift that runs into the leave as partial, and keeps it on approval', async () => {
+    // A Night shift for Juan from the evening before the leave day into its morning.
+    const night = await adhocShift(h, {
+      label: 'Night',
+      startsSql: `('${day(5)} 22:00'::timestamp at time zone 'Asia/Manila')`,
+      endsSql: `('${day(6)} 06:00'::timestamp at time zone 'Asia/Manila')`,
+      employee: 'juan',
+    });
+    const req = await h.call('juan', 'POST', '/api/leave', { leave_type_id: vacation, start_date: day(6), end_date: day(6) });
+    expect(req.status).toBe(201);
+    const impact = (await h.call('manager', 'GET', `/api/manager/leave/${req.body.id}/impact`)).body;
+    const overnight = impact.shifts.find((s: any) => s.shift_id === night);
+    expect(overnight).toMatchObject({ shift_date: day(5), overlap: 'partial' });
+    expect(impact.shifts.filter((s: any) => s.shift_id !== night).every((s: any) => s.overlap === 'full')).toBe(true);
+
+    expect((await h.call('manager', 'POST', `/api/manager/leave/${req.body.id}/decision`, { decision: 'approved' })).status).toBe(200);
+    // Approval removes the leave-day shifts only; the overnight shift from the day before stays.
+    const stillOn = await h.sql(`select 1 from public.shift_assignments where shift_id = $1 and employee_id = $2 and removed_at is null`, [night, h.ids.juan]);
+    expect(stillOn).toHaveLength(1);
+    expect(await juanShiftOn(day(6))).toBeUndefined();
+  });
+
+  it('asks IT to add an approver (not to decide) when nobody in the department can decide a request', async () => {
+    await h.sql('update public.profiles set is_active = false where id = $1', [h.ids.manager]);
+    try {
+      const req = await h.call('ana', 'POST', '/api/leave', { leave_type_id: vacation, start_date: day(12), end_date: day(12) });
+      expect(req.status).toBe(201);
+      const adminNotes = (await h.call('admin', 'GET', '/api/notifications')).body.items;
+      const note = adminNotes.find((n: any) => n.kind === 'leave_no_approver');
+      expect(note).toMatchObject({ link: '/admin/users' });
+      expect(note.body).not.toContain('Vacation');
+      expect(adminNotes.some((n: any) => n.link === '/admin/leave')).toBe(false);
+      expect(await kinds('ana')).toContain('leave_no_approver');
+    } finally {
+      await h.sql('update public.profiles set is_active = true where id = $1', [h.ids.manager]);
     }
   });
 });
