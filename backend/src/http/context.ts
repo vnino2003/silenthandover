@@ -25,8 +25,12 @@ export interface Profile {
   notify_email: boolean;
   notify_sms: boolean;
   is_active: boolean;
+  /** Workforce duties on top of the role (HR, payroll, finance, Nursing Service). */
+  capabilities: { capability: Capability; department_id: string | null }[];
   server_now: string;
 }
+
+export type Capability = 'nursing_service' | 'timekeeper' | 'hr_admin' | 'payroll_preparer' | 'finance_approver';
 
 export interface Services {
   config: Config;
@@ -63,6 +67,13 @@ export const asUser = <T>(c: Ctx, fn: (q: Queryable) => Promise<T>) => svc(c).db
 
 export function requireRole(c: Ctx, ...roles: Role[]) {
   if (!roles.includes(c.get('profile').role)) {
+    throw new ApiError(403, 'forbidden', 'You do not have access to this area');
+  }
+}
+
+/** The signed-in person must hold one of these capabilities (the database checks scope again). */
+export function requireCapability(c: Ctx, ...caps: Capability[]) {
+  if (!(c.get('profile').capabilities ?? []).some((g) => caps.includes(g.capability))) {
     throw new ApiError(403, 'forbidden', 'You do not have access to this area');
   }
 }

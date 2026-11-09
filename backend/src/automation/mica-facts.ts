@@ -294,7 +294,161 @@ async function adminFacts(c: Ctx): Promise<MicaFactGroup[]> {
   ];
 }
 
+// ---- Attendance, DTR and payroll facts --------------------------------------------------------
+// Deterministic queries with the user's own permissions. They state their period and whether the
+// figures are provisional or certified. No salary amounts, raw punch evidence, device data or leave
+// reasons are included.
+const EXCEPTION_LABEL: Record<string, string> = {
+  missing_in: 'Missing time-in', missing_out: 'Missing time-out', late: 'Late', undertime: 'Left early', overtime: 'Overtime to decide',
+  possible_absence: 'No time-in (possible absence)', unscheduled: 'Punch with no duty', duplicate: 'Repeated time-in', pending_leave: 'Leave not yet decided',
+};
+
+async function ownAttendance(q: Queryable, today: string): Promise<MicaFactGroup[]> {
+  const open = await q.query<{ kind: string; label: string | null; shift_date: string | null }>(
+    `select x.kind, s.label, s.shift_date::text as shift_date from public.attendance_exceptions x left join public.shifts s on s.id = x.shift_id
+      where x.profile_id = auth.uid() and x.state = 'open' order by x.created_at desc limit 10`,
+  );
+  const recent = await q.query<{ status: string; n: number }>(
+    `select r.status, count(*)::int as n from public.attendance_records r join public.shifts s on s.id = r.shift_id
+      where r.profile_id = auth.uid() and s.shift_date between $1::date - 14 and $1::date group by r.status`,
+    [today],
+  );
+  const dtr = await q.query<{ start_date: string; end_date: string; state: string; blocking_items: number }>(
+    `select c.start_date::text as start_date, c.end_date::text as end_date, d.state, d.blocking_items
+       from public.dtr_versions d join public.cutoff_periods c on c.id = d.period_id
+      where d.profile_id = auth.uid() and d.state <> 'superseded' order by c.start_date desc, d.version desc limit 1`,
+  );
+  const STATUS: Record<string, string> = { present: 'present', clocked_in: 'clocked in', incomplete: 'incomplete', no_show: 'no time-in', absent: 'absent', excused: 'on leave', scheduled: 'upcoming' };
+  return [
+    {
+      title: 'Your attendance items to fix',
+      items: open.map((x) => ({ label: EXCEPTION_LABEL[x.kind] ?? x.kind, value: x.shift_date ? `${x.label ?? 'Duty'}, ${day(x.shift_date)}` : 'No matching duty', tone: 'warn' as const, link: '/attendance' })),
+      empty: 'Nothing to fix. Every recorded duty has its time-in and time-out.',
+    },
+    {
+      title: `Your duties, last 14 days (to ${day(today)}, provisional until certified)`,
+      items: recent.map((r) => ({ label: STATUS[r.status] ?? r.status, value: plural(r.n, 'duty', 'duties') })),
+      empty: 'No duties recorded in the last 14 days.',
+    },
+    {
+      title: 'Your latest DTR',
+      items: dtr.map((d) => ({
+        label: span(d.start_date, d.end_date),
+        value: d.state === 'certified' ? 'Certified' : d.state === 'staff_confirmed' ? 'Confirmed by you, waiting for certification' : `Draft${d.blocking_items ? ` · ${plural(d.blocking_items, 'item')} to settle first` : ' · ready for you to confirm'}`,
+        tone: d.state === 'certified' ? ('ok' as const) : ('warn' as const),
+        link: '/my-dtr',
+      })),
+      empty: 'No DTR yet. HR opens one per cutoff period.',
+    },
+  ];
+}
+
+async function unitAttendance(q: Queryable, departmentId: string, today: string): Promise<MicaFactGroup[]> {
+  const today_ = await q.query<{ label: string; scheduled: number; clocked: number; verified: number; absent: number }>(
+    `select s.label, count(*)::int as scheduled,
+            count(*) filter (where r.status in ('clocked_in', 'present', 'incomplete'))::int as clocked,
+            count(*) filter (where r.verified_at is not null)::int as verified,
+            count(*) filter (where r.status in ('no_show', 'absent'))::int as absent
+       from public.attendance_records r join public.shifts s on s.id = r.shift_id
+      where r.department_id = $1 and s.shift_date = $2::date and r.status <> 'excused'
+      group by s.label, s.starts_at order by s.starts_at`,
+    [departmentId, today],
+  );
+  const open = await q.query<{ kind: string; n: number }>(
+    `select kind, count(*)::int as n from public.attendance_exceptions where department_id = $1 and state = 'open' group by kind order by n desc`,
+    [departmentId],
+  );
+  const [corr] = await q.query<{ n: number }>(`select count(*)::int as n from public.attendance_corrections where department_id = $1 and status = 'pending'`, [departmentId]);
+  return [
+    {
+      title: `Scheduled and verified coverage, ${day(today)}`,
+      items: today_.map((r) => ({ label: r.label, value: `${r.scheduled} scheduled · ${r.clocked} clocked in · ${r.verified} verified${r.absent ? ` · ${r.absent} without time-in` : ''}`, tone: r.absent ? ('warn' as const) : undefined, link: '/manager/attendance' })),
+      empty: 'No duties today.',
+    },
+    {
+      title: 'Open attendance items in the unit',
+      items: [
+        ...open.map((x) => ({ label: EXCEPTION_LABEL[x.kind] ?? x.kind, value: String(x.n), tone: 'warn' as const, link: '/manager/attendance' })),
+        ...(corr?.n ? [{ label: 'Corrections waiting for you', value: String(corr.n), tone: 'warn' as const, link: '/manager/attendance' }] : []),
+      ],
+      empty: 'No open attendance items.',
+    },
+  ];
+}
+
+async function hrFacts(q: Queryable): Promise<MicaFactGroup[]> {
+  const periods = await q.query<{ pay_group: string; start_date: string; end_date: string; state: string; members: number; certified: number }>(
+    `select g.name as pay_group, c.start_date::text as start_date, c.end_date::text as end_date, c.state,
+            (select count(*)::int from public.pay_group_members m where m.pay_group_id = c.pay_group_id) as members,
+            (select count(*)::int from public.dtr_versions d where d.period_id = c.id and d.state = 'certified') as certified
+       from public.cutoff_periods c join public.pay_groups g on g.id = c.pay_group_id order by c.start_date desc limit 4`,
+  );
+  const open = await q.query<{ department: string; n: number }>(
+    `select d.name as department, count(*)::int as n from public.attendance_exceptions x join public.departments d on d.id = x.department_id
+      where x.state = 'open' and x.kind in ('missing_in', 'missing_out', 'possible_absence', 'overtime', 'pending_leave')
+      group by d.name order by n desc`,
+  );
+  return [
+    {
+      title: 'Cutoff periods',
+      items: periods.map((p) => ({ label: `${p.pay_group} · ${span(p.start_date, p.end_date)}`, value: p.state === 'locked' ? 'Locked' : `Open · ${p.certified} of ${p.members} DTRs certified`, tone: p.state === 'locked' ? ('ok' as const) : undefined, link: '/hr' })),
+      empty: 'No cutoff periods yet.',
+    },
+    { title: 'Unresolved attendance items blocking DTRs', items: open.map((o) => ({ label: o.department, value: String(o.n), tone: 'warn' as const })), empty: 'None.' },
+  ];
+}
+
+async function payrollFacts(q: Queryable): Promise<MicaFactGroup[]> {
+  const periods = await q.query<{ id: string; pay_group: string; start_date: string; end_date: string; state: string; missing: number }>(
+    `select c.id, g.name as pay_group, c.start_date::text as start_date, c.end_date::text as end_date, c.state,
+            (select count(*)::int from public.pay_group_members m where m.pay_group_id = c.pay_group_id
+              and not exists (select 1 from public.dtr_versions d where d.profile_id = m.profile_id and d.period_id = c.id and d.state = 'certified')) as missing
+       from public.cutoff_periods c join public.pay_groups g on g.id = c.pay_group_id order by c.start_date desc limit 4`,
+  );
+  const runs = await q.query<{ start_date: string; end_date: string; state: string; people: number }>(
+    `select c.start_date::text as start_date, c.end_date::text as end_date, r.state, coalesce((r.totals ->> 'people')::int, 0) as people
+       from public.payroll_runs r join public.cutoff_periods c on c.id = r.period_id order by r.prepared_at desc limit 4`,
+  );
+  const RUN: Record<string, string> = { draft: 'Draft (not submitted)', submitted: 'Waiting for Finance', returned: 'Returned to Payroll', approved: 'Approved, not released', released: 'Released' };
+  return [
+    {
+      title: 'Certified DTRs per cutoff',
+      items: periods.map((p) => ({
+        label: `${p.pay_group} · ${span(p.start_date, p.end_date)}`,
+        value: `${p.state === 'locked' ? 'Locked' : 'Open'}${p.missing ? ` · ${plural(p.missing, 'DTR')} not certified` : ' · all certified'}`,
+        tone: p.missing ? ('warn' as const) : ('ok' as const),
+        link: '/payroll',
+      })),
+      empty: 'No cutoff periods yet.',
+    },
+    { title: 'Payroll runs', items: runs.map((r) => ({ label: span(r.start_date, r.end_date), value: `${RUN[r.state] ?? r.state} · ${plural(r.people, 'person', 'people')}`, link: '/payroll' })), empty: 'No payroll runs yet.' },
+  ];
+}
+
+/** Facts for the attendance, DTR, HR and payroll pages, whatever the base role. */
+async function workforceFacts(c: Ctx, page: AssistantPageContext): Promise<MicaFactGroup[] | null> {
+  const p = c.get('profile');
+  const has = (cap: string) => (p.capabilities ?? []).some((g) => g.capability === cap);
+  if (page === 'hr' && (has('timekeeper') || has('hr_admin'))) return asUser(c, hrFacts);
+  if (page === 'payroll' && (has('payroll_preparer') || has('finance_approver') || has('hr_admin'))) return asUser(c, payrollFacts);
+  if (page === 'team_attendance' && p.role === 'manager' && p.department_id) {
+    return asUser(c, async (q) => {
+      const d = await departmentToday(q);
+      return d ? [todayGroup(d.today), ...(await unitAttendance(q, p.department_id!, d.today))] : [];
+    });
+  }
+  if ((page === 'attendance' || page === 'dtr' || page === 'payslips') && p.role !== 'admin') {
+    return asUser(c, async (q) => {
+      const d = await departmentToday(q);
+      return d ? [todayGroup(d.today), ...(await ownAttendance(q, d.today))] : [];
+    });
+  }
+  return null;
+}
+
 export async function micaFacts(c: Ctx, page: AssistantPageContext, entityId?: string): Promise<MicaFactGroup[]> {
+  const workforce = await workforceFacts(c, page);
+  if (workforce) return workforce;
   const role = c.get('profile').role;
   if (role === 'employee') return employeeFacts(c, page);
   if (role === 'manager') return managerFacts(c, page, entityId);

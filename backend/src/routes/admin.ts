@@ -305,6 +305,30 @@ export function adminRoutes() {
     return c.json({ ok: true });
   });
 
+  // ---- Workforce access (HR, payroll, finance, Nursing Service) --------------------------
+  // IT grants and removes these duties as account administration; it never sees their data.
+  r.get('/access', async (c) =>
+    c.json(
+      await asUser(c, (q) =>
+        q.query(
+          `select g.id, g.profile_id, p.full_name, g.capability, g.department_id, d.name as department, g.granted_at
+             from public.role_grants g join public.profiles p on p.id = g.profile_id left join public.departments d on d.id = g.department_id
+            where g.revoked_at is null order by p.full_name, g.capability`,
+        ),
+      ),
+    ),
+  );
+  r.post('/access', async (c) => {
+    const b = await parseBody(c, z.strictObject({ profile_id: z.uuid(), capability: z.enum(['nursing_service', 'timekeeper', 'hr_admin', 'payroll_preparer', 'finance_approver']), department_id: z.uuid().nullable() }));
+    const [row] = await asUser(c, (q) => q.query<{ id: string }>('select app.admin_grant_capability($1, $2, $3) as id', [b.profile_id, b.capability, b.department_id]));
+    return c.json({ id: row!.id }, 201);
+  });
+  r.delete('/access/:id', async (c) => {
+    const id = idParam(c);
+    await asUser(c, (q) => q.query('select app.admin_revoke_capability($1)', [id]));
+    return c.json({ ok: true });
+  });
+
   // ---- Departments and teams ---------------------------------------------------
   r.get('/departments', async (c) => {
     const rows = await asUser(c, (q) =>

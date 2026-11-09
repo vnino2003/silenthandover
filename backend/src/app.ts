@@ -9,6 +9,8 @@ import { svc, type AppEnv, type Profile, type Services } from './http/context';
 import { adminRoutes } from './routes/admin';
 import { employeeRoutes } from './routes/employee';
 import { leaveRoutes } from './routes/leave';
+import { stationRoutes } from './routes/stations';
+import { workforceRoutes } from './routes/workforce';
 import { integrationRoutes } from './routes/integrations';
 import { issueRoutes } from './routes/issues';
 import { managerRoutes } from './routes/manager';
@@ -113,6 +115,11 @@ export function createApp(services: Services) {
 
   // n8n callbacks authenticate with their own shared secret, not a user session.
   app.route('/api/integrations/n8n', integrationRoutes());
+  // Attendance stations and terminals authenticate with their own keys, not a user session.
+  const stationLimiter = rateLimit({ windowMs: 60_000, max: 240, key: (cc) => `st:${cc.req.param('id') ?? cc.req.header('x-forwarded-for') ?? 'x'}` });
+  app.use('/api/stations/*', stationLimiter);
+  app.use('/api/devices/*', stationLimiter);
+  app.route('/api', stationRoutes());
 
   // Everything below requires a signed-in, active user.
   const authed = new Hono<AppEnv>();
@@ -143,6 +150,7 @@ export function createApp(services: Services) {
   authed.route('/', assistantHelpRoutes());
   authed.route('/', assistantRoutes());
   authed.route('/', issueRoutes());
+  authed.route('/', workforceRoutes());
   authed.route('/manager', managerRoutes());
   authed.route('/admin', adminRoutes());
   app.route('/api', authed);
