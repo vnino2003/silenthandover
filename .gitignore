@@ -10,3 +10,8 @@ coverage/
 .DS_Store
 .vscode/*
 !.vscode/extensions.json
+
+# Local tool settings and files kept outside the repository
+.claude/
+outputs/
+work/

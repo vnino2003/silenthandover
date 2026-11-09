@@ -46,7 +46,7 @@ For a two-week staffing example, run this while the local app is running:
 npm run demo:schedule
 ```
 
-Details and design decisions: `docs/plan-scheduling-and-leave.md`.
+Details: [architecture](docs/architecture.md) and [database](docs/database.md).
 
 ## Attendance, DTR and payroll
 
@@ -86,4 +86,4 @@ To start the real organization locally without any demo data, stop the app and r
 
 The UI, database workflow, privacy sanitizer, validation, retries, permission checks and audit records are implemented and covered by automated tests. Without a connected provider, analysis is a labeled simulator and email uses a labeled dev outbox. Hosted Supabase, live model calls, email/SMS and n8n require their own configured-service checks; a passing simulator test does not establish a live deployment.
 
-See [architecture](docs/architecture.md), [database](docs/database.md), [security](docs/security.md), [API](docs/api.md), [deployment](docs/deployment.md), [industry upgrade](docs/industry-upgrade.md) and [capstone documents](docs/capstone/README.md).
+See [architecture](docs/architecture.md), [database](docs/database.md), [security](docs/security.md), [API](docs/api.md), [deployment](docs/deployment.md), [workforce](docs/workforce.md), [Android](docs/android.md) and [capstone documents](docs/capstone/README.md).
