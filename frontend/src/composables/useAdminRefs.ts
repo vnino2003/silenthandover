@@ -1,6 +1,6 @@
 import { computed } from 'vue';
 import type { DepartmentExperience } from '@sh/shared';
-import { api } from './api';
+import { api } from '@/lib/api';
 import { useAsync } from './useAsync';
 
 export interface Department {

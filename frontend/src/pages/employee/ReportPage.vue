@@ -13,8 +13,8 @@ import StatusBadge from '@/components/ui/StatusBadge.vue';
 import { api } from '@/lib/api';
 import { dateTime, day, shiftRange, time } from '@/lib/format';
 import type { Decision, DeliveryRow, Revision, ShiftView, WindowStateValue } from '@/lib/types';
-import { useAsync } from '@/lib/useAsync';
-import { useNow } from '@/lib/useNow';
+import { useAsync } from '@/composables/useAsync';
+import { useNow } from '@/composables/useNow';
 import { useAuth } from '@/stores/auth';
 
 interface ReportDetail {

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createRenderer, defineComponent } from 'vue';
-import { useDictation } from '../../frontend/src/lib/useDictation';
+import { useDictation } from '../../frontend/src/composables/useDictation';
 
 // Exercise the real Vue composable and lifecycle without a microphone or external speech service.
 class SpeechFixture {

@@ -10,7 +10,7 @@ import UiDialog from '@/components/ui/UiDialog.vue';
 import UiField from '@/components/ui/UiField.vue';
 import { api, ApiError, errorMessage } from '@/lib/api';
 import { dateTime } from '@/lib/format';
-import { useAsync } from '@/lib/useAsync';
+import { useAsync } from '@/composables/useAsync';
 import { useToast } from '@/stores/toast';
 
 interface Rec {

@@ -6,7 +6,7 @@ import { storeToRefs } from 'pinia';
 import { useAuth } from '@/stores/auth';
 import { useMica } from '@/stores/mica';
 import { micaSuggestions, type MicaSuggestion } from '@/lib/mica-context';
-import { useDictation } from '@/lib/useDictation';
+import { useDictation } from '@/composables/useDictation';
 import AssistantWorkbench from './AssistantWorkbench.vue';
 import MicaMascot from './MicaMascot.vue';
 import UiButton from './ui/UiButton.vue';

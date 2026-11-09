@@ -16,7 +16,7 @@ import StatusBadge from '@/components/ui/StatusBadge.vue';
 import ReportContentView from '@/components/ReportContentView.vue';
 import { api, errorMessage } from '@/lib/api';
 import { dateTime, shiftRange } from '@/lib/format';
-import { useDictation } from '@/lib/useDictation';
+import { useDictation } from '@/composables/useDictation';
 import type { ShiftView } from '@/lib/types';
 
 const props = withDefaults(defineProps<{ compact?: boolean; active?: boolean; restoreRoute?:boolean; context?: AssistantContext }>(), { active: true });

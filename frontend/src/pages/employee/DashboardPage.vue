@@ -14,8 +14,8 @@ import UiButton from '@/components/ui/UiButton.vue';
 import { api } from '@/lib/api';
 import { dateTime, day, longDate, relative, shiftRange } from '@/lib/format';
 import type { IssueRow, ShiftView } from '@/lib/types';
-import { useAsync } from '@/lib/useAsync';
-import { useNow } from '@/lib/useNow';
+import { useAsync } from '@/composables/useAsync';
+import { useNow } from '@/composables/useNow';
 import { useAuth } from '@/stores/auth';
 
 interface Dashboard {

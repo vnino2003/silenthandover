@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from '@ionic/vue-router';
 import type { RouteRecordRaw } from 'vue-router';
 import type { Role, AssistantPageContext } from '@sh/shared';
 import { useAuth } from '@/stores/auth';
-import AppShell from '@/components/AppShell.vue';
+import AppShell from '@/layouts/AppShell.vue';
 
 declare module 'vue-router' {
   interface RouteMeta {

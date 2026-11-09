@@ -13,7 +13,7 @@ import {
   addDays, endOfMonth, labelDay, labelDayMonth, labelLongDay, labelMonth, labelWeekday, MARK_LABEL, monthGrid, rangeDays, startOfMonth, startOfWeek,
   type DayMarkKind,
 } from '@/lib/schedule';
-import { useAsync } from '@/lib/useAsync';
+import { useAsync } from '@/composables/useAsync';
 import { useToast } from '@/stores/toast';
 
 /**

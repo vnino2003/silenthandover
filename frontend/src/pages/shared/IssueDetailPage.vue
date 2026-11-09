@@ -15,7 +15,7 @@ import UiField from '@/components/ui/UiField.vue';
 import { api, errorMessage } from '@/lib/api';
 import { dateTime } from '@/lib/format';
 import type { IssueRow } from '@/lib/types';
-import { useAsync } from '@/lib/useAsync';
+import { useAsync } from '@/composables/useAsync';
 import { useAuth } from '@/stores/auth';
 import { useToast } from '@/stores/toast';
 

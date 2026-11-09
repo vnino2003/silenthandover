@@ -7,7 +7,7 @@ import UiButton from '@/components/ui/UiButton.vue';
 import UiDialog from '@/components/ui/UiDialog.vue';
 import UiField from '@/components/ui/UiField.vue';
 import { api, ApiError, errorMessage } from '@/lib/api';
-import { useAsync } from '@/lib/useAsync';
+import { useAsync } from '@/composables/useAsync';
 import { useToast } from '@/stores/toast';
 
 /**

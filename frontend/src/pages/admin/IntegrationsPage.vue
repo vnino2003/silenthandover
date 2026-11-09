@@ -9,7 +9,7 @@ import UiDialog from '@/components/ui/UiDialog.vue';
 import UiField from '@/components/ui/UiField.vue';
 import { api, ApiError, errorMessage } from '@/lib/api';
 import { dateTime, relative } from '@/lib/format';
-import { useAsync } from '@/lib/useAsync';
+import { useAsync } from '@/composables/useAsync';
 import { useAuth } from '@/stores/auth';
 import { useToast } from '@/stores/toast';
 

@@ -10,7 +10,7 @@ import UiButton from '@/components/ui/UiButton.vue';
 import { api, errorMessage } from '@/lib/api';
 import { dateTime, day, shiftRange, time } from '@/lib/format';
 import type { Decision } from '@/lib/types';
-import { useAsync } from '@/lib/useAsync';
+import { useAsync } from '@/composables/useAsync';
 import { useAuth } from '@/stores/auth';
 import { useNotifications } from '@/stores/notifications';
 import { useToast } from '@/stores/toast';

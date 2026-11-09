@@ -8,7 +8,7 @@ import UiButton from '@/components/ui/UiButton.vue';
 import UserAvatar from '@/components/UserAvatar.vue';
 import { api } from '@/lib/api';
 import { day, time } from '@/lib/format';
-import { useAsync } from '@/lib/useAsync';
+import { useAsync } from '@/composables/useAsync';
 import { useAuth } from '@/stores/auth';
 
 /**

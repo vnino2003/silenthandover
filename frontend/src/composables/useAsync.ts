@@ -1,5 +1,5 @@
 import { onBeforeUnmount, onMounted, ref, shallowRef, watch, type WatchSource } from 'vue';
-import { errorMessage } from './api';
+import { errorMessage } from '@/lib/api';
 
 /**
  * Loads data for a page, tracking loading and error state. Re-runs when `deps` change.

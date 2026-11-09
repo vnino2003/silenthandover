@@ -10,8 +10,8 @@ import UiDialog from '@/components/ui/UiDialog.vue';
 import UiField from '@/components/ui/UiField.vue';
 import { api, ApiError, errorMessage } from '@/lib/api';
 import { dateTime } from '@/lib/format';
-import { useAdminRefs, type AdminUser, type InviteResult } from '@/lib/useAdminRefs';
-import { useAsync } from '@/lib/useAsync';
+import { useAdminRefs, type AdminUser, type InviteResult } from '@/composables/useAdminRefs';
+import { useAsync } from '@/composables/useAsync';
 import { useToast } from '@/stores/toast';
 
 const toast = useToast();

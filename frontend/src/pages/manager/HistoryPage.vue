@@ -8,7 +8,7 @@ import StateBlock from '@/components/ui/StateBlock.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
 import { api } from '@/lib/api';
 import { dateTime, day } from '@/lib/format';
-import { useAsync } from '@/lib/useAsync';
+import { useAsync } from '@/composables/useAsync';
 import { useAuth } from '@/stores/auth';
 
 const auth = useAuth();

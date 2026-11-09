@@ -9,8 +9,8 @@ import UiDialog from '@/components/ui/UiDialog.vue';
 import UiField from '@/components/ui/UiField.vue';
 import { api, ApiError, errorMessage } from '@/lib/api';
 import { tzLabel } from '@/lib/format';
-import { useAsync } from '@/lib/useAsync';
-import type { Department } from '@/lib/useAdminRefs';
+import { useAsync } from '@/composables/useAsync';
+import type { Department } from '@/composables/useAdminRefs';
 import { useToast } from '@/stores/toast';
 
 const toast = useToast();

@@ -11,8 +11,8 @@ import {
   addDays, endOfMonth, labelDay, labelDayMonth, labelLongDay, labelMonth, labelWeekday, MARK_LABEL, monthGrid, rangeDays, startOfMonth,
   type DayMarkKind,
 } from '@/lib/schedule';
-import { useAsync } from '@/lib/useAsync';
-import { useNow } from '@/lib/useNow';
+import { useAsync } from '@/composables/useAsync';
+import { useNow } from '@/composables/useNow';
 
 /**
  * The employee's own schedule: the next shift first, then the coming days as a list or a month

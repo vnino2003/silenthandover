@@ -7,7 +7,7 @@ import AssistantDock from '@/components/AssistantDock.vue';
 import NavIcon from '@/components/ui/NavIcon.vue';
 import UserAvatar from '@/components/UserAvatar.vue';
 import { api } from '@/lib/api';
-import { useAsync } from '@/lib/useAsync';
+import { useAsync } from '@/composables/useAsync';
 import { useAuth } from '@/stores/auth';
 import { useNotifications } from '@/stores/notifications';
 

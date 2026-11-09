@@ -3,7 +3,7 @@ import { computed } from 'vue';
 import { api } from '@/lib/api';
 import { time } from '@/lib/format';
 import { addDays, labelWeekday, rangeDays, type DayMarkKind } from '@/lib/schedule';
-import { useAsync } from '@/lib/useAsync';
+import { useAsync } from '@/composables/useAsync';
 
 /** The worker's next seven days at a glance, with pending leave, linking to the full schedule. */
 interface Week {

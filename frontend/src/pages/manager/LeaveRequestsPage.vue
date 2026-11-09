@@ -11,7 +11,7 @@ import UserAvatar from '@/components/UserAvatar.vue';
 import { api, errorMessage } from '@/lib/api';
 import { dateTime, time } from '@/lib/format';
 import { labelDay, labelRange, LEAVE_STATUS, type LeaveStatus } from '@/lib/schedule';
-import { useAsync } from '@/lib/useAsync';
+import { useAsync } from '@/composables/useAsync';
 import { useToast } from '@/stores/toast';
 import { useAuth } from '@/stores/auth';
 

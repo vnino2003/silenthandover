@@ -8,7 +8,7 @@ import StatusBadge from '@/components/ui/StatusBadge.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import { api, errorMessage } from '@/lib/api';
 import { relative } from '@/lib/format';
-import { useAsync } from '@/lib/useAsync';
+import { useAsync } from '@/composables/useAsync';
 import { useAuth } from '@/stores/auth';
 import { useToast } from '@/stores/toast';
 

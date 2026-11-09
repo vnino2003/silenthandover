@@ -12,7 +12,7 @@ import UserAvatar from '@/components/UserAvatar.vue';
 import { api, errorMessage } from '@/lib/api';
 import { dateTime, longDate, shiftRange, time } from '@/lib/format';
 import type { ShiftView } from '@/lib/types';
-import { useAsync } from '@/lib/useAsync';
+import { useAsync } from '@/composables/useAsync';
 import { useToast } from '@/stores/toast';
 import { useAuth } from '@/stores/auth';
 

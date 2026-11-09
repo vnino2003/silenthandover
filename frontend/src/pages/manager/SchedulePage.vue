@@ -10,7 +10,7 @@ import UiField from '@/components/ui/UiField.vue';
 import DepartmentBoard from '@/components/DepartmentBoard.vue';
 import { api, errorMessage } from '@/lib/api';
 import { day, shiftRange } from '@/lib/format';
-import { useAsync } from '@/lib/useAsync';
+import { useAsync } from '@/composables/useAsync';
 import { useAuth } from '@/stores/auth';
 import { useToast } from '@/stores/toast';
 

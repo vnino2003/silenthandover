@@ -1,7 +1,7 @@
 import { FLAG_LABELS, ISSUE_STATUS_LABELS, REPORT_STATUS_LABELS, type AssistantPageContext, type FlagType, type IssueStatus, type MicaFactGroup, type ReportStatus } from '@sh/shared';
 import type { Queryable } from '../db/types';
 import { asUser, svc, type Ctx } from '../http/context';
-import { boardFor, employeeSchedule } from '../routes/leave';
+import { boardFor, employeeSchedule } from '../services/schedule';
 import { reidentifyDeep, type RosterEntry } from './sanitize';
 
 /**

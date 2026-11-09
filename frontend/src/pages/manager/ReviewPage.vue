@@ -24,7 +24,7 @@ import UiField from '@/components/ui/UiField.vue';
 import { api, ApiError, errorMessage } from '@/lib/api';
 import { dateTime, day, shiftRange, time } from '@/lib/format';
 import type { AnalysisRun, Decision, DeliveryRow, Revision, ShiftView } from '@/lib/types';
-import { useAsync } from '@/lib/useAsync';
+import { useAsync } from '@/composables/useAsync';
 import { useToast } from '@/stores/toast';
 import { useAuth } from '@/stores/auth';
 
