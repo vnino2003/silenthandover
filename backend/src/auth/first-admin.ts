@@ -4,7 +4,7 @@ import { sendInvitation, signInStates } from './invitations';
 
 type Log = (m: string, e?: Record<string, unknown>) => void;
 
-/** "vincent.edu.mail@gmail.com" -> "Vincent" (the administrator can change it on Users). */
+/** "maria.santos@example.com" -> "Maria" (the administrator can change it on Users). */
 export function nameFromEmail(email: string): string {
   const first = email.split('@')[0]!.split(/[._-]+/)[0] ?? 'Administrator';
   return first.length >= 2 ? first[0]!.toUpperCase() + first.slice(1).toLowerCase() : 'Administrator';
