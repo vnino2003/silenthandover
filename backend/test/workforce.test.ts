@@ -67,6 +67,8 @@ describe('attendance, DTR and payroll', () => {
     expect(station.status).toBe(201);
     stationId = station.body.id;
     stationKey = station.body.key;
+    // The unit started attendance two days ago (duties before a unit's start stay unverified history).
+    await h.sql("update public.attendance_stations set created_at = now() - interval '2 days' where id = $1", [stationId]);
     expect((await h.call('juan', 'POST', '/api/manager/attendance/stations', { name: 'Mine' })).status).toBe(403);
 
     expect((await h.call(null, 'GET', `/api/stations/${stationId}/code`, undefined, { 'X-Station-Key': 'wrong-key-wrong-key-wrong-key-000' })).status).toBe(401);
@@ -152,6 +154,9 @@ describe('attendance, DTR and payroll', () => {
     for (const k of ['nina', 'oscar']) {
       expect((await h.call('hr', 'POST', '/api/hr/pay-group-members', { profile_id: h.ids[k], pay_group_id: payGroup })).status).toBe(200);
     }
+    // The Head Nurse sees the unit's staff in the pay group, ready to certify.
+    const unit = (await h.call('manager', 'GET', `/api/manager/dtr?period_id=${periodId}`)).body;
+    expect(unit.people.map((p: any) => p.full_name)).toEqual(expect.arrayContaining(['Nina Cruz', 'Oscar Lim']));
     const nina = (await h.call('nina', 'GET', `/api/dtr/mine/${periodId}`)).body;
     expect(nina).toMatchObject({ state: 'draft', blocking_items: 0 });
     expect(nina.totals).toMatchObject({ late_minutes: 10, overtime_pay_minutes: 45, duties: 1 });
@@ -235,5 +240,13 @@ describe('attendance, DTR and payroll', () => {
     // Without the duty, the payroll page gives no payroll facts.
     const other = await h.call('juan', 'POST', '/api/assistant/help', { message: 'Which DTRs are missing?', page: 'payroll' });
     expect(JSON.stringify(other.body.facts ?? [])).not.toContain('Payroll runs');
+  });
+
+  it('leaves duties from before the unit started attendance as unverified history, not absences', async () => {
+    const old = await adhocShift(h, { startsSql: `now() - interval '80 hours'`, endsSql: `now() - interval '72 hours'`, employee: 'pia' });
+    const d = (await h.sql<{ d: string }>('select shift_date::text as d from public.shifts where id = $1', [old]))[0]!.d;
+    await h.call('manager', 'GET', `/api/manager/attendance?from=${d}&to=${d}`);
+    expect(await record(old, 'pia')).toBeUndefined();
+    expect(await h.sql(`select 1 from public.attendance_exceptions where shift_id = $1 and state = 'open'`, [old])).toEqual([]);
   });
 });

@@ -19,16 +19,20 @@ const router = useRouter();
 const NAV = {
   employee: [
     { to: '/', label: 'Today', exact: true },
+    { to: '/attendance', label: 'Attendance' },
     { to: '/schedule', label: 'My schedule' },
     { to: '/leave', label: 'Leave' },
     { to: '/assistant', label: 'Mica assistant' },
     { to: '/handover', label: 'Incoming endorsement' },
     { to: '/tasks', label: 'Open concerns' },
     { to: '/reports', label: 'My endorsements' },
+    { to: '/my-dtr', label: 'My DTR' },
+    { to: '/payslips', label: 'Payslips' },
   ],
   // Department heads have the most screens: daily duties first, records after.
   manager: [
     { to: '/manager/shifts', label: 'Today', group: 'Daily duties' },
+    { to: '/manager/attendance', label: 'Attendance', group: 'Daily duties' },
     { to: '/manager', label: 'For approval', exact: true, group: 'Daily duties', count: 'review' },
     { to: '/manager/schedule', label: 'Duty schedule', group: 'Daily duties' },
     { to: '/manager/team', label: 'Unit staff', group: 'Daily duties' },
@@ -36,8 +40,11 @@ const NAV = {
     { to: '/manager/issues', label: 'Concerns', group: 'Daily duties' },
     { to: '/manager/reports', label: 'Endorsement history', exact: true, group: 'Records' },
     { to: '/manager/records', label: 'Unit records', group: 'Records' },
+    { to: '/manager/dtr', label: 'DTR certification', group: 'Records' },
     { to: '/manager/audit', label: 'Audit log', group: 'Records' },
     { to: '/leave', label: 'My leave', group: 'Records' },
+    { to: '/my-dtr', label: 'My DTR', group: 'Records' },
+    { to: '/payslips', label: 'My payslips', group: 'Records' },
   ],
   // System administration: accounts and the hospital's units first, then the system settings.
   admin: [
@@ -52,7 +59,12 @@ const NAV = {
 
 type NavItem = { to: string; label: string; exact?: boolean; group?: string; count?: 'review' | 'leave' };
 // Concerns and endorsements follow the department's own words.
-const nav = computed<readonly NavItem[]>(() => (auth.role ? NAV[auth.role] : []).map((item) => ({ ...item,
+// HR, payroll and finance are duties on top of a role, so their workspaces are added per person.
+const workforceNav = computed<NavItem[]>(() => auth.role === 'admin' ? [] : [
+  ...(auth.can('timekeeper', 'hr_admin') ? [{ to: '/hr', label: 'HR timekeeping', group: 'Workforce' }] : []),
+  ...(auth.can('payroll_preparer', 'finance_approver', 'hr_admin') ? [{ to: '/payroll', label: auth.can('finance_approver') && !auth.can('payroll_preparer', 'hr_admin') ? 'Payroll approval' : 'Payroll', group: 'Workforce' }] : []),
+]);
+const nav = computed<readonly NavItem[]>(() => [...(auth.role ? NAV[auth.role] : []), ...workforceNav.value].map((item) => ({ ...item,
   label: item.to === '/reports' ? `My ${auth.terms.reports.toLowerCase()}` : item.to === '/tasks' ? `Open ${auth.terms.issues.toLowerCase()}` : item.to === '/manager/issues' ? auth.terms.issues : item.label,
 })));
 /** The menu in its sections (a single unnamed section for roles without groups). */
@@ -75,11 +87,11 @@ const summary = useAsync(
 );
 const counts = computed(() => ({ review: summary.data.value?.pending_review ?? 0, leave: summary.data.value?.pending_leave ?? 0 }));
 const mobileNav = computed<readonly { to: string; label: string; exact?: boolean }[]>(() => auth.role === 'employee' ? [
-  { to: '/', label: 'Today', exact: true }, { to: '/schedule', label: 'Schedule' },
-  { to: '/handover', label: 'Incoming' }, { to: '/tasks', label: auth.terms.issues }, { to: '/reports', label: 'Endorsements' },
+  { to: '/', label: 'Today', exact: true }, { to: '/attendance', label: 'Attendance' }, { to: '/schedule', label: 'Schedule' },
+  { to: '/handover', label: 'Incoming' }, { to: '/reports', label: 'Endorsements' },
 ] : auth.role === 'manager' ? [
   { to: '/manager/shifts', label: 'Today' }, { to: '/manager', label: 'Approval', exact: true },
-  { to: '/manager/schedule', label: 'Schedule' }, { to: '/manager/issues', label: auth.terms.issues },
+  { to: '/manager/attendance', label: 'Attendance' }, { to: '/manager/schedule', label: 'Schedule' }, { to: '/manager/issues', label: auth.terms.issues },
 ] : [
   { to: '/admin/users', label: 'Accounts' }, { to: '/admin', label: 'System', exact: true },
   { to: '/admin/ai-pipeline', label: 'Mica AI' }, { to: '/admin/settings', label: 'Rules' },

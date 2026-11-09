@@ -48,6 +48,14 @@ npm run demo:schedule
 
 Details and design decisions: `docs/plan-scheduling-and-leave.md`.
 
+## Attendance, DTR and payroll
+
+QR attendance at a staff-only unit station (a code that changes every 30 seconds), reconciled against the duty schedule and leave; Head Nurse verification, corrections, overtime and cover; DTRs confirmed by staff and certified by the Head Nurse (Form 48 print layout); HR period lock; payroll from certified totals with Finance approval by a different person; payslips. Duties (HR timekeeper, payroll, Finance, Nursing Service) are granted by IT on User accounts. Pay rules in the demo are labelled samples. See [docs/workforce.md](docs/workforce.md).
+
+## Android app
+
+The same app as an Android APK (Capacitor 8). GitHub → Actions → **Android APK** → latest run → Artifacts. See [docs/android.md](docs/android.md).
+
 ## Mica, the integrated assistant
 
 Mica is an original teal messenger-bird companion. The compact panel stays on the current page and keeps a staff member's preparation across navigation. Page help uses the authenticated role and department configuration. It does not automatically transmit the page body, employee records or clinical information. Supervisors and administrators receive role-specific guidance; only employees can prepare employee actions.

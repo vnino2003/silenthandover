@@ -10,6 +10,7 @@ import UiDialog from '@/components/ui/UiDialog.vue';
 import UiField from '@/components/ui/UiField.vue';
 import { api, ApiError, errorMessage } from '@/lib/api';
 import { dateTime } from '@/lib/format';
+import WorkforceAccess from '@/components/WorkforceAccess.vue';
 import { useAdminRefs, type AdminUser, type InviteResult } from '@/composables/useAdminRefs';
 import { useAsync } from '@/composables/useAsync';
 import { useToast } from '@/stores/toast';
@@ -153,6 +154,7 @@ async function save() {
                 </table>
               </div>
             </StateBlock>
+            <WorkforceAccess class="mt-6" :users="users.data.value ?? []" :departments="departments.data.value ?? []" />
 
             <UiDialog :open="Boolean(editing)" :title="editing?.id ? 'Edit user' : 'Add user'" @close="editing = null">
               <form v-if="editing" id="user-form" class="space-y-4" @submit.prevent="save">

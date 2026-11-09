@@ -3,7 +3,7 @@ import { DepartmentExperience, departmentTerms, GENERIC_EXPERIENCE, ROLE_LABELS,
 import { computed, ref } from 'vue';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { api, ApiError, configureApi } from '@/lib/api';
-import type { AppConfig, Profile } from '@/lib/types';
+import type { AppConfig, Capability, Profile } from '@/lib/types';
 
 const TOKEN_KEY = 'sh.session';
 
@@ -139,8 +139,10 @@ export const useAuth = defineStore('auth', () => {
   }
 
   const role = computed(() => profile.value?.role ?? null);
+  /** Holds one of these workforce duties (HR, payroll, finance, Nursing Service)? */
+  const can = (...caps: Capability[]) => (profile.value?.capabilities ?? []).some((g) => caps.includes(g.capability));
   const homePath = computed(() => (role.value === 'admin' ? '/admin' : role.value === 'manager' ? '/manager' : '/'));
   const serverNow = () => Date.now() + clockSkew.value;
 
-  return { config, profile, experience, terms, pageTitle, roleLabel, ready, bootError, role, homePath, clockSkew, init, signIn, adoptSession, signOut, loadProfile, serverNow };
+  return { config, profile, experience, terms, pageTitle, roleLabel, ready, bootError, role, can, homePath, clockSkew, init, signIn, adoptSession, signOut, loadProfile, serverNow };
 });

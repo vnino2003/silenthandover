@@ -380,3 +380,23 @@ Sources:
 - In Vercel (when deployed), set **Root Directory** to `frontend`. Render reads `./backend/Dockerfile` from `render.yaml`.
 - The `outputs/` folders (about 330 MB of presentation and video files) stay untracked on disk. GitHub rejects files over 100 MB; keep them outside the repository or use Git LFS.
 - A copy of the local databases and `.env` from before the move is at `.tmp/data-backup-2026-11-09/` (ignored by git).
+
+---
+
+## 11. Phases 2–5 results (9 November 2026, `master`, pushed to github.com/vnino2003/silenthandover)
+
+| Phase | Delivered | Verified |
+|---|---|---|
+| 2 Android | Capacitor 8.6 in `frontend/` with the `android/` project; back button, status bar, safe areas, offline notice, server-address screen (HTTPS only), camera only on Scan; `.github/workflows/android-apk.yml` (manual, `v*` tags, master pushes touching the app) uploads a debug-signed test APK; `docs/android.md` | Web build and `cap sync` run locally. The APK itself is built on GitHub; see the Actions run for the result |
+| 3 Attendance | Roles (capabilities), versioned duty expectations, QR stations with rotating codes, append-only punches, attestation, signed device feed, reconciliation with leave, review items, corrections, overtime decisions, verification, confirmed absence, recorded cover; attendance starts per unit at its first station or punch | 10 end-to-end tests; in the browser: station display, QR-code time-in, Head Nurse board, bulk verify |
+| 4 DTR | DTR versions, staff confirmation, Head Nurse certification (Nursing Service for a Head Nurse's own), HR cutoffs, pay groups, period lock, Form 48 print layout, CSV of certified totals | Tests: certification order, blocking items, lock refusal; browser: My DTR, DTR certification list, HR lock refusal |
+| 5 Payroll and Mica | Sample government pay policy, payroll runs from certified totals, adjustments, Finance approval by a different person, release, payslips; Mica facts for staff, Head Nurse, HR and Payroll without pay amounts | Tests: computed lines (basic, overtime, tardiness), preparer can't approve, payslips only after release, IT and Payroll can't read punches |
+
+Totals: typecheck clean; 8 shared and 208 backend tests pass; both builds pass; CI green on GitHub.
+
+**Still open:**
+- The HR and Finance decisions in §7 (real pay rules, signatories, leave credits, retention). The demo values are samples.
+- Two parallel cutoffs against independently verified records before any real use.
+- A signed release APK/AAB (secrets and a protected environment; steps in `docs/android.md`).
+- Live hosting (Vercel, Render, Supabase) has still not been deployed. Add `https://localhost` to `CORS_ORIGINS` for the app.
+- Biometric terminals: the adapter endpoint exists; hardware is a separate approval.

@@ -28,7 +28,7 @@ export function createApp(services: Services) {
     await next();
   });
   app.use('*', secureHeaders());
-  app.use('/api/*', cors({ origin: services.config.corsOrigins, allowHeaders: ['Authorization', 'Content-Type'], maxAge: 600 }));
+  app.use('/api/*', cors({ origin: services.config.corsOrigins, allowHeaders: ['Authorization', 'Content-Type', 'X-Station-Key'], maxAge: 600 }));
 
   app.onError((err, c) => {
     const requestId = c.get('requestId');

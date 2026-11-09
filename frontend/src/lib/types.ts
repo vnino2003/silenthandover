@@ -36,8 +36,12 @@ export interface Profile {
   notify_sms: boolean;
   /** Changes whenever the profile picture changes; null when there is none. */
   photo_version: number | null;
+  /** Workforce duties on top of the role (HR, payroll, finance, Nursing Service). */
+  capabilities?: { capability: Capability; department_id: string | null }[];
   server_now: string;
 }
+
+export type Capability = 'nursing_service' | 'timekeeper' | 'hr_admin' | 'payroll_preparer' | 'finance_approver';
 
 export type WindowStateValue = 'not_found' | 'not_assigned' | 'cancelled' | 'not_started' | 'early_draft' | 'open' | 'override' | 'closed';
 
