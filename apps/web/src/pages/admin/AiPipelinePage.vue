@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { IonContent, IonItem, IonLabel, IonPage, IonSegment, IonSegmentButton, IonSelect, IonSelectOption } from '@ionic/vue';
 import { computed, nextTick, ref, watch } from 'vue';
 import { DepartmentExperience, type OrganizationRules, type ReportDraftContent } from '@sh/shared';
 import MicaMascot from '@/components/MicaMascot.vue';
@@ -41,7 +42,7 @@ type RunDetail = PipelineView & { run: { reference_code: string; department_name
 const toast = useToast();
 const tab = ref<'real' | 'example' | 'mica' | 'rules'>('real');
 const TABS = [
-  { k: 'real', l: 'Real reports (censored)' },
+  { k: 'real', l: 'Real endorsements (censored)' },
   { k: 'example', l: 'Try an example' },
   { k: 'mica', l: 'Mica assistant prompts' },
   { k: 'rules', l: 'Organization rules' },
@@ -115,152 +116,136 @@ async function run(content: ReportDraftContent) {
 </script>
 
 <template>
-  <div class="mx-auto max-w-5xl">
-    <PageHeader
-      title="Mica's AI pipeline"
-      description="What Mica does behind the scenes between a submitted report and the draft your supervisors review: the template, the privacy redactions, the injection check, the prompt, the answer and the checks."
-    />
+  <IonPage>
+    <IonContent class="sh-content">
+      <div class="sh-page page-enter">
+          <div class="mx-auto max-w-5xl">
+            <PageHeader
+              title="Mica's AI pipeline"
+              description="What Mica does behind the scenes between a submitted shift endorsement and the draft the department head reviews: the template, the privacy redactions, the injection check, the prompt, the answer and the checks."
+            />
 
-    <section class="card mb-6 grid gap-5 p-5 md:grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)]" aria-labelledby="mica-about-h">
-      <MicaMascot :size="56" state="attentive" />
-      <div>
-        <h2 id="mica-about-h" class="text-[15px] font-semibold">Mica is the AI of Silent Handover</h2>
-        <p class="mt-1 text-[13px] leading-relaxed text-ink-2">One provider and one key, connected on <RouterLink to="/admin" class="link">Integrations</RouterLink>, power both of Mica's jobs:</p>
-        <ul class="mt-2 space-y-1.5 text-[13px] text-ink-2">
-          <li><span class="font-medium text-ink">Cleaning reports.</span> Each submitted report becomes the draft and flags a supervisor reviews. That is the trip shown below.</li>
-          <li><span class="font-medium text-ink">The assistant.</span> Employees prepare reports and leave dates; supervisors and administrators ask about their pages.</li>
-        </ul>
-        <p class="mt-3 text-[12.5px] text-ink-3">{{ settings.data.value ? (providerReady ? `Connected: ${providerLabel}` : 'No AI connected: Mica uses its practice simulator for drafts and the page guide in the assistant.') : 'Checking the connection…' }}</p>
+            <section class="card mb-6 grid gap-5 p-5 md:grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)]" aria-labelledby="mica-about-h">
+              <MicaMascot :size="56" state="attentive" />
+              <div>
+                <h2 id="mica-about-h" class="text-[15px] font-semibold">Mica is the AI of Silent Handover</h2>
+                <p class="mt-1 text-[13px] leading-relaxed text-ink-2">One provider and one key, connected on <RouterLink to="/admin" class="link">Integrations</RouterLink>, power both of Mica's jobs:</p>
+                <ul class="mt-2 space-y-1.5 text-[13px] text-ink-2">
+                  <li><span class="font-medium text-ink">Cleaning shift endorsements.</span> Each submitted endorsement becomes the draft and flags a department head reviews. That is the trip shown below.</li>
+                  <li><span class="font-medium text-ink">The assistant.</span> Staff prepare endorsements and leave dates; department heads and administrators ask about their pages.</li>
+                </ul>
+                <p class="mt-3 text-[12.5px] text-ink-3">{{ settings.data.value ? (providerReady ? `Connected: ${providerLabel}` : 'No AI connected: Mica uses its practice simulator for drafts and the page guide in the assistant.') : 'Checking the connection…' }}</p>
+              </div>
+              <div class="rounded-lg bg-canvas p-4 text-[12.5px] leading-relaxed text-ink-2">
+                <p class="font-medium text-ink">The same safeguards everywhere</p>
+                <ul class="mt-1.5 list-disc space-y-1 pl-4">
+                  <li>Names become codes; health, contact and ID details are removed before anything is sent.</li>
+                  <li>Six-part prompt; the user's words stay inside &lt;raw_input&gt; and never count as instructions. You can add <UiButton size="sm" variant="ghost" @click="tab = 'rules'">organization rules</UiButton> on top of the locked ones.</li>
+                  <li>Every answer is checked. A failed or invented answer is never shown; work continues by hand.</li>
+                  <li>Records shown in the assistant and leave reasons are never sent to the AI.</li>
+                  <li>Mica never approves, submits or decides. People do.</li>
+                </ul>
+              </div>
+            </section>
+
+            <IonSegment :value="tab" scrollable class="sh-segment mb-5" aria-label="Pipeline views" @ion-change="tab = $event.detail.value as typeof tab">
+              <IonSegmentButton v-for="t in TABS" :key="t.k" :value="t.k"><IonLabel>{{ t.l }}</IonLabel></IonSegmentButton>
+            </IonSegment>
+
+            <!-- Real reports, censored -->
+            <div v-if="tab === 'real'" class="page-enter grid gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
+              <aside>
+                <p class="mb-2 text-[12.5px] text-ink-3">
+                  Only the censored version that went to the AI is shown — never the original report or who wrote it.
+                </p>
+                <StateBlock
+                  :loading="runs.loading.value"
+                  :error="runs.error.value"
+                  :empty="!runs.data.value?.length"
+                  empty-title="No endorsements processed yet"
+                  empty-text="When a staff member submits a shift endorsement, its trip through Mica appears here."
+                  @retry="runs.reload()"
+                >
+                  <ul class="stagger card divide-y divide-line overflow-hidden">
+                    <li v-for="r in runs.data.value" :key="r.id">
+                      <IonItem button :detail="false" lines="none" class="sh-row"
+                       
+                        :class="selectedId === r.id ? 'bg-accent-soft' : 'hover:bg-canvas'"
+                        :aria-current="selectedId === r.id ? 'true' : undefined"
+                        @click="selectedId = r.id"
+                      ><div class="w-full min-w-0 px-4 py-3 text-left">
+                        <span class="flex items-center justify-between gap-2">
+                          <span class="text-[13.5px] font-medium tnum">{{ r.reference_code }}</span>
+                          <StatusBadge :tone="RUN_TONE[r.status] ?? 'info'" :label="RUN_LABEL[r.status] ?? r.status" />
+                        </span>
+                        <span class="mt-0.5 block text-[12px] text-ink-3">
+                          {{ r.department_name }} · {{ dateTime(r.created_at) }}<template v-if="r.attempt > 1"> · attempt {{ r.attempt }}</template>
+                        </span>
+                        <span class="block text-[12px] text-ink-3">
+                          {{ r.is_simulated ? 'Mica practice simulator' : `Mica · ${r.engine ?? '—'}` }}<template v-if="r.flag_count"> · {{ r.flag_count }} flag{{ r.flag_count === 1 ? '' : 's' }}</template>
+                        </span>
+                      </div></IonItem>
+                    </li>
+                  </ul>
+                </StateBlock>
+              </aside>
+              <section class="min-w-0" aria-live="polite">
+                <div v-if="detail" class="mb-3 flex flex-wrap items-baseline justify-between gap-2">
+                  <h2 class="text-[16px] font-semibold tnum">{{ detail.run.reference_code }} <span class="font-normal text-ink-3">· {{ detail.run.department_name }} · {{ detail.run.shift_label }}</span></h2>
+                  <p class="text-[12.5px] text-ink-3">Revision {{ detail.run.revision_no }}, attempt {{ detail.run.attempt }}</p>
+                </div>
+                <StateBlock :loading="loadingDetail && !detail" :refreshing="loadingDetail && !!detail" :empty="!detail && !runs.loading.value" empty-title="Pick an endorsement on the left" :lines="7">
+                  <PipelineSteps v-if="detail" :key="selectedId ?? ''" :view="detail" real />
+                </StateBlock>
+              </section>
+            </div>
+
+            <!-- Mica's assistant prompts -->
+            <div v-else-if="tab === 'mica'" class="page-enter">
+              <MicaPromptsView :organization="orgRules" />
+            </div>
+
+            <!-- Organization rules -->
+            <div v-else-if="tab === 'rules'" class="page-enter">
+              <OrganizationRulesEditor @saved="rulesSaved" />
+            </div>
+
+            <!-- Try an example -->
+            <div v-else class="page-enter">
+              <div class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-surface px-4 py-3">
+                <p class="text-[13.5px] text-ink-2">
+                  This is the <span class="font-medium text-ink">same form a staff member fills in</span> at the end of a shift. Fill it in (or press
+                  <span class="font-medium">Generate example</span>), leave the optional boxes empty to see fallbacks, then run it.
+                </p>
+                <label v-if="(departments.data.value?.length ?? 0) > 1" class="flex items-center gap-2 text-[13px] text-ink-2">Department
+                  <IonSelect v-model="departmentId" class="rounded-md border border-line bg-surface px-2 py-1.5 text-[13px]" interface="popover">
+                    <IonSelectOption v-for="d in departments.data.value" :key="d.id" :value="d.id">{{ d.name }}</IonSelectOption>
+                  </IonSelect>
+                </label>
+                <IonSegment :value="engine" class="sh-segment" aria-label="Which AI answers" @ion-change="engine = $event.detail.value as typeof engine">
+                  <IonSegmentButton value="simulator"><IonLabel>Practice simulator</IonLabel></IonSegmentButton>
+                  <IonSegmentButton value="provider" :disabled="!providerReady" :title="providerReady ? '' : 'Connect an AI on the Integrations page first'"><IonLabel>{{ providerReady ? `Mica · ${providerLabel}` : 'Mica’s AI (not connected)' }}</IonLabel></IonSegmentButton>
+                </IonSegment>
+              </div>
+              <ReportForm
+                report-id="pipeline-example"
+                :initial="null"
+                server-updated-at=""
+                :is-revision="false"
+                :can-submit="true"
+                :submit-blocked-reason="null"
+                :open-issues="[]"
+                preview
+                :experience="exampleExperience"
+                :preview-busy="busy"
+                @preview="run"
+              />
+                    <div ref="resultsEl" class="scroll-mt-6">
+                <PipelineSteps v-if="example" :key="runs_" class="mt-6" :view="example" />
+              </div>
+            </div>
+          </div>
       </div>
-      <div class="rounded-lg bg-canvas p-4 text-[12.5px] leading-relaxed text-ink-2">
-        <p class="font-medium text-ink">The same safeguards everywhere</p>
-        <ul class="mt-1.5 list-disc space-y-1 pl-4">
-          <li>Names become codes; health, contact and ID details are removed before anything is sent.</li>
-          <li>Six-part prompt; the user's words stay inside &lt;raw_input&gt; and never count as instructions. You can add <button type="button" class="link" @click="tab = 'rules'">organization rules</button> on top of the locked ones.</li>
-          <li>Every answer is checked. A failed or invented answer is never shown; work continues by hand.</li>
-          <li>Records shown in the assistant and leave reasons are never sent to the AI.</li>
-          <li>Mica never approves, submits or decides. People do.</li>
-        </ul>
-      </div>
-    </section>
-
-    <div class="mb-5 flex gap-1 overflow-x-auto border-b border-line [scrollbar-width:none]" role="tablist">
-      <button
-        v-for="t in TABS"
-        :key="t.k"
-        role="tab"
-        :aria-selected="tab === t.k"
-        class="-mb-px shrink-0 border-b-2 px-3 py-2 text-[14px] whitespace-nowrap"
-        :class="tab === t.k ? 'border-accent font-medium text-ink' : 'border-transparent text-ink-3 hover:text-ink'"
-        @click="tab = t.k"
-      >
-        {{ t.l }}
-      </button>
-    </div>
-
-    <!-- Real reports, censored -->
-    <div v-if="tab === 'real'" class="page-enter grid gap-5 lg:grid-cols-[280px_minmax(0,1fr)]">
-      <aside>
-        <p class="mb-2 text-[12.5px] text-ink-3">
-          Only the censored version that went to the AI is shown — never the original report or who wrote it.
-        </p>
-        <StateBlock
-          :loading="runs.loading.value"
-          :error="runs.error.value"
-          :empty="!runs.data.value?.length"
-          empty-title="No reports processed yet"
-          empty-text="When an employee submits a report, its trip through Mica appears here."
-          @retry="runs.reload()"
-        >
-          <ul class="stagger card divide-y divide-line overflow-hidden">
-            <li v-for="r in runs.data.value" :key="r.id">
-              <button
-                type="button"
-                class="w-full px-4 py-3 text-left"
-                :class="selectedId === r.id ? 'bg-accent-soft' : 'hover:bg-canvas'"
-                :aria-current="selectedId === r.id ? 'true' : undefined"
-                @click="selectedId = r.id"
-              >
-                <span class="flex items-center justify-between gap-2">
-                  <span class="text-[13.5px] font-medium tnum">{{ r.reference_code }}</span>
-                  <StatusBadge :tone="RUN_TONE[r.status] ?? 'info'" :label="RUN_LABEL[r.status] ?? r.status" />
-                </span>
-                <span class="mt-0.5 block text-[12px] text-ink-3">
-                  {{ r.department_name }} · {{ dateTime(r.created_at) }}<template v-if="r.attempt > 1"> · attempt {{ r.attempt }}</template>
-                </span>
-                <span class="block text-[12px] text-ink-3">
-                  {{ r.is_simulated ? 'Mica practice simulator' : `Mica · ${r.engine ?? '—'}` }}<template v-if="r.flag_count"> · {{ r.flag_count }} flag{{ r.flag_count === 1 ? '' : 's' }}</template>
-                </span>
-              </button>
-            </li>
-          </ul>
-        </StateBlock>
-      </aside>
-      <section class="min-w-0" aria-live="polite">
-        <div v-if="detail" class="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-          <h2 class="text-[16px] font-semibold tnum">{{ detail.run.reference_code }} <span class="font-normal text-ink-3">· {{ detail.run.department_name }} · {{ detail.run.shift_label }}</span></h2>
-          <p class="text-[12.5px] text-ink-3">Revision {{ detail.run.revision_no }}, attempt {{ detail.run.attempt }}</p>
-        </div>
-        <StateBlock :loading="loadingDetail && !detail" :refreshing="loadingDetail && !!detail" :empty="!detail && !runs.loading.value" empty-title="Pick a report on the left" :lines="7">
-          <PipelineSteps v-if="detail" :key="selectedId ?? ''" :view="detail" real />
-        </StateBlock>
-      </section>
-    </div>
-
-    <!-- Mica's assistant prompts -->
-    <div v-else-if="tab === 'mica'" class="page-enter">
-      <MicaPromptsView :organization="orgRules" />
-    </div>
-
-    <!-- Organization rules -->
-    <div v-else-if="tab === 'rules'" class="page-enter">
-      <OrganizationRulesEditor @saved="rulesSaved" />
-    </div>
-
-    <!-- Try an example -->
-    <div v-else class="page-enter">
-      <div class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-line bg-surface px-4 py-3">
-        <p class="text-[13.5px] text-ink-2">
-          This is the <span class="font-medium text-ink">same form an employee fills in</span> at the end of a shift. Fill it in (or press
-          <span class="font-medium">Generate example</span>), leave the optional boxes empty to see fallbacks, then run it.
-        </p>
-        <label v-if="(departments.data.value?.length ?? 0) > 1" class="flex items-center gap-2 text-[13px] text-ink-2">Department
-          <select v-model="departmentId" class="rounded-md border border-line bg-surface px-2 py-1.5 text-[13px]">
-            <option v-for="d in departments.data.value" :key="d.id" :value="d.id">{{ d.name }}</option>
-          </select>
-        </label>
-        <div class="flex rounded-md border border-line p-0.5 text-[13px]" role="radiogroup" aria-label="Which AI answers">
-          <button type="button" role="radio" :aria-checked="engine === 'simulator'" class="rounded px-3 py-1.5" :class="engine === 'simulator' ? 'bg-sunken font-medium' : 'text-ink-3'" @click="engine = 'simulator'">Practice simulator</button>
-          <button
-            type="button"
-            role="radio"
-            :aria-checked="engine === 'provider'"
-            :disabled="!providerReady"
-            class="rounded px-3 py-1.5 disabled:opacity-50"
-            :class="engine === 'provider' ? 'bg-sunken font-medium' : 'text-ink-3'"
-            :title="providerReady ? '' : 'Connect an AI on the Integrations page first'"
-            @click="engine = 'provider'"
-          >
-            {{ providerReady ? `Mica · ${providerLabel}` : 'Mica’s AI (not connected)' }}
-          </button>
-        </div>
-      </div>
-      <ReportForm
-        report-id="pipeline-example"
-        :initial="null"
-        server-updated-at=""
-        :is-revision="false"
-        :can-submit="true"
-        :submit-blocked-reason="null"
-        :open-issues="[]"
-        preview
-        :experience="exampleExperience"
-        :preview-busy="busy"
-        @preview="run"
-      />
-            <div ref="resultsEl" class="scroll-mt-6">
-        <PipelineSteps v-if="example" :key="runs_" class="mt-6" :view="example" />
-      </div>
-    </div>
-  </div>
+    </IonContent>
+  </IonPage>
 </template>

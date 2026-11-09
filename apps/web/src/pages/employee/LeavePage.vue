@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { IonContent, IonInput, IonPage, IonSelect, IonSelectOption, IonTextarea } from '@ionic/vue';
 import { computed, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { useMica } from '@/stores/mica';
@@ -79,7 +80,7 @@ async function submit() {
   errors.value = {};
   try {
     await api.post('/leave', { ...form.value, reason: form.value.reason.trim() });
-    toast.ok('Leave requested — your supervisor has been notified');
+    toast.ok(`Leave requested — your ${auth.terms.head} has been notified`);
     form.value = null;
     await reload(true);
   } catch (err) {
@@ -110,68 +111,74 @@ async function cancel() {
 </script>
 
 <template>
-  <div class="mx-auto max-w-3xl">
-    <PageHeader title="Leave" description="Request time off and follow each request. Approved leave appears on your schedule and your supervisor’s board.">
-      <UiButton variant="primary" :disabled="!activeTypes.length" @click="openForm">Request leave</UiButton>
-    </PageHeader>
+  <IonPage>
+    <IonContent class="sh-content">
+      <div class="sh-page page-enter">
+          <div class="mx-auto max-w-3xl">
+            <PageHeader title="Leave" :description="`Request leave and follow each request. Approved leave appears on your duty schedule and your ${$terms.head}’s board.`">
+              <UiButton variant="primary" :disabled="!activeTypes.length" @click="openForm">Request leave</UiButton>
+            </PageHeader>
 
-    <StateBlock :loading="loading" :error="error" :empty="!data?.length" empty-title="No leave requests yet" empty-text="Request leave here instead of messaging your supervisor; you’ll be notified when they decide." @retry="reload()">
-      <div v-if="data" class="space-y-7">
-        <section v-for="group in [
-          { title: 'Waiting for approval', rows: pending },
-          { title: 'Upcoming approved leave', rows: upcoming },
-          { title: 'History', rows: history },
-        ].filter((g) => g.rows.length)" :key="group.title">
-          <h2 class="mb-2 text-[13px] font-semibold tracking-[0.06em] text-ink-3 uppercase">{{ group.title }}</h2>
-          <ul class="stagger card divide-y divide-line">
-            <li v-for="r in group.rows" :key="r.id" class="flex flex-wrap items-start justify-between gap-3 px-5 py-3.5">
-              <div class="min-w-0">
-                <p class="text-[14.5px] font-semibold">{{ r.leave_type }} <span class="font-normal text-ink-3 tnum">· {{ r.days }} day{{ r.days === 1 ? '' : 's' }}</span></p>
-                <p class="text-[13.5px] text-ink-2 tnum">{{ labelRange(r.start_date, r.end_date) }}</p>
-                <p v-if="r.reason" class="mt-1 text-[13px] text-ink-3">Your reason: {{ r.reason }}</p>
-                <p v-if="r.decided_by_name" class="mt-1 text-[13px]" :class="r.status === 'rejected' ? 'text-bad' : 'text-ink-2'">
-                  {{ r.status === 'approved' ? 'Approved' : r.status === 'rejected' ? 'Not approved' : 'Decided' }} by {{ r.decided_by_name }}, {{ dateTime(r.decided_at!) }}<template v-if="r.decision_note"> — “{{ r.decision_note }}”</template>
-                </p>
+            <StateBlock :loading="loading" :error="error" :empty="!data?.length" empty-title="No leave requests yet" :empty-text="`Request leave here instead of messaging your ${$terms.head}; you’ll be notified when they decide.`" @retry="reload()">
+              <div v-if="data" class="space-y-7">
+                <section v-for="group in [
+                  { title: 'Waiting for approval', rows: pending },
+                  { title: 'Upcoming approved leave', rows: upcoming },
+                  { title: 'History', rows: history },
+                ].filter((g) => g.rows.length)" :key="group.title">
+                  <h2 class="mb-2 text-[13px] font-semibold tracking-[0.06em] text-ink-3 uppercase">{{ group.title }}</h2>
+                  <ul class="stagger card divide-y divide-line">
+                    <li v-for="r in group.rows" :key="r.id" class="flex flex-wrap items-start justify-between gap-3 px-5 py-3.5">
+                      <div class="min-w-0">
+                        <p class="text-[14.5px] font-semibold">{{ r.leave_type }} <span class="font-normal text-ink-3 tnum">· {{ r.days }} day{{ r.days === 1 ? '' : 's' }}</span></p>
+                        <p class="text-[13.5px] text-ink-2 tnum">{{ labelRange(r.start_date, r.end_date) }}</p>
+                        <p v-if="r.reason" class="mt-1 text-[13px] text-ink-3">Your reason: {{ r.reason }}</p>
+                        <p v-if="r.decided_by_name" class="mt-1 text-[13px]" :class="r.status === 'rejected' ? 'text-bad' : 'text-ink-2'">
+                          {{ r.status === 'approved' ? 'Approved' : r.status === 'rejected' ? 'Not approved' : 'Decided' }} by {{ r.decided_by_name }}, {{ dateTime(r.decided_at!) }}<template v-if="r.decision_note"> — “{{ r.decision_note }}”</template>
+                        </p>
+                      </div>
+                      <div class="flex items-center gap-2">
+                        <StatusBadge :tone="LEAVE_STATUS[r.status].tone" :label="LEAVE_STATUS[r.status].label" />
+                        <UiButton v-if="r.status === 'pending'" size="sm" variant="ghost" @click="cancelling = r">Cancel</UiButton>
+                      </div>
+                    </li>
+                  </ul>
+                </section>
               </div>
-              <div class="flex items-center gap-2">
-                <StatusBadge :tone="LEAVE_STATUS[r.status].tone" :label="LEAVE_STATUS[r.status].label" />
-                <UiButton v-if="r.status === 'pending'" size="sm" variant="ghost" @click="cancelling = r">Cancel</UiButton>
-              </div>
-            </li>
-          </ul>
-        </section>
+            </StateBlock>
+
+            <UiDialog :open="Boolean(form)" title="Request leave" :description="`Whole days. Your ${$terms.head} approves or declines it, and you’re notified either way.`" @close="form = null">
+              <form v-if="form" id="leave-form" class="space-y-4" @submit.prevent="submit">
+                <UiField v-slot="{ id, labelledby }" label="Type of leave" :error="errors.leave_type_id">
+                  <IonSelect :id="id" :aria-labelledby="labelledby" v-model="form.leave_type_id" class="field-input" interface="popover">
+                    <IonSelectOption v-for="t in activeTypes" :key="t.id" :value="t.id">{{ t.name }}</IonSelectOption>
+                  </IonSelect>
+                </UiField>
+                <p v-if="chosen?.description" class="-mt-2 text-[12.5px] text-ink-3">{{ chosen.description }}</p>
+                <div class="grid grid-cols-2 gap-3">
+                  <UiField v-slot="{ id, labelledby }" label="First day" :error="errors.start_date"><IonInput :id="id" :aria-labelledby="labelledby" v-model="form.start_date" type="date" :min="today" class="field-input"  /></UiField>
+                  <UiField v-slot="{ id, labelledby }" label="Last day" :error="errors.end_date"><IonInput :id="id" :aria-labelledby="labelledby" v-model="form.end_date" type="date" :min="form.start_date" class="field-input"  /></UiField>
+                </div>
+                <p v-if="dayCount" class="-mt-2 text-[13px] text-ink-2 tnum">{{ dayCount }} day{{ dayCount === 1 ? '' : 's' }} · {{ labelRange(form.start_date, form.end_date) }}</p>
+                <UiField v-slot="{ id, labelledby }" :label="chosen?.requires_reason ? 'Reason' : 'Reason'" :optional="!chosen?.requires_reason" :error="errors.reason" hint="Only you and your approving supervisor can see this.">
+                  <IonTextarea :id="id" :aria-labelledby="labelledby" v-model="form.reason" class="field-input" :rows="3" :maxlength="1000"  auto-grow />
+                </UiField>
+                <p v-if="formProblem" class="text-[12.5px] text-warn">{{ formProblem }}</p>
+              </form>
+              <template #footer>
+                <UiButton variant="ghost" @click="form = null">Cancel</UiButton>
+                <UiButton variant="primary" type="submit" form="leave-form" :loading="saving" :disabled="Boolean(formProblem)">Send request</UiButton>
+              </template>
+            </UiDialog>
+
+            <UiDialog :open="Boolean(cancelling)" title="Cancel this leave request?" :description="cancelling ? `${cancelling.leave_type} · ${labelRange(cancelling.start_date, cancelling.end_date)}` : ''" @close="cancelling = null">
+              <template #footer>
+                <UiButton variant="ghost" @click="cancelling = null">Keep it</UiButton>
+                <UiButton variant="danger" :loading="busy" @click="cancel">Cancel request</UiButton>
+              </template>
+            </UiDialog>
+          </div>
       </div>
-    </StateBlock>
-
-    <UiDialog :open="Boolean(form)" title="Request leave" description="Whole days. Your supervisor approves or declines it, and you’re notified either way." @close="form = null">
-      <form v-if="form" id="leave-form" class="space-y-4" @submit.prevent="submit">
-        <UiField v-slot="{ id }" label="Type of leave" :error="errors.leave_type_id">
-          <select :id="id" v-model="form.leave_type_id" class="field-input">
-            <option v-for="t in activeTypes" :key="t.id" :value="t.id">{{ t.name }}</option>
-          </select>
-        </UiField>
-        <p v-if="chosen?.description" class="-mt-2 text-[12.5px] text-ink-3">{{ chosen.description }}</p>
-        <div class="grid grid-cols-2 gap-3">
-          <UiField v-slot="{ id }" label="First day" :error="errors.start_date"><input :id="id" v-model="form.start_date" type="date" :min="today" class="field-input" /></UiField>
-          <UiField v-slot="{ id }" label="Last day" :error="errors.end_date"><input :id="id" v-model="form.end_date" type="date" :min="form.start_date" class="field-input" /></UiField>
-        </div>
-        <p v-if="dayCount" class="-mt-2 text-[13px] text-ink-2 tnum">{{ dayCount }} day{{ dayCount === 1 ? '' : 's' }} · {{ labelRange(form.start_date, form.end_date) }}</p>
-        <UiField v-slot="{ id }" :label="chosen?.requires_reason ? 'Reason' : 'Reason'" :optional="!chosen?.requires_reason" :error="errors.reason" hint="Only you and your approving supervisor can see this.">
-          <textarea :id="id" v-model="form.reason" class="field-input" rows="3" maxlength="1000" />
-        </UiField>
-        <p v-if="formProblem" class="text-[12.5px] text-warn">{{ formProblem }}</p>
-      </form>
-      <template #footer>
-        <UiButton variant="ghost" @click="form = null">Cancel</UiButton>
-        <UiButton variant="primary" type="submit" form="leave-form" :loading="saving" :disabled="Boolean(formProblem)">Send request</UiButton>
-      </template>
-    </UiDialog>
-
-    <UiDialog :open="Boolean(cancelling)" title="Cancel this leave request?" :description="cancelling ? `${cancelling.leave_type} · ${labelRange(cancelling.start_date, cancelling.end_date)}` : ''" @close="cancelling = null">
-      <template #footer>
-        <UiButton variant="ghost" @click="cancelling = null">Keep it</UiButton>
-        <UiButton variant="danger" :loading="busy" @click="cancel">Cancel request</UiButton>
-      </template>
-    </UiDialog>
-  </div>
+    </IonContent>
+  </IonPage>
 </template>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { IonTextarea } from '@ionic/vue';
 import { computed, ref, watch } from 'vue';
 import { OrganizationRulesInput, type OrganizationRules } from '@sh/shared';
 import StateBlock from '@/components/ui/StateBlock.vue';
@@ -83,7 +84,7 @@ async function reset() {
         <div class="rounded-lg border border-line bg-canvas p-4 text-[13px] leading-relaxed text-ink-2">
           <p class="font-medium text-ink">What you can change</p>
           <p class="mt-1">
-            Your rules are added to <span class="font-medium">two of the six elements</span> of every prompt, for report cleaning and for Mica. The role, the task, the injection shield, the built-in rules and the output format stay locked, and your rules can never override them.
+            Your rules are added to <span class="font-medium">two of the six elements</span> of every prompt, for cleaning shift endorsements and for Mica. The role, the task, the injection shield, the built-in rules and the output format stay locked, and your rules can never override them.
             Names, health, contact and ID details are still removed before sending, and every answer is still checked.
           </p>
         </div>
@@ -96,8 +97,8 @@ async function reset() {
           <ol class="mt-3 space-y-2">
             <li v-for="(_, i) in lists[list.key].value" :key="i" class="flex items-start gap-2">
               <span class="mt-2 w-5 shrink-0 text-right text-[12px] text-ink-3 tnum">{{ i + 1 }}.</span>
-              <textarea v-model="lists[list.key].value[i]" class="field-input min-h-[2.5rem] flex-1" rows="1" maxlength="300" :aria-label="`${list.title} ${i + 1}`" />
-              <button type="button" class="mt-1.5 rounded-md px-2 py-1 text-[12px] text-bad hover:bg-bad-soft" :aria-label="`Remove ${list.title.toLowerCase()} ${i + 1}`" @click="lists[list.key].value.splice(i, 1)">Remove</button>
+              <IonTextarea v-model="lists[list.key].value[i]" class="field-input min-h-[2.5rem] flex-1" :rows="1" :maxlength="300" :aria-label="`${list.title} ${i + 1}`"  auto-grow />
+              <UiButton size="sm" variant="danger" class="mt-1.5" :aria-label="`Remove ${list.title.toLowerCase()} ${i + 1}`" @click="lists[list.key].value.splice(i, 1)">Remove</UiButton>
             </li>
           </ol>
           <UiButton class="mt-3" size="sm" :disabled="lists[list.key].value.length >= 10" @click="lists[list.key].value.push('')">Add a rule</UiButton>
@@ -113,7 +114,7 @@ async function reset() {
       <aside class="space-y-3">
         <div class="card p-4">
           <h3 class="text-[14px] font-semibold">In use now</h3>
-          <p class="mt-1 text-[12.5px] text-ink-3">Version {{ data.current.version }}. Every new report and Mica request uses it; each report shows the version it used.</p>
+          <p class="mt-1 text-[12.5px] text-ink-3">Version {{ data.current.version }}. Every new endorsement and Mica request uses it; each endorsement shows the version it used.</p>
         </div>
         <div class="card p-4">
           <h3 class="text-[14px] font-semibold">History</h3>

@@ -66,7 +66,7 @@ function section(text: string, header: string): string {
     .filter((i) => i > 0)
     .sort((a, b) => a - b)[0];
   const body = text.slice(after, next ?? text.length).trim();
-  if (/^\(none stated\)$/.test(body) || /^Employee confirmed: no /.test(body)) return '';
+  if (/^\(none stated\)$/.test(body) || /^Staff confirmed: no /.test(body)) return '';
   return body;
 }
 
@@ -146,7 +146,7 @@ export function simulateAnalysis(reportRef: string, text: string, openIssues: Op
   if (!completed.length) {
     draft.missing_information.push({ topic: 'Completed work', detail: 'No completed work was described.', related_evidence: null });
   }
-  if (notes) draft.suggested_follow_up.push('Read the handover notes with the incoming shift at turnover.');
+  if (notes) draft.suggested_follow_up.push('Read the endorsement notes with the incoming shift at change of shift.');
   if (draft.unresolved_issues.some((i) => i.is_safety_concern)) {
     draft.suggested_follow_up.push('Brief the incoming shift on open safety concerns before work starts.');
   }

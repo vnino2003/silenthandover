@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue';
 import { classifyWindow, formatDuration } from '@sh/shared';
+import { useAuth } from '@/stores/auth';
 import { time } from '@/lib/format';
 import type { ShiftView } from '@/lib/types';
 
@@ -17,6 +18,7 @@ const state = computed(() => {
 });
 
 const tz = computed(() => props.shift.timezone);
+const auth = useAuth();
 const view = computed(() => {
   const s = props.shift;
   const until = (iso: string) => formatDuration(new Date(iso).getTime() - props.now);
@@ -24,7 +26,7 @@ const view = computed(() => {
     case 'open':
       return { tone: 'open', title: 'Reporting window open', text: `Closes at ${time(s.window_closes_at, tz.value)} · ${until(s.window_closes_at)} left` };
     case 'override':
-      return { tone: 'open', title: 'Window extended by your supervisor', text: `Submit before ${time(s.override_expires_at!, tz.value)}` };
+      return { tone: 'open', title: `Window extended by your ${auth.terms.head}`, text: `Submit before ${time(s.override_expires_at!, tz.value)}` };
     case 'early_draft':
       return {
         tone: 'soon',
@@ -34,9 +36,9 @@ const view = computed(() => {
     case 'not_started':
       return { tone: 'soon', title: `Shift starts at ${time(s.starts_at, tz.value)}`, text: `Reporting opens at ${time(s.window_opens_at, tz.value)}.` };
     case 'closed':
-      return { tone: 'closed', title: 'Reporting window closed', text: `Closed at ${time(s.window_closes_at, tz.value)}. Ask your supervisor if you need to submit late.` };
+      return { tone: 'closed', title: 'Endorsement window closed', text: `Closed at ${time(s.window_closes_at, tz.value)}. Ask your ${auth.terms.head} if you need to submit late.` };
     case 'cancelled':
-      return { tone: 'closed', title: 'Shift cancelled', text: 'No report is needed for this shift.' };
+      return { tone: 'closed', title: 'Shift cancelled', text: `No ${auth.terms.reportLower} is needed for this shift.` };
     default:
       return { tone: 'closed', title: 'Not assigned', text: 'You are no longer assigned to this shift.' };
   }

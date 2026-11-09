@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import { RouterLink, type RouteLocationRaw } from 'vue-router';
+import { useRouter, type RouteLocationRaw } from 'vue-router';
+import { IonButton, IonSpinner } from '@ionic/vue';
 
+/** The app's button, built on Ionic's IonButton. A `to` makes it navigate like a link. */
 const props = withDefaults(
   defineProps<{
     variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
@@ -14,35 +16,24 @@ const props = withDefaults(
   }>(),
   { variant: 'secondary', size: 'md', type: 'button' },
 );
-
-const classes = computed(() => [
-  'inline-flex items-center justify-center gap-2 rounded-md font-medium whitespace-nowrap select-none',
-  'transition-[color,background-color,border-color,box-shadow,transform] duration-150 ease-out',
-  // A slight press-down so every click feels acknowledged; not on disabled buttons.
-  'active:scale-[0.97] disabled:active:scale-100',
-  'disabled:cursor-not-allowed aria-disabled:cursor-not-allowed',
-  props.block && 'w-full',
-  {
-    sm: 'h-8 px-3 text-[13px]',
-    md: 'h-10 px-4 text-[14px]',
-    lg: 'h-12 px-5 text-[15px]',
-  }[props.size],
-  {
-    primary: 'bg-accent text-white shadow-[0_1px_2px_rgb(22_69_64/0.18)] hover:bg-accent-hover disabled:bg-line-strong disabled:text-ink-3 disabled:shadow-none',
-    secondary: 'border border-line-strong bg-surface text-ink hover:bg-sunken disabled:text-ink-3 disabled:hover:bg-surface',
-    ghost: 'text-ink-2 hover:bg-sunken hover:text-ink disabled:text-ink-3',
-    danger: 'border border-bad/30 bg-surface text-bad hover:bg-bad-soft disabled:text-ink-3',
-  }[props.variant],
-]);
+const router = useRouter();
+const link = computed(() => (props.to && !props.disabled ? router.resolve(props.to).fullPath : undefined));
+const fill = computed(() => (props.variant === 'primary' ? 'solid' : props.variant === 'ghost' ? 'clear' : props.variant === 'danger' ? 'outline' : 'solid'));
+const color = computed(() => (props.variant === 'danger' ? 'danger' : props.variant === 'primary' ? 'primary' : undefined));
 </script>
 
 <template>
-  <RouterLink v-if="to && !disabled" :to="to" :class="classes"><slot /></RouterLink>
-  <button v-else :type="type" :class="classes" :disabled="disabled || loading" :aria-busy="loading || undefined">
-    <svg v-if="loading" class="size-4 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-opacity=".25" stroke-width="3" />
-      <path d="M21 12a9 9 0 0 0-9-9" stroke="currentColor" stroke-width="3" stroke-linecap="round" />
-    </svg>
+  <IonButton
+    :router-link="link"
+    :type="type"
+    :fill="fill"
+    :color="color"
+    :expand="block ? 'block' : undefined"
+    :disabled="disabled || loading"
+    :aria-busy="loading || undefined"
+    :class="[`sh-${size}`, `sh-${variant}`]"
+  >
+    <IonSpinner v-if="loading" slot="start" name="crescent" class="mr-2 size-4" aria-hidden="true" />
     <slot />
-  </button>
+  </IonButton>
 </template>

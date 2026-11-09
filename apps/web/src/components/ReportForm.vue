@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { IonChip, IonInput, IonItem, IonTextarea } from '@ionic/vue';
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 import {
   DEMO_SAMPLE_REPORT,
@@ -151,7 +152,7 @@ function answerProblems(answer: 'yes' | 'no') {
     if (!content.value.problems.length) startProblem();
   }
 }
-/** Asked before "No problems" removes problems the worker already listed. */
+/** Asked before "No" removes the concerns the staff member already listed. */
 const confirmingNoProblems = ref(false);
 function clearProblems() {
   confirmingNoProblems.value = false;
@@ -239,7 +240,7 @@ async function submit() {
       /* ignore */
     }
     confirming.value = false;
-    toast.ok('Report sent. Your supervisor will check it before the next shift gets it.');
+    toast.ok(`${auth.terms.report} sent. Your ${auth.terms.head} will check it before the incoming shift receives it.`);
     emit('submitted');
   } catch (err) {
     if (err instanceof ApiError && err.fields) errors.value = err.fields;
@@ -266,13 +267,11 @@ const coreProgress = computed(() => {
   return { completed, total: 3, percent: Math.round((completed / 3) * 100) };
 });
 const issueNoteError = (id: string) => errors.value[`issue_updates.${content.value.issue_updates.findIndex((u) => u.issue_id === id)}.note`];
-const choice = (active: boolean) =>
-  active ? 'border-accent bg-accent text-white font-medium shadow-sm before:mr-1.5 before:content-["✓"]' : 'border-line-strong bg-surface text-ink hover:bg-sunken';
 </script>
 
 <template>
   <div>
-    <button v-if="!preview" type="button" class="mb-4 text-[13px] font-medium text-accent hover:underline" @click="openWorkAssistant">Prepare this {{ exp.report_label.toLowerCase() }} with Mica ↗</button>
+    <UiButton size="sm" variant="ghost" v-if="!preview" class="mb-4" @click="openWorkAssistant">Prepare this {{ exp.report_label.toLowerCase() }} with Mica ↗</UiButton>
     <div v-if="backup" class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-info/25 bg-info-soft px-4 py-3 text-[14px]">
       <span class="text-info">This device has unsaved changes from {{ time(backup.at) }}.</span>
       <span class="flex gap-2">
@@ -282,14 +281,14 @@ const choice = (active: boolean) =>
     </div>
 
     <div v-if="auth.config?.demo || preview" class="mb-4 flex items-center justify-between gap-3 rounded-lg border border-dashed border-line-strong px-4 py-2.5 text-[13px] text-ink-2">
-      <span>Not sure what to write? Fill the form with an example report, then edit it.</span>
+      <span>Not sure what to write? Fill the form with an example {{ $terms.reportLower }}, then edit it.</span>
       <UiButton size="sm" variant="ghost" @click="useSample">Generate example</UiButton>
     </div>
 
     <div class="card mb-4 px-4 py-3.5 sm:px-5">
       <div class="flex items-center justify-between gap-3">
         <div>
-          <p class="text-[13.5px] font-semibold">Report progress</p>
+          <p class="text-[13.5px] font-semibold">{{ $terms.report }} progress</p>
           <p class="mt-0.5 text-[12.5px] text-ink-3">Answer the three main questions. Earlier {{ words.issues.toLowerCase() }} are optional unless you checked them.</p>
         </div>
         <span class="shrink-0 text-[13px] font-medium text-ink-2 tnum">{{ coreProgress.completed }}/{{ coreProgress.total }}</span>
@@ -305,24 +304,24 @@ const choice = (active: boolean) =>
       <section class="card p-5" :data-error="Boolean(errors.completed_work)">
         <h3 class="text-[16px] font-semibold"><span class="mr-2 text-ink-3 tnum">1</span>What did you finish this shift?</h3>
         <p class="mt-1 text-[13.5px] text-ink-3">{{ exp.completed_hint }}</p>
-        <textarea
+        <IonTextarea
           v-model="content.completed_work"
           class="field-input mt-3 min-h-24"
-          rows="3"
+          :rows="3"
           :placeholder="exp.completed_hint"
           aria-label="What did you finish this shift?"
           :aria-invalid="Boolean(errors.completed_work)"
-        />
+         auto-grow />
         <p v-if="errors.completed_work" class="mt-1.5 text-[13px] text-bad">{{ errors.completed_work }}</p>
       </section>
 
       <!-- 2. New unresolved issues -->
       <section class="card p-5" :data-error="Boolean(errors.unresolved_issues)">
-        <h3 class="text-[16px] font-semibold"><span class="mr-2 text-ink-3 tnum">2</span>Any {{ exp.issue_label.toLowerCase() }} to hand over?</h3>
+        <h3 class="text-[16px] font-semibold"><span class="mr-2 text-ink-3 tnum">2</span>Any {{ exp.issue_label.toLowerCase() }} to endorse?</h3>
         <p class="mt-1 text-[13.5px] text-ink-3">{{ exp.unresolved_hint }} Each item is tracked after review.</p>
         <div class="mt-3 grid grid-cols-2 gap-2">
-          <button type="button" class="h-12 rounded-md border text-[15px] transition-colors" :class="choice(problemsAnswer === 'yes')" @click="answerProblems('yes')">Add {{ words.aIssue }}</button>
-          <button type="button" class="h-12 rounded-md border text-[15px] transition-colors" :class="choice(problemsAnswer === 'no')" @click="answerProblems('no')">No new {{ words.issues.toLowerCase() }}</button>
+          <UiButton size="lg" block :variant="problemsAnswer === 'yes' ? 'primary' : 'secondary'" :aria-pressed="problemsAnswer === 'yes'" @click="answerProblems('yes')">Add {{ words.aIssue }}</UiButton>
+          <UiButton size="lg" block :variant="problemsAnswer === 'no' ? 'primary' : 'secondary'" :aria-pressed="problemsAnswer === 'no'" @click="answerProblems('no')">No new {{ words.issues.toLowerCase() }}</UiButton>
         </div>
 
         <template v-if="problemsAnswer === 'yes'">
@@ -335,44 +334,44 @@ const choice = (active: boolean) =>
                 <p class="text-[14px]">{{ p.what }}</p>
                 <p v-if="errors[`problems.${i}.what`]" class="text-[13px] text-bad">{{ errors[`problems.${i}.what`] }}</p>
               </div>
-              <button type="button" class="text-[13px] text-ink-3 hover:text-ink" @click="startProblem(i)">Edit</button>
-              <button type="button" class="text-[13px] text-ink-3 hover:text-bad" @click="content.problems.splice(i, 1)">Remove</button>
+              <UiButton size="sm" variant="ghost" @click="startProblem(i)">Edit</UiButton>
+              <UiButton size="sm" variant="danger" @click="content.problems.splice(i, 1)">Remove</UiButton>
             </li>
           </ul>
 
           <div v-if="adding" class="mt-4 rounded-md border border-accent/40 bg-canvas p-4">
             <p class="text-[13.5px] font-medium">New {{ words.issue.toLowerCase() }}</p>
             <div class="mt-2 flex flex-wrap gap-1.5">
-              <button
+              <IonChip
                 v-for="c in exp.categories"
                 :key="c"
-                type="button"
-                class="rounded-full border px-3 py-1.5 text-[13.5px]"
-                :class="adding.category === c ? (c === 'safety' ? 'border-bad bg-bad text-white' : 'border-ink bg-ink text-white') : 'border-line-strong bg-surface text-ink-2 hover:bg-sunken'"
+                role="radio"
+                :aria-checked="adding.category === c"
+                :outline="adding.category !== c"
+                :color="adding.category === c ? (c === 'safety' ? 'danger' : 'dark') : undefined"
+                class="m-0"
                 @click="adding.category = c"
-              >
-                {{ PROBLEM_CATEGORY_LABELS[c] }}
-              </button>
+              >{{ PROBLEM_CATEGORY_LABELS[c] }}</IonChip>
             </div>
             <label class="mt-3 block text-[13.5px] font-medium">
               Where? <span class="font-normal text-ink-3">(optional)</span>
-              <input v-model="adding.location" class="field-input mt-1" maxlength="120" placeholder="Area, room, equipment or service reference" />
+              <IonInput v-model="adding.location" class="field-input mt-1" :maxlength="120" placeholder="Area, room, equipment or service reference"  />
             </label>
             <label class="mt-3 block text-[13.5px] font-medium">
               What happened?
-              <textarea v-model="adding.what" class="field-input mt-1" rows="2" maxlength="600" placeholder="Describe what you observed and what action you took" :aria-invalid="Boolean(errors.adding)" />
+              <IonTextarea v-model="adding.what" class="field-input mt-1" :rows="2" :maxlength="600" placeholder="Describe what you observed and what action you took" :aria-invalid="Boolean(errors.adding)"  auto-grow />
             </label>
             <p v-if="errors.adding" class="mt-1 text-[13px] text-bad">{{ errors.adding }}</p>
             <div class="mt-3 flex gap-2">
-              <UiButton size="sm" variant="primary" @click="saveProblem">{{ adding.index === null ? 'Add issue' : 'Save' }}</UiButton>
+              <UiButton size="sm" variant="primary" @click="saveProblem">{{ adding.index === null ? `Add ${$terms.issueLower}` : 'Save' }}</UiButton>
               <UiButton size="sm" variant="ghost" @click="adding = null">Cancel</UiButton>
             </div>
           </div>
-          <UiButton v-else class="mt-3" size="sm" @click="startProblem()">+ Add {{ content.problems.length ? 'another' : 'a' }} issue</UiButton>
+          <UiButton v-else class="mt-3" size="sm" @click="startProblem()">+ Add {{ content.problems.length ? `another ${$terms.issueLower}` : $terms.aIssue }}</UiButton>
 
           <div class="mt-3">
-            <button v-if="!showParagraph" type="button" class="text-[13px] text-ink-3 hover:text-ink" @click="showParagraph = true">Prefer to write it as a paragraph?</button>
-            <textarea v-else v-model="content.unresolved_issues" class="field-input mt-1" rows="3" placeholder="Anything else about the open problems" aria-label="More about the open problems" />
+            <UiButton size="sm" variant="ghost" v-if="!showParagraph" @click="showParagraph = true">Prefer to write it as a paragraph?</UiButton>
+            <IonTextarea v-else v-model="content.unresolved_issues" class="field-input mt-1" :rows="3" :placeholder="`Anything else about the unresolved ${$terms.issuesLower}`" :aria-label="`More about the unresolved ${$terms.issuesLower}`"  auto-grow />
           </div>
         </template>
         <p v-if="errors.unresolved_issues" class="mt-2 text-[13px] text-bad">{{ errors.unresolved_issues }}</p>
@@ -388,30 +387,28 @@ const choice = (active: boolean) =>
           <span class="shrink-0 text-[12.5px] text-ink-3">{{ openIssues.length }} open</span>
         </summary>
         <div class="border-t border-line px-5 py-4">
-          <p class="text-[13.5px] text-ink-3">Choose what you observed. “Fixed” still needs your supervisor’s confirmation.</p>
+          <p class="text-[13.5px] text-ink-3">Choose what you observed. “Fixed” still needs your {{ $terms.head }}’s confirmation.</p>
           <ul class="mt-3 divide-y divide-line">
           <li v-for="issue in openIssues" :key="issue.id" class="py-3 first:pt-0 last:pb-0">
             <p class="text-[14px] font-medium">{{ issue.title }} <span class="font-normal text-ink-3 tnum">· {{ issue.code }}</span></p>
             <div class="mt-2 grid grid-cols-3 gap-1.5">
-              <button
+              <UiButton
                 v-for="c in ISSUE_CHOICES"
                 :key="c.value"
-                type="button"
-                class="h-10 rounded-md border text-[13.5px]"
-                :class="choice(updatesById.get(issue.id)?.claimed_status === c.value)"
+                block
+                :variant="updatesById.get(issue.id)?.claimed_status === c.value ? 'primary' : 'secondary'"
+                :aria-pressed="updatesById.get(issue.id)?.claimed_status === c.value"
                 @click="setIssueStatus(issue.id, c.value)"
-              >
-                {{ c.label }}
-              </button>
+              >{{ c.label }}</UiButton>
             </div>
-            <input
+            <IonInput
               v-if="updatesById.get(issue.id)"
               v-model="updatesById.get(issue.id)!.note"
               class="field-input mt-2"
-              maxlength="1000"
+              :maxlength="1000"
               :placeholder="updatesById.get(issue.id)!.claimed_status === 'addressed' ? 'What did you do to fix it?' : 'Anything to add? (optional)'"
               :aria-invalid="Boolean(issueNoteError(issue.id))"
-            />
+             />
             <p v-if="issueNoteError(issue.id)" class="mt-1 text-[13px] text-bad">{{ issueNoteError(issue.id) }}</p>
           </li>
           </ul>
@@ -423,39 +420,39 @@ const choice = (active: boolean) =>
         <h3 class="text-[16px] font-semibold"><span class="mr-2 text-ink-3 tnum">{{ openIssues.length ? 4 : 3 }}</span>Anything the next shift must do?</h3>
         <p class="mt-1 text-[13.5px] text-ink-3">Each one becomes a checklist item for them.</p>
         <div class="mt-3 grid grid-cols-2 gap-2">
-          <button type="button" class="h-12 rounded-md border text-[15px]" :class="choice(tasksAnswer === 'yes')" @click="answerTasks('yes')">Yes</button>
-          <button type="button" class="h-12 rounded-md border text-[15px]" :class="choice(tasksAnswer === 'no')" @click="answerTasks('no')">Nothing</button>
+          <UiButton size="lg" block :variant="tasksAnswer === 'yes' ? 'primary' : 'secondary'" :aria-pressed="tasksAnswer === 'yes'" @click="answerTasks('yes')">Yes</UiButton>
+          <UiButton size="lg" block :variant="tasksAnswer === 'no' ? 'primary' : 'secondary'" :aria-pressed="tasksAnswer === 'no'" @click="answerTasks('no')">Nothing</UiButton>
         </div>
-        <textarea
+        <IonTextarea
           v-if="tasksAnswer === 'yes'"
           v-model="content.pending_tasks"
           class="field-input mt-3"
-          rows="3"
+          :rows="3"
           :placeholder="exp.pending_hint"
           aria-label="What the next shift must do"
           :aria-invalid="Boolean(errors.pending_tasks)"
-        />
+         auto-grow />
         <p v-if="errors.pending_tasks" class="mt-1.5 text-[13px] text-bad">{{ errors.pending_tasks }}</p>
       </section>
 
       <!-- Optional extras -->
       <section class="card">
-        <button type="button" class="flex w-full items-center justify-between px-5 py-4 text-left" :aria-expanded="showMore" @click="showMore = !showMore">
+        <IonItem button :detail="false" lines="none" class="sh-row" :aria-expanded="showMore" @click="showMore = !showMore"><div class="flex w-full min-w-0 items-center justify-between px-5 py-4 text-left">
           <span>
             <span class="block text-[15px] font-medium">Anything else? <span class="font-normal text-ink-3">(optional)</span></span>
             <span class="block text-[13px] text-ink-3">Equipment or safety worries, notes, photo references</span>
           </span>
           <span class="text-[13px] text-ink-3">{{ showMore ? 'Hide' : 'Add' }}</span>
-        </button>
+        </div></IonItem>
         <div v-if="showMore" class="space-y-3 border-t border-line px-5 py-4">
           <label class="block text-[13.5px] font-medium">Equipment or safety worries
-            <textarea v-model="content.operational_concerns" class="field-input mt-1" rows="2" :placeholder="exp.concerns_hint" />
+            <IonTextarea v-model="content.operational_concerns" class="field-input mt-1" :rows="2" :placeholder="exp.concerns_hint"  auto-grow />
           </label>
           <label class="block text-[13.5px] font-medium">Other notes
-            <textarea v-model="content.handover_notes" class="field-input mt-1" rows="2" />
+            <IonTextarea v-model="content.handover_notes" class="field-input mt-1" :rows="2"  auto-grow />
           </label>
           <label class="block text-[13.5px] font-medium">Photo or work-order references
-            <input v-model="content.evidence_refs" class="field-input mt-1" maxlength="500" />
+            <IonInput v-model="content.evidence_refs" class="field-input mt-1" :maxlength="500"  />
           </label>
         </div>
       </section>
@@ -464,7 +461,7 @@ const choice = (active: boolean) =>
         <p class="text-[13px] text-ink-3" :class="{ 'text-bad': saveState === 'error' }" aria-live="polite">{{ saveLabel }}</p>
         <div class="flex flex-col gap-1 sm:items-end">
           <UiButton type="submit" variant="primary" size="lg" :disabled="!canSubmit" :loading="submitting || previewBusy" block>
-            {{ preview ? 'Run through the pipeline' : isRevision ? 'Send revision' : 'Send report' }}
+            {{ preview ? 'Run through the pipeline' : isRevision ? 'Send revision' : `Send ${$terms.reportLower}` }}
           </UiButton>
           <p v-if="!canSubmit && submitBlockedReason" class="text-[12.5px] text-ink-3">{{ submitBlockedReason }}</p>
         </div>
@@ -473,8 +470,8 @@ const choice = (active: boolean) =>
 
     <UiDialog
       :open="confirmingNoProblems"
-      title="Remove the problems you listed?"
-      :description="`You added ${content.problems.length} problem${content.problems.length === 1 ? '' : 's'}. Answering “No” removes them from this report.`"
+      :title="`Remove the ${$terms.issuesLower} you listed?`"
+      :description="`You added ${content.problems.length} ${content.problems.length === 1 ? $terms.issueLower : $terms.issuesLower}. Answering “No” removes them from this ${$terms.reportLower}.`"
       @close="confirmingNoProblems = false"
     >
       <template #footer>
@@ -483,10 +480,10 @@ const choice = (active: boolean) =>
       </template>
     </UiDialog>
 
-    <UiDialog :open="confirming" title="Send this report?" @close="confirming = false">
+    <UiDialog :open="confirming" :title="`Send this ${$terms.reportLower}?`" @close="confirming = false">
       <p class="text-[14px] text-ink-2">
-        You can’t edit it after sending unless your supervisor asks for changes. Names and personal details are removed before the
-        draft is prepared, and nothing reaches the next shift until your supervisor checks it.
+        You can’t edit it after sending unless your {{ $terms.head }} asks for changes. Names and personal details are removed before the
+        draft is prepared, and nothing reaches the incoming shift until your {{ $terms.head }} checks it.
       </p>
       <template #footer>
         <UiButton variant="ghost" @click="confirming = false">Keep editing</UiButton>

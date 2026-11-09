@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { toggleIn } from '@/lib/toggleIn';
+import { IonChip, IonInput, IonItem, IonLabel, IonSegment, IonSegmentButton, IonSelect, IonSelectOption } from '@ionic/vue';
 import { computed, ref, watch } from 'vue';
 import StateBlock from '@/components/ui/StateBlock.vue';
 import UiButton from '@/components/ui/UiButton.vue';
@@ -156,32 +158,23 @@ const cellMark = computed(() => (cell.value ? markOf(cell.value.emp.id, cell.val
     <!-- Controls: view, dates, filters -->
     <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
       <div class="flex items-center gap-2">
-        <div class="flex rounded-md border border-line-strong p-0.5 text-[13px]" role="tablist" aria-label="Board view">
-          <button
-            v-for="v in [{ k: 'day', l: 'Day' }, { k: 'week', l: 'Week' }, { k: 'month', l: 'Month' }] as const"
-            :key="v.k"
-            type="button"
-            role="tab"
-            :aria-selected="view === v.k"
-            class="rounded px-3 py-1"
-            :class="view === v.k ? 'bg-ink text-white' : 'text-ink-2 hover:bg-sunken'"
-            @click="view = v.k"
-          >{{ v.l }}</button>
-        </div>
+        <IonSegment :value="view" class="sh-segment w-auto" aria-label="Board view" @ion-change="view = $event.detail.value as typeof view">
+  <IonSegmentButton v-for="v in [{ k: 'day', l: 'Day' }, { k: 'week', l: 'Week' }, { k: 'month', l: 'Month' }] as const" :key="v.k" :value="v.k"><IonLabel>{{ v.l }}</IonLabel></IonSegmentButton>
+</IonSegment>
         <UiButton size="sm" variant="ghost" aria-label="Previous" @click="move(-1)">←</UiButton>
         <UiButton size="sm" variant="ghost" @click="anchor = null">Today</UiButton>
         <UiButton size="sm" variant="ghost" aria-label="Next" @click="move(1)">→</UiButton>
         <h3 class="ml-1 text-[15px] font-semibold tnum">{{ title }}</h3>
       </div>
       <div class="flex flex-wrap items-center gap-2">
-        <select v-model="employeeFilter" class="field-input h-9 w-44 py-0 text-[13.5px]" aria-label="Employee">
-          <option value="">Everyone</option>
-          <option v-for="e in data?.employees ?? []" :key="e.id" :value="e.id">{{ e.full_name }}</option>
-        </select>
-        <select v-model="shiftFilter" class="field-input h-9 w-40 py-0 text-[13.5px]" aria-label="Shift">
-          <option value="">All shifts</option>
-          <option v-for="p in data?.patterns ?? []" :key="p.id" :value="p.id">{{ p.name }}</option>
-        </select>
+        <IonSelect v-model="employeeFilter" class="field-input h-9 w-44 py-0 text-[13.5px]" aria-label="Staff member" interface="popover">
+          <IonSelectOption value="">Everyone</IonSelectOption>
+          <IonSelectOption v-for="e in data?.employees ?? []" :key="e.id" :value="e.id">{{ e.full_name }}</IonSelectOption>
+        </IonSelect>
+        <IonSelect v-model="shiftFilter" class="field-input h-9 w-40 py-0 text-[13.5px]" aria-label="Shift" interface="popover">
+          <IonSelectOption value="">All shifts</IonSelectOption>
+          <IonSelectOption v-for="p in data?.patterns ?? []" :key="p.id" :value="p.id">{{ p.name }}</IonSelectOption>
+        </IonSelect>
       </div>
     </div>
 
@@ -195,11 +188,11 @@ const cellMark = computed(() => (cell.value ? markOf(cell.value.emp.id, cell.val
           </summary>
           <ul class="stagger divide-y divide-line border-t border-line text-[13px]">
             <li v-for="(c, i) in conflicts.slice(0, 30)" :key="i">
-              <button type="button" class="flex w-full items-center gap-3 px-4 py-2 text-left hover:bg-sunken" @click="openDay(c.day)">
+              <IonItem button :detail="false" lines="none" class="sh-row" @click="openDay(c.day)"><div class="flex w-full min-w-0 items-center gap-3 px-4 py-2 text-left hover:bg-sunken">
                 <span class="w-24 shrink-0 text-ink-3 tnum">{{ labelDay(c.day) }}</span>
                 <span class="size-2 shrink-0 rounded-full" :class="c.kind === 'understaffed' ? 'bg-bad' : c.kind === 'pending_leave' ? 'bg-violet' : 'bg-info'" aria-hidden="true" />
                 <span class="min-w-0 flex-1">{{ c.text }}</span>
-              </button>
+              </div></IonItem>
             </li>
           </ul>
         </details>
@@ -230,20 +223,19 @@ const cellMark = computed(() => (cell.value ? markOf(cell.value.emp.id, cell.val
                   </span>
                 </th>
                 <td v-for="d in days" :key="d" class="p-1" :class="{ 'bg-accent-soft/30': d === today }">
-                  <button
-                    type="button"
-                    class="flex min-h-14 w-full flex-col gap-0.5 rounded-md px-1.5 py-1 text-left text-[11.5px]"
+                  <IonItem button :detail="false" lines="none" class="sh-row"
+                   
                     :class="readonly ? 'cursor-default' : 'lift hover:bg-sunken'"
                     :aria-label="`${e.full_name}, ${labelDay(d)}`"
                     @click="openCell(e, d)"
-                  >
+                  ><div class="flex min-h-14 w-full min-w-0 flex-col gap-0.5 rounded-md px-1.5 py-1 text-left text-[11.5px]">
                     <span v-for="s in shiftsOf(e.id, d)" :key="s.id" class="truncate rounded bg-accent px-1.5 py-0.5 font-medium text-white tnum">{{ s.label }} {{ time(s.starts_at, data.department.timezone) }}</span>
                     <span v-if="leaveOf(e.id, d)" class="truncate rounded px-1.5 py-0.5 font-medium" :class="leaveOf(e.id, d)!.status === 'approved' ? 'bg-violet-soft text-violet' : 'border border-dashed border-violet/50 text-violet'">
                       {{ leaveOf(e.id, d)!.status === 'approved' ? 'On leave' : 'Leave?' }}
                     </span>
                     <span v-if="markOf(e.id, d)" class="truncate rounded bg-info-soft px-1.5 py-0.5 font-medium text-info">{{ MARK_LABEL[markOf(e.id, d)!.kind] }}</span>
                     <span v-if="!shiftsOf(e.id, d).length && !leaveOf(e.id, d) && !markOf(e.id, d)" class="px-1.5 py-0.5 text-ink-3">—</span>
-                  </button>
+                  </div></IonItem>
                 </td>
               </tr>
               <tr v-if="!employees.length"><td colspan="8" class="px-5 py-8 text-center text-[13px] text-ink-3">No active staff in this department.</td></tr>
@@ -365,12 +357,18 @@ const cellMark = computed(() => (cell.value ? markOf(cell.value.emp.id, cell.val
           <div v-if="restForm" class="mt-3 space-y-3 rounded-md border border-line p-3">
             <p class="text-[13px] text-ink-2">Rest days for {{ firstName(cell.emp.id) }} every week, from {{ labelDay(cell.day) }}:</p>
             <div class="grid grid-cols-7 gap-1">
-              <label v-for="w in WEEKDAYS" :key="w.v" class="cursor-pointer">
-                <input v-model="restForm.weekdays" type="checkbox" :value="w.v" class="peer sr-only" />
-                <span class="grid h-8 place-items-center rounded-md border border-line text-[11.5px] font-medium text-ink-2 peer-checked:border-accent peer-checked:bg-accent peer-checked:text-white">{{ w.l }}</span>
-              </label>
+              <IonChip
+                v-for="w in WEEKDAYS"
+                :key="w.v"
+                role="checkbox"
+                :aria-checked="restForm.weekdays.includes(w.v)"
+                :outline="!restForm.weekdays.includes(w.v)"
+                :color="restForm.weekdays.includes(w.v) ? 'primary' : undefined"
+                class="m-0 h-8 justify-center text-[11.5px] font-medium"
+                @click="restForm.weekdays = toggleIn(restForm.weekdays, w.v)"
+              >{{ w.l }}</IonChip>
             </div>
-            <UiField v-slot="{ id }" label="Until"><input :id="id" v-model="restForm.to" type="date" :min="cell.day" :max="addDays(cell.day, 120)" class="field-input" /></UiField>
+            <UiField v-slot="{ id, labelledby }" label="Until"><IonInput :id="id" :aria-labelledby="labelledby" v-model="restForm.to" type="date" :min="cell.day" :max="addDays(cell.day, 120)" class="field-input"  /></UiField>
             <div class="flex justify-end gap-2">
               <UiButton size="sm" variant="ghost" @click="restForm = null">Cancel</UiButton>
               <UiButton size="sm" variant="primary" :disabled="!restForm.weekdays.length" :loading="busy === 'rest'" @click="saveRestDays">Save rest days</UiButton>

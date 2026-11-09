@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { toggleIn } from '@/lib/toggleIn';
+import { IonCheckbox, IonContent, IonInput, IonItem, IonLabel, IonPage, IonSegment, IonSegmentButton, IonSelect, IonSelectOption } from '@ionic/vue';
 import { computed, ref, watch } from 'vue';
 import PageHeader from '@/components/ui/PageHeader.vue';
 import StateBlock from '@/components/ui/StateBlock.vue';
@@ -177,7 +179,7 @@ async function assignSelected() {
   if (ok) {
     selectedEmployeeIds.value = [];
     toast.ok(`${ids.length} added to ${s.label}`);
-    if (delivered) toast.info(`${delivered} waiting handover${delivered === 1 ? '' : 's'} delivered`);
+    if (delivered) toast.info(`${delivered} waiting endorsement${delivered === 1 ? '' : 's'} sent to the incoming shift`);
   }
 }
 const unassign = (s: Shift, id: string) => run(`un-${s.id}-${id}`, () => api.del(`/manager/schedule/${s.id}/assignments/${id}`), 'Removed from shift');
@@ -212,7 +214,7 @@ async function copyLastWeek() {
     null,
   );
   if (copied || skipped) toast.ok(`Copied ${copied} from last week${skipped ? ` · ${skipped} skipped (already on another shift)` : ''}`);
-  else toast.info('Nothing to copy — last week had no crew on these days');
+  else toast.info('Nothing to copy — no one was on duty on these days last week');
 }
 
 // Setting up the department's shifts: each supervisor's own pattern, any number of shifts.
@@ -303,218 +305,219 @@ async function saveShiftSetup() {
 </script>
 
 <template>
-  <div class="mx-auto max-w-6xl">
-    <PageHeader title="Schedule" description="Your department’s shifts for the week. Tap a shift to choose who works it.">
-      <div class="flex rounded-md border border-line-strong p-0.5 text-[13px]" role="tablist" aria-label="Schedule layout">
-        <button
-          v-for="v in [{ k: 'shift', l: 'By shift' }, { k: 'person', l: 'By person' }] as const"
-          :key="v.k"
-          type="button"
-          role="tab"
-          :aria-selected="layout === v.k"
-          class="rounded px-3 py-1"
-          :class="layout === v.k ? 'bg-ink text-white' : 'text-ink-2 hover:bg-sunken'"
-          @click="layout = v.k"
-        >{{ v.l }}</button>
-      </div>
-      <UiButton size="sm" variant="ghost" :disabled="types.loading.value" @click="openShiftSetup">Edit shifts</UiButton>
-    </PageHeader>
+  <IonPage>
+    <IonContent class="sh-content">
+      <div class="sh-page page-enter">
+          <div class="mx-auto max-w-6xl">
+            <PageHeader title="Duty schedule" description="Your unit’s duty shifts for the week. Tap a shift to choose who is on duty.">
+              <IonSegment :value="layout" class="sh-segment w-auto" aria-label="Schedule layout" @ion-change="layout = $event.detail.value as typeof layout">
+  <IonSegmentButton v-for="v in [{ k: 'shift', l: 'By shift' }, { k: 'person', l: 'By person' }] as const" :key="v.k" :value="v.k"><IonLabel>{{ v.l }}</IonLabel></IonSegmentButton>
+</IonSegment>
+              <UiButton size="sm" variant="ghost" :disabled="types.loading.value" @click="openShiftSetup">Edit duty shifts</UiButton>
+            </PageHeader>
 
-    <!-- The day at a glance: who hands over to whom, and when -->
-    <StateBlock :loading="types.loading.value" :error="types.error.value" :empty="false" @retry="types.reload()">
-      <section v-if="!patterns.length" class="card mb-6 flex flex-col items-start gap-3 px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p class="text-[15px] font-semibold">Set up your department’s shifts</p>
-          <p class="text-[13px] text-ink-3">For example Morning 6 AM – 2 PM and Afternoon 2 PM – 10 PM. Each department sets its own.</p>
-        </div>
-        <UiButton variant="primary" @click="openShiftSetup">Set up shifts</UiButton>
-      </section>
-      <section v-else class="card mb-6 flex flex-col gap-3 px-5 py-4 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6" aria-label="Daily shifts">
-        <template v-for="(p, i) in patterns" :key="p.id">
-          <div class="flex items-center gap-3">
-            <span class="grid size-9 shrink-0 place-items-center rounded-full text-[12px] font-semibold" :class="i % 2 ? 'bg-info-soft text-info' : 'bg-warn-soft text-warn'">{{ i + 1 }}</span>
-            <div>
-              <p class="text-[15px] font-semibold">{{ p.name }}</p>
-              <p class="text-[13px] text-ink-2 tnum">{{ clock(p.start_time) }} – {{ clock(p.end_time) }}</p>
-            </div>
-          </div>
-          <p class="flex items-center gap-2 text-[12.5px] whitespace-nowrap text-ink-3">
-            <span aria-hidden="true">→</span>
-            hands over at {{ clock(p.end_time) }}{{ i === patterns.length - 1 ? ` to the next ${patterns[0]!.name}` : '' }}
-          </p>
-        </template>
-      </section>
-    </StateBlock>
+            <!-- The day at a glance: who endorses to whom, and when -->
+            <StateBlock :loading="types.loading.value" :error="types.error.value" :empty="false" @retry="types.reload()">
+              <section v-if="!patterns.length" class="card mb-6 flex flex-col items-start gap-3 px-5 py-5 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p class="text-[15px] font-semibold">Set up your department’s shifts</p>
+                  <p class="text-[13px] text-ink-3">For example Morning 6 AM – 2 PM and Afternoon 2 PM – 10 PM. Each department sets its own.</p>
+                </div>
+                <UiButton variant="primary" @click="openShiftSetup">Set up shifts</UiButton>
+              </section>
+              <section v-else class="card mb-6 flex flex-col gap-3 px-5 py-4 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6" aria-label="Daily shifts">
+                <template v-for="(p, i) in patterns" :key="p.id">
+                  <div class="flex items-center gap-3">
+                    <span class="grid size-9 shrink-0 place-items-center rounded-full text-[12px] font-semibold" :class="i % 2 ? 'bg-info-soft text-info' : 'bg-warn-soft text-warn'">{{ i + 1 }}</span>
+                    <div>
+                      <p class="text-[15px] font-semibold">{{ p.name }}</p>
+                      <p class="text-[13px] text-ink-2 tnum">{{ clock(p.start_time) }} – {{ clock(p.end_time) }}</p>
+                    </div>
+                  </div>
+                  <p class="flex items-center gap-2 text-[12.5px] whitespace-nowrap text-ink-3">
+                    <span aria-hidden="true">→</span>
+                    endorses at {{ clock(p.end_time) }}{{ i === patterns.length - 1 ? ` to the next ${patterns[0]!.name}` : '' }}
+                  </p>
+                </template>
+              </section>
+            </StateBlock>
 
-    <!-- The week -->
-    <section v-if="layout === 'shift'" aria-labelledby="week-heading">
-      <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 id="week-heading" class="text-[16px] font-semibold">{{ weekTitle }}</h2>
-          <p class="mt-0.5 text-[13px] text-ink-3">Each shift can have several people.</p>
-        </div>
-        <div class="flex w-full flex-wrap items-center gap-1.5 sm:w-auto">
-          <UiButton class="w-full sm:w-auto" size="sm" variant="ghost" :loading="busy === 'copy'" @click="copyLastWeek">Copy last week’s crew</UiButton>
-          <UiButton size="sm" variant="ghost" aria-label="Previous week" @click="moveWeek(-1)">←</UiButton>
-          <UiButton size="sm" variant="ghost" @click="goToday">This week</UiButton>
-          <UiButton size="sm" variant="ghost" aria-label="Next week" @click="moveWeek(1)">→</UiButton>
-        </div>
-      </div>
+            <!-- The week -->
+            <section v-if="layout === 'shift'" aria-labelledby="week-heading">
+              <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h2 id="week-heading" class="text-[16px] font-semibold">{{ weekTitle }}</h2>
+                  <p class="mt-0.5 text-[13px] text-ink-3">Each shift can have several staff on duty.</p>
+                </div>
+                <div class="flex w-full flex-wrap items-center gap-1.5 sm:w-auto">
+                  <UiButton class="w-full sm:w-auto" size="sm" variant="ghost" :loading="busy === 'copy'" @click="copyLastWeek">Copy last week’s duty roster</UiButton>
+                  <UiButton size="sm" variant="ghost" aria-label="Previous week" @click="moveWeek(-1)">←</UiButton>
+                  <UiButton size="sm" variant="ghost" @click="goToday">This week</UiButton>
+                  <UiButton size="sm" variant="ghost" aria-label="Next week" @click="moveWeek(1)">→</UiButton>
+                </div>
+              </div>
 
-      <StateBlock :loading="shifts.loading.value" :refreshing="shifts.refreshing.value" :error="shifts.error.value" :empty="false" @retry="shifts.reload()">
-        <div class="table-region card overflow-x-auto" tabindex="0" role="region" aria-label="Weekly shift schedule — scroll horizontally to see all columns">
-          <table class="w-full min-w-[860px] border-collapse text-left">
-            <thead>
-              <tr class="border-b border-line">
-                <th class="sticky left-0 z-10 w-40 border-r border-line bg-surface px-4 py-3 text-[12px] font-semibold text-ink-3">Shift</th>
-                <th v-for="d in days" :key="d.iso" class="px-2 py-2.5 text-center" :class="{ 'bg-accent-soft/40': d.isToday }">
-                  <span class="block text-[11px] font-semibold tracking-[0.08em] text-ink-3 uppercase">{{ d.label }}</span>
-                  <span class="mx-auto mt-0.5 grid size-7 place-items-center rounded-full text-[14px] font-semibold tnum" :class="d.isToday ? 'bg-ink text-white' : 'text-ink'">{{ d.dateNumber }}</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody class="stagger divide-y divide-line">
-              <tr v-for="p in patterns" :key="p.id" class="align-top">
-                <th class="sticky left-0 z-10 border-r border-line bg-surface px-4 py-3">
-                  <span class="block text-[14px] font-semibold">{{ p.name }}</span>
-                  <span class="block text-[12px] font-normal text-ink-3 tnum">{{ clock(p.start_time) }} – {{ clock(p.end_time) }}</span>
-                </th>
-                <td v-for="d in days" :key="d.iso" class="p-1.5" :class="{ 'bg-accent-soft/40': d.isToday, 'opacity-60': d.isPast }">
-                  <button
-                    v-if="cell(p.id, d.iso)"
-                    type="button"
-                    class="lift flex min-h-20 w-full flex-col gap-1 rounded-md border px-2 py-2 text-left hover:border-line-strong hover:bg-sunken"
-                    :class="cell(p.id, d.iso)!.status === 'cancelled' ? 'border-dashed border-line bg-canvas' : cell(p.id, d.iso)!.assignees.length ? 'border-line bg-surface' : 'border-warn/40 bg-warn-soft/40'"
-                    :aria-label="`${p.name}, ${d.label} ${d.dateNumber}: ${cell(p.id, d.iso)!.assignees.length} assigned`"
-                    @click="openShift(cell(p.id, d.iso)!)"
-                  >
-                    <template v-if="cell(p.id, d.iso)!.status === 'cancelled'">
-                      <span class="text-[12px] text-ink-3">Cancelled</span>
-                    </template>
-                    <template v-else-if="cell(p.id, d.iso)!.assignees.length">
-                      <span v-for="a in cell(p.id, d.iso)!.assignees.slice(0, 3)" :key="a.employee_id" class="truncate rounded bg-sunken px-1.5 py-0.5 text-[12px] font-medium">{{ firstName(a.full_name) }}</span>
-                      <span v-if="cell(p.id, d.iso)!.assignees.length > 3" class="text-[11.5px] text-ink-3">+{{ cell(p.id, d.iso)!.assignees.length - 3 }} more</span>
-                    </template>
-                    <span v-else class="text-[12px] font-medium text-warn">{{ d.isPast ? 'No one' : '+ Add people' }}</span>
-                    <span
-                      v-if="cell(p.id, d.iso)!.status === 'scheduled' && (cell(p.id, d.iso)!.min_staff ?? 0) > 0"
-                      class="mt-auto self-end rounded-full px-1.5 text-[11px] font-semibold tnum"
-                      :class="cell(p.id, d.iso)!.assignees.length >= cell(p.id, d.iso)!.min_staff! ? 'bg-ok-soft text-ok' : 'bg-warn-soft text-warn'"
-                      :title="`${cell(p.id, d.iso)!.assignees.length} of ${cell(p.id, d.iso)!.min_staff} staff needed`"
-                    >{{ cell(p.id, d.iso)!.assignees.length }} / {{ cell(p.id, d.iso)!.min_staff }}</span>
-                  </button>
-                  <span v-else class="grid min-h-20 place-items-center text-[11.5px] text-ink-3">—</span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+              <StateBlock :loading="shifts.loading.value" :refreshing="shifts.refreshing.value" :error="shifts.error.value" :empty="false" @retry="shifts.reload()">
+                <div class="table-region card overflow-x-auto" tabindex="0" role="region" aria-label="Weekly shift schedule — scroll horizontally to see all columns">
+                  <table class="w-full min-w-[860px] border-collapse text-left">
+                    <thead>
+                      <tr class="border-b border-line">
+                        <th class="sticky left-0 z-10 w-40 border-r border-line bg-surface px-4 py-3 text-[12px] font-semibold text-ink-3">Shift</th>
+                        <th v-for="d in days" :key="d.iso" class="px-2 py-2.5 text-center" :class="{ 'bg-accent-soft/40': d.isToday }">
+                          <span class="block text-[11px] font-semibold tracking-[0.08em] text-ink-3 uppercase">{{ d.label }}</span>
+                          <span class="mx-auto mt-0.5 grid size-7 place-items-center rounded-full text-[14px] font-semibold tnum" :class="d.isToday ? 'bg-ink text-white' : 'text-ink'">{{ d.dateNumber }}</span>
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody class="stagger divide-y divide-line">
+                      <tr v-for="p in patterns" :key="p.id" class="align-top">
+                        <th class="sticky left-0 z-10 border-r border-line bg-surface px-4 py-3">
+                          <span class="block text-[14px] font-semibold">{{ p.name }}</span>
+                          <span class="block text-[12px] font-normal text-ink-3 tnum">{{ clock(p.start_time) }} – {{ clock(p.end_time) }}</span>
+                        </th>
+                        <td v-for="d in days" :key="d.iso" class="p-1.5" :class="{ 'bg-accent-soft/40': d.isToday, 'opacity-60': d.isPast }">
+                          <IonItem button :detail="false" lines="none" class="sh-row"
+                            v-if="cell(p.id, d.iso)"
+                           
+                            :class="cell(p.id, d.iso)!.status === 'cancelled' ? 'border-dashed border-line bg-canvas' : cell(p.id, d.iso)!.assignees.length ? 'border-line bg-surface' : 'border-warn/40 bg-warn-soft/40'"
+                            :aria-label="`${p.name}, ${d.label} ${d.dateNumber}: ${cell(p.id, d.iso)!.assignees.length} assigned`"
+                            @click="openShift(cell(p.id, d.iso)!)"
+                          ><div class="lift flex min-h-20 w-full min-w-0 flex-col gap-1 rounded-md border px-2 py-2 text-left hover:border-line-strong hover:bg-sunken">
+                            <template v-if="cell(p.id, d.iso)!.status === 'cancelled'">
+                              <span class="text-[12px] text-ink-3">Cancelled</span>
+                            </template>
+                            <template v-else-if="cell(p.id, d.iso)!.assignees.length">
+                              <span v-for="a in cell(p.id, d.iso)!.assignees.slice(0, 3)" :key="a.employee_id" class="truncate rounded bg-sunken px-1.5 py-0.5 text-[12px] font-medium">{{ firstName(a.full_name) }}</span>
+                              <span v-if="cell(p.id, d.iso)!.assignees.length > 3" class="text-[11.5px] text-ink-3">+{{ cell(p.id, d.iso)!.assignees.length - 3 }} more</span>
+                            </template>
+                            <span v-else class="text-[12px] font-medium text-warn">{{ d.isPast ? 'No one' : '+ Add people' }}</span>
+                            <span
+                              v-if="cell(p.id, d.iso)!.status === 'scheduled' && (cell(p.id, d.iso)!.min_staff ?? 0) > 0"
+                              class="mt-auto self-end rounded-full px-1.5 text-[11px] font-semibold tnum"
+                              :class="cell(p.id, d.iso)!.assignees.length >= cell(p.id, d.iso)!.min_staff! ? 'bg-ok-soft text-ok' : 'bg-warn-soft text-warn'"
+                              :title="`${cell(p.id, d.iso)!.assignees.length} of ${cell(p.id, d.iso)!.min_staff} staff needed`"
+                            >{{ cell(p.id, d.iso)!.assignees.length }} / {{ cell(p.id, d.iso)!.min_staff }}</span>
+                          </div></IonItem>
+                          <span v-else class="grid min-h-20 place-items-center text-[11.5px] text-ink-3">—</span>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
 
-        <div v-if="otherShifts.length" class="mt-4">
-          <h3 class="text-[13px] font-semibold text-ink-2">Other shifts this week</h3>
-          <p class="text-[12px] text-ink-3">Overtime or older shifts outside the regular {{ patterns.map((p) => p.name).join(' / ') }} pattern.</p>
-          <div class="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            <button
-              v-for="s in otherShifts"
-              :key="s.id"
-              type="button"
-              class="lift rounded-md border border-line bg-surface px-3 py-2.5 text-left hover:border-line-strong hover:bg-sunken"
-              :class="{ 'opacity-55': s.status === 'cancelled' }"
-              @click="openShift(s)"
+                <div v-if="otherShifts.length" class="mt-4">
+                  <h3 class="text-[13px] font-semibold text-ink-2">Other shifts this week</h3>
+                  <p class="text-[12px] text-ink-3">Overtime or older shifts outside the regular {{ patterns.map((p) => p.name).join(' / ') }} pattern.</p>
+                  <div class="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    <button
+                      v-for="s in otherShifts"
+                      :key="s.id"
+                      type="button"
+                      class="lift rounded-md border border-line bg-surface px-3 py-2.5 text-left hover:border-line-strong hover:bg-sunken"
+                      :class="{ 'opacity-55': s.status === 'cancelled' }"
+                      @click="openShift(s)"
+                    >
+                      <span class="block truncate text-[13px] font-semibold">{{ s.label }}</span>
+                      <span class="block text-[12px] text-ink-3 tnum">{{ day(s.shift_date) }} · {{ shiftRange(s) }}{{ s.status === 'cancelled' ? ' · cancelled' : '' }}</span>
+                      <span class="mt-1 block truncate text-[12px] text-ink-2">{{ s.assignees.length ? s.assignees.map((a) => firstName(a.full_name)).join(', ') : 'No one assigned' }}</span>
+                    </button>
+                  </div>
+                </div>
+              </StateBlock>
+            </section>
+
+            <UiDialog
+              :open="Boolean(selectedShift)"
+              :title="selectedShift ? `${selectedShift.label} · ${day(selectedShift.shift_date)}` : 'Shift'"
+              :description="selectedShift ? shiftRange(selectedShift) : undefined"
+              @close="selectedShiftId = null"
             >
-              <span class="block truncate text-[13px] font-semibold">{{ s.label }}</span>
-              <span class="block text-[12px] text-ink-3 tnum">{{ day(s.shift_date) }} · {{ shiftRange(s) }}{{ s.status === 'cancelled' ? ' · cancelled' : '' }}</span>
-              <span class="mt-1 block truncate text-[12px] text-ink-2">{{ s.assignees.length ? s.assignees.map((a) => firstName(a.full_name)).join(', ') : 'No one assigned' }}</span>
-            </button>
-          </div>
-        </div>
-      </StateBlock>
-    </section>
+              <div v-if="selectedShift" class="space-y-5">
+                <div>
+                  <div class="mb-2 flex items-center justify-between">
+                    <h3 class="text-[14px] font-semibold">Working this shift</h3>
+                    <span class="text-[12px] text-ink-3">{{ selectedShift.assignees.length }} {{ selectedShift.assignees.length === 1 ? 'person' : 'people' }}</span>
+                  </div>
+                  <ul v-if="selectedShift.assignees.length" class="divide-y divide-line rounded-md border border-line">
+                    <li v-for="a in selectedShift.assignees" :key="a.employee_id" class="flex items-center justify-between gap-3 px-3 py-2.5">
+                      <span class="flex min-w-0 items-center gap-2.5">
+                        <span class="grid size-8 shrink-0 place-items-center rounded-full bg-sunken text-[10px] font-semibold text-ink-2">{{ initials(a.full_name) }}</span>
+                        <span class="truncate text-[13.5px] font-medium">{{ a.full_name }}</span>
+                      </span>
+                      <UiButton size="sm" variant="ghost" :loading="busy === `un-${selectedShift.id}-${a.employee_id}`" @click="unassign(selectedShift, a.employee_id)">Remove</UiButton>
+                    </li>
+                  </ul>
+                  <p v-else class="rounded-md border border-dashed border-line px-4 py-5 text-center text-[13px] text-ink-3">No one yet.</p>
+                </div>
 
-    <UiDialog
-      :open="Boolean(selectedShift)"
-      :title="selectedShift ? `${selectedShift.label} · ${day(selectedShift.shift_date)}` : 'Shift'"
-      :description="selectedShift ? shiftRange(selectedShift) : undefined"
-      @close="selectedShiftId = null"
-    >
-      <div v-if="selectedShift" class="space-y-5">
-        <div>
-          <div class="mb-2 flex items-center justify-between">
-            <h3 class="text-[14px] font-semibold">Working this shift</h3>
-            <span class="text-[12px] text-ink-3">{{ selectedShift.assignees.length }} {{ selectedShift.assignees.length === 1 ? 'person' : 'people' }}</span>
-          </div>
-          <ul v-if="selectedShift.assignees.length" class="divide-y divide-line rounded-md border border-line">
-            <li v-for="a in selectedShift.assignees" :key="a.employee_id" class="flex items-center justify-between gap-3 px-3 py-2.5">
-              <span class="flex min-w-0 items-center gap-2.5">
-                <span class="grid size-8 shrink-0 place-items-center rounded-full bg-sunken text-[10px] font-semibold text-ink-2">{{ initials(a.full_name) }}</span>
-                <span class="truncate text-[13.5px] font-medium">{{ a.full_name }}</span>
-              </span>
-              <UiButton size="sm" variant="ghost" :loading="busy === `un-${selectedShift.id}-${a.employee_id}`" @click="unassign(selectedShift, a.employee_id)">Remove</UiButton>
-            </li>
-          </ul>
-          <p v-else class="rounded-md border border-dashed border-line px-4 py-5 text-center text-[13px] text-ink-3">No one yet.</p>
-        </div>
+                <div v-if="selectedShift.status === 'scheduled' && availableWorkers.length">
+                  <h3 class="mb-2 text-[14px] font-semibold">Add people</h3>
+                  <div class="grid max-h-56 gap-1 overflow-y-auto rounded-md border border-line p-2 sm:grid-cols-2">
+                    <IonCheckbox
+                      v-for="w in availableWorkers"
+                      :key="w.id"
+                      :checked="selectedEmployeeIds.includes(w.id)"
+                      label-placement="end"
+                      justify="start"
+                      class="rounded-md px-2.5 py-2 text-[13px] font-medium hover:bg-sunken"
+                      @ion-change="selectedEmployeeIds = toggleIn(selectedEmployeeIds, w.id, $event.detail.checked)"
+                    >{{ w.full_name }}</IonCheckbox>
+                  </div>
+                  <UiButton class="mt-3" variant="primary" :disabled="!selectedEmployeeIds.length" :loading="busy === `assign-${selectedShift.id}`" @click="assignSelected">
+                    Add {{ selectedEmployeeIds.length || '' }} {{ selectedEmployeeIds.length === 1 ? 'person' : 'people' }}
+                  </UiButton>
+                  <p class="mt-2 text-[12px] text-ink-3">Someone already on another shift at the same time can’t be added.</p>
+                </div>
+                <p v-else-if="selectedShift.status === 'scheduled'" class="text-[13px] text-ink-3">Everyone is already on this shift.</p>
+              </div>
+              <template #footer>
+                <UiButton variant="ghost" :loading="busy === `cancel-${selectedShift?.id}`" @click="selectedShift && toggleCancel(selectedShift)">
+                  {{ selectedShift?.status === 'cancelled' ? 'Restore shift' : 'Cancel this shift' }}
+                </UiButton>
+                <UiButton variant="primary" @click="selectedShiftId = null">Done</UiButton>
+              </template>
+            </UiDialog>
 
-        <div v-if="selectedShift.status === 'scheduled' && availableWorkers.length">
-          <h3 class="mb-2 text-[14px] font-semibold">Add people</h3>
-          <div class="grid max-h-56 gap-1 overflow-y-auto rounded-md border border-line p-2 sm:grid-cols-2">
-            <label v-for="w in availableWorkers" :key="w.id" class="flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] hover:bg-sunken">
-              <input v-model="selectedEmployeeIds" type="checkbox" :value="w.id" class="size-4 accent-accent" />
-              <span class="truncate font-medium">{{ w.full_name }}</span>
-            </label>
+            <section v-if="layout === 'person'" aria-label="Department board">
+              <DepartmentBoard endpoint="/manager/board" />
+            </section>
+
+            <UiDialog
+              :open="Boolean(editingShifts)"
+              title="Your department’s shifts"
+              description="The duty shifts your unit works. The schedule follows them: a removed shift leaves the schedule, new times move upcoming shifts."
+              @close="editingShifts = null"
+            >
+              <form v-if="editingShifts" id="setup-form" class="space-y-3" @submit.prevent="saveShiftSetup">
+                <div v-for="(r, i) in editingShifts" :key="r.id ?? `new-${i}`" class="rounded-md border border-line p-3">
+                  <div class="flex items-end gap-2">
+                    <UiField v-slot="{ id, labelledby }" label="Name" class="flex-1"><IonInput :id="id" :aria-labelledby="labelledby" v-model="r.name" class="field-input" :maxlength="80" placeholder="e.g. Morning"  /></UiField>
+                    <UiButton size="sm" variant="ghost" :aria-label="`Remove ${r.name || 'this shift'}`" :disabled="editingShifts.length === 1" @click="editingShifts.splice(i, 1)">Remove</UiButton>
+                  </div>
+                  <div class="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    <UiField v-slot="{ id, labelledby }" label="Starts"><IonInput :id="id" :aria-labelledby="labelledby" v-model="r.start_time" type="time" class="field-input"  /></UiField>
+                    <UiField v-slot="{ id, labelledby }" label="Ends"><IonInput :id="id" :aria-labelledby="labelledby" v-model="r.end_time" type="time" class="field-input"  /></UiField>
+                    <UiField v-slot="{ id, labelledby }" label="Days">
+                      <IonSelect :id="id" :aria-labelledby="labelledby" v-model="r.days" class="field-input" interface="popover">
+                        <IonSelectOption v-for="(d, k) in DAYS" :key="k" :value="k">{{ d.label }}</IonSelectOption>
+                      </IonSelect>
+                    </UiField>
+                    <UiField v-slot="{ id, labelledby }" label="Staff needed" hint="Fewer is flagged as understaffed">
+                      <IonInput :id="id" :aria-labelledby="labelledby" :value="r.min_staff" @ion-input="r.min_staff = Number($event.detail.value || 0)" type="number" min="0" max="50" class="field-input tnum"  />
+                    </UiField>
+                  </div>
+                  <p v-if="r.end_time < r.start_time" class="mt-1.5 text-[12px] text-info">Ends the next day</p>
+                </div>
+                <UiButton size="sm" @click="addRow">+ Add a shift</UiButton>
+                <p v-if="!setupValid" class="text-[12.5px] text-warn">Give every shift its own name and a start and end time.</p>
+              </form>
+              <template #footer>
+                <UiButton variant="ghost" @click="editingShifts = null">Cancel</UiButton>
+                <UiButton variant="primary" type="submit" form="setup-form" :loading="busy === 'setup'" :disabled="!setupValid">Save shifts</UiButton>
+              </template>
+            </UiDialog>
           </div>
-          <UiButton class="mt-3" variant="primary" :disabled="!selectedEmployeeIds.length" :loading="busy === `assign-${selectedShift.id}`" @click="assignSelected">
-            Add {{ selectedEmployeeIds.length || '' }} {{ selectedEmployeeIds.length === 1 ? 'person' : 'people' }}
-          </UiButton>
-          <p class="mt-2 text-[12px] text-ink-3">Someone already on another shift at the same time can’t be added.</p>
-        </div>
-        <p v-else-if="selectedShift.status === 'scheduled'" class="text-[13px] text-ink-3">Everyone is already on this shift.</p>
       </div>
-      <template #footer>
-        <UiButton variant="ghost" :loading="busy === `cancel-${selectedShift?.id}`" @click="selectedShift && toggleCancel(selectedShift)">
-          {{ selectedShift?.status === 'cancelled' ? 'Restore shift' : 'Cancel this shift' }}
-        </UiButton>
-        <UiButton variant="primary" @click="selectedShiftId = null">Done</UiButton>
-      </template>
-    </UiDialog>
-
-    <section v-if="layout === 'person'" aria-label="Department board">
-      <DepartmentBoard endpoint="/manager/board" />
-    </section>
-
-    <UiDialog
-      :open="Boolean(editingShifts)"
-      title="Your department’s shifts"
-      description="The shifts your team works. The schedule follows them: a removed shift leaves the schedule, new times move upcoming shifts."
-      @close="editingShifts = null"
-    >
-      <form v-if="editingShifts" id="setup-form" class="space-y-3" @submit.prevent="saveShiftSetup">
-        <div v-for="(r, i) in editingShifts" :key="r.id ?? `new-${i}`" class="rounded-md border border-line p-3">
-          <div class="flex items-end gap-2">
-            <UiField v-slot="{ id }" label="Name" class="flex-1"><input :id="id" v-model="r.name" class="field-input" maxlength="80" placeholder="e.g. Morning" /></UiField>
-            <UiButton size="sm" variant="ghost" :aria-label="`Remove ${r.name || 'this shift'}`" :disabled="editingShifts.length === 1" @click="editingShifts.splice(i, 1)">Remove</UiButton>
-          </div>
-          <div class="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3">
-            <UiField v-slot="{ id }" label="Starts"><input :id="id" v-model="r.start_time" type="time" class="field-input" /></UiField>
-            <UiField v-slot="{ id }" label="Ends"><input :id="id" v-model="r.end_time" type="time" class="field-input" /></UiField>
-            <UiField v-slot="{ id }" label="Days">
-              <select :id="id" v-model="r.days" class="field-input">
-                <option v-for="(d, k) in DAYS" :key="k" :value="k">{{ d.label }}</option>
-              </select>
-            </UiField>
-            <UiField v-slot="{ id }" label="Staff needed" hint="Fewer is flagged as understaffed">
-              <input :id="id" v-model.number="r.min_staff" type="number" min="0" max="50" class="field-input tnum" />
-            </UiField>
-          </div>
-          <p v-if="r.end_time < r.start_time" class="mt-1.5 text-[12px] text-info">Ends the next day</p>
-        </div>
-        <UiButton size="sm" @click="addRow">+ Add a shift</UiButton>
-        <p v-if="!setupValid" class="text-[12.5px] text-warn">Give every shift its own name and a start and end time.</p>
-      </form>
-      <template #footer>
-        <UiButton variant="ghost" @click="editingShifts = null">Cancel</UiButton>
-        <UiButton variant="primary" type="submit" form="setup-form" :loading="busy === 'setup'" :disabled="!setupValid">Save shifts</UiButton>
-      </template>
-    </UiDialog>
-  </div>
+    </IonContent>
+  </IonPage>
 </template>

@@ -215,7 +215,7 @@ export function employeeRoutes() {
     const parsed = ReportSubmission.safeParse(body.content);
     if (!parsed.success) throw fromZodError(parsed.error);
     const ids = parsed.data.issue_updates.map((u) => u.issue_id);
-    if (new Set(ids).size !== ids.length) throw new ApiError(422, 'validation', 'Each existing issue can be updated once per report');
+    if (new Set(ids).size !== ids.length) throw new ApiError(422, 'validation', 'Each earlier concern can be updated once per endorsement');
     const result = await asUser(c, async (q) => (await q.query<{ r: unknown }>('select app.submit_report($1, $2::jsonb) as r', [id, JSON.stringify(parsed.data)]))[0]!.r);
     svc(c).kick();
     return c.json(result, 201);

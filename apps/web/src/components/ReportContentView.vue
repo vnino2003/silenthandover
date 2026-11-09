@@ -18,9 +18,9 @@ const sections = computed(() =>
     if (s.key === 'unresolved_issues') {
       // Same one-problem-per-line text the AI received, so evidence quotes highlight correctly.
       text = [...(props.content.problems ?? []).map(problemLine), text.trim()].filter(Boolean).join('\n');
-      if (props.content.no_unresolved_issues) text = 'None — confirmed by the employee.';
+      if (props.content.no_unresolved_issues) text = `None — confirmed by the ${auth.terms.staffOne}.`;
     }
-    if (s.key === 'pending_tasks' && props.content.no_pending_tasks) text = 'None — confirmed by the employee.';
+    if (s.key === 'pending_tasks' && props.content.no_pending_tasks) text = `None — confirmed by the ${auth.terms.staffOne}.`;
     return { ...s, text };
   }).filter((s) => s.text.trim()),
 );
@@ -54,7 +54,7 @@ function render(text: string) {
       <h4 class="eyebrow">Updates on existing {{ auth.terms.issues.toLowerCase() }}</h4>
       <ul class="mt-1 space-y-1.5 text-[14px]">
         <li v-for="u in content.issue_updates" :key="u.issue_id">
-          <span class="font-medium">{{ issueLabels?.[u.issue_id] ?? 'Existing issue' }}</span>
+          <span class="font-medium">{{ issueLabels?.[u.issue_id] ?? `Earlier ${$terms.issueLower}` }}</span>
           <span class="text-ink-3"> — {{ u.claimed_status.replace('_', ' ') }}: </span>
           <span v-html="render(u.note)" />
         </li>

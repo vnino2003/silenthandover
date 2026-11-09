@@ -1,18 +1,18 @@
 import { fillTemplate, problemLine, type FilledTemplate, type ReportDraftContent } from '@sh/shared';
 
 export const SECTION_HEADERS = {
-  completed_work: 'COMPLETED WORK',
-  unresolved_issues: 'UNRESOLVED ISSUES',
+  completed_work: 'TASKS COMPLETED',
+  unresolved_issues: 'UNRESOLVED CONCERNS',
   pending_tasks: 'PENDING TASKS',
-  operational_concerns: 'OPERATIONAL CONCERNS',
-  handover_notes: 'HANDOVER NOTES',
-  evidence_refs: 'EVIDENCE REFERENCES',
-  issue_updates: 'UPDATES ON EXISTING ISSUES',
+  operational_concerns: 'UNIT CONCERNS',
+  handover_notes: 'ENDORSEMENT NOTES',
+  evidence_refs: 'REFERENCE NUMBERS',
+  issue_updates: 'UPDATES ON EARLIER CONCERNS',
 } as const;
 
 /**
- * How a submitted report is laid out for the AI. Every core section is always present: a field
- * the employee left blank becomes "(none stated)", so the model is told plainly that nothing was
+ * How a submitted shift endorsement is laid out for the AI. Every core section is always present: a field
+ * the staff member left blank becomes "(none stated)", so the model is told plainly that nothing was
  * said instead of guessing. Evidence references and updates on existing issues are added after
  * these sections only when the employee filled them in.
  */
@@ -37,8 +37,8 @@ export function fillReportTemplate(content: ReportDraftContent, issues: IssueRef
   const problems = [...(content.problems ?? []).map(problemLine), content.unresolved_issues.trim()].filter(Boolean).join('\n');
   const filled = fillTemplate(REPORT_TEMPLATE, {
     completed_work: content.completed_work.trim(),
-    unresolved_issues: (content.no_unresolved_issues ? 'Employee confirmed: no unresolved issues.' : problems).trim(),
-    pending_tasks: (content.no_pending_tasks ? 'Employee confirmed: no pending tasks.' : content.pending_tasks).trim(),
+    unresolved_issues: (content.no_unresolved_issues ? 'Staff confirmed: no unresolved concerns.' : problems).trim(),
+    pending_tasks: (content.no_pending_tasks ? 'Staff confirmed: no pending tasks.' : content.pending_tasks).trim(),
     operational_concerns: content.operational_concerns.trim(),
     handover_notes: content.handover_notes.trim(),
   });
@@ -50,8 +50,8 @@ export function fillReportTemplate(content: ReportDraftContent, issues: IssueRef
         content.issue_updates
           .map((u) => {
             const issue = byId.get(u.issue_id);
-            const label = issue ? `${issue.code} (${issue.title})` : 'Unknown issue';
-            return `- ${label}: employee says ${u.claimed_status.replace('_', ' ')} — ${u.note}`;
+            const label = issue ? `${issue.code} (${issue.title})` : 'Unknown concern';
+            return `- ${label}: staff member reports ${u.claimed_status.replace('_', ' ')} — ${u.note}`;
           })
           .join('\n')
           .trim(),

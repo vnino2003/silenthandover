@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { IonContent, IonInput, IonPage, IonSelect, IonSelectOption } from '@ionic/vue';
 import { ref } from 'vue';
 import DepartmentExperienceEditor from '@/components/DepartmentExperienceEditor.vue';
 import PageHeader from '@/components/ui/PageHeader.vue';
@@ -63,60 +64,66 @@ async function saveTeam() {
 </script>
 
 <template>
-  <div class="mx-auto max-w-4xl">
-    <PageHeader title="Departments" description="Managers see reports from their own department only. Shift times use the department’s time zone.">
-      <UiButton variant="primary" @click="(editing = { id: null, code: '', name: '', timezone: 'Asia/Manila' }), (errors = {})">Add department</UiButton>
-    </PageHeader>
-    <StateBlock :loading="loading" :error="error" :empty="!data?.length" empty-title="No departments yet" @retry="reload()">
-      <ul class="space-y-3">
-        <li v-for="d in data" :key="d.id" class="card p-5">
-          <div class="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <p class="text-[15px] font-semibold">{{ d.name }} <span class="ml-1 text-[12.5px] font-normal text-ink-3 tnum">{{ d.code }}</span></p>
-              <p class="text-[13px] text-ink-3">{{ d.timezone }} ({{ tzLabel(d.timezone) }}) · {{ d.member_count }} active member{{ d.member_count === 1 ? '' : 's' }}</p>
-            </div>
-            <div class="flex gap-2">
-              <UiButton size="sm" @click="customizing = d">Customize</UiButton>
-              <UiButton size="sm" variant="ghost" @click="team = { department: d, name: '' }">Add team</UiButton>
-              <UiButton size="sm" @click="(editing = { id: d.id, code: d.code, name: d.name, timezone: d.timezone }), (errors = {})">Edit</UiButton>
-            </div>
-          </div>
-          <div v-if="d.teams.length" class="mt-3 flex flex-wrap gap-1.5">
-            <span v-for="t in d.teams" :key="t.id" class="rounded-full border border-line px-2.5 py-0.5 text-[12.5px] text-ink-2">{{ t.name }}</span>
-          </div>
-        </li>
-      </ul>
-    </StateBlock>
-    <UiDialog :open="Boolean(customizing)" :title="`Customize ${customizing?.name ?? 'department'}`" wide @close="customizing = null">
-      <DepartmentExperienceEditor v-if="customizing" :key="customizing.id" :department-id="customizing.id" :initial="customizing.experience" @saved="customizing = null; reload(); toast.ok('Department experience saved')" />
-    </UiDialog>
+  <IonPage>
+    <IonContent class="sh-content">
+      <div class="sh-page page-enter">
+          <div class="mx-auto max-w-4xl">
+            <PageHeader title="Departments and units" description="Each department head sees shift endorsements from their own unit only. Shift times use the unit’s time zone.">
+              <UiButton variant="primary" @click="(editing = { id: null, code: '', name: '', timezone: 'Asia/Manila' }), (errors = {})">Add department</UiButton>
+            </PageHeader>
+            <StateBlock :loading="loading" :error="error" :empty="!data?.length" empty-title="No departments yet" @retry="reload()">
+              <ul class="space-y-3">
+                <li v-for="d in data" :key="d.id" class="card p-5">
+                  <div class="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p class="text-[15px] font-semibold">{{ d.name }} <span class="ml-1 text-[12.5px] font-normal text-ink-3 tnum">{{ d.code }}</span></p>
+                      <p class="text-[13px] text-ink-3">{{ d.timezone }} ({{ tzLabel(d.timezone) }}) · {{ d.member_count }} active member{{ d.member_count === 1 ? '' : 's' }}</p>
+                    </div>
+                    <div class="flex gap-2">
+                      <UiButton size="sm" @click="customizing = d">Customize</UiButton>
+                      <UiButton size="sm" variant="ghost" @click="team = { department: d, name: '' }">Add team</UiButton>
+                      <UiButton size="sm" @click="(editing = { id: d.id, code: d.code, name: d.name, timezone: d.timezone }), (errors = {})">Edit</UiButton>
+                    </div>
+                  </div>
+                  <div v-if="d.teams.length" class="mt-3 flex flex-wrap gap-1.5">
+                    <span v-for="t in d.teams" :key="t.id" class="rounded-full border border-line px-2.5 py-0.5 text-[12.5px] text-ink-2">{{ t.name }}</span>
+                  </div>
+                </li>
+              </ul>
+            </StateBlock>
+            <UiDialog :open="Boolean(customizing)" :title="`Customize ${customizing?.name ?? 'department'}`" wide @close="customizing = null">
+              <DepartmentExperienceEditor v-if="customizing" :key="customizing.id" :department-id="customizing.id" :initial="customizing.experience" @saved="customizing = null; reload(); toast.ok('Department experience saved')" />
+            </UiDialog>
 
-    <UiDialog :open="Boolean(editing)" :title="editing?.id ? 'Edit department' : 'Add department'" @close="editing = null">
-      <form v-if="editing" id="dept-form" class="space-y-4" @submit.prevent="saveDept">
-        <div class="grid grid-cols-[110px_1fr] gap-3">
-          <UiField v-slot="{ id }" label="Code" :error="errors.code"><input :id="id" v-model="editing.code" class="field-input uppercase" maxlength="12" /></UiField>
-          <UiField v-slot="{ id }" label="Name" :error="errors.name"><input :id="id" v-model="editing.name" class="field-input" maxlength="120" /></UiField>
-        </div>
-        <UiField v-slot="{ id }" label="Time zone" :error="errors.timezone">
-          <select :id="id" v-model="editing.timezone" class="field-input">
-            <option v-for="z in zones" :key="z" :value="z">{{ z }}</option>
-          </select>
-        </UiField>
-      </form>
-      <template #footer>
-        <UiButton variant="ghost" @click="editing = null">Cancel</UiButton>
-        <UiButton variant="primary" type="submit" form="dept-form" :loading="saving">Save</UiButton>
-      </template>
-    </UiDialog>
+            <UiDialog :open="Boolean(editing)" :title="editing?.id ? 'Edit department' : 'Add department'" @close="editing = null">
+              <form v-if="editing" id="dept-form" class="space-y-4" @submit.prevent="saveDept">
+                <div class="grid grid-cols-[110px_1fr] gap-3">
+                  <UiField v-slot="{ id, labelledby }" label="Code" :error="errors.code"><IonInput :id="id" :aria-labelledby="labelledby" v-model="editing.code" class="field-input uppercase" :maxlength="12"  /></UiField>
+                  <UiField v-slot="{ id, labelledby }" label="Name" :error="errors.name"><IonInput :id="id" :aria-labelledby="labelledby" v-model="editing.name" class="field-input" :maxlength="120"  /></UiField>
+                </div>
+                <UiField v-slot="{ id, labelledby }" label="Time zone" :error="errors.timezone">
+                  <IonSelect :id="id" :aria-labelledby="labelledby" v-model="editing.timezone" class="field-input" interface="popover">
+                    <IonSelectOption v-for="z in zones" :key="z" :value="z">{{ z }}</IonSelectOption>
+                  </IonSelect>
+                </UiField>
+              </form>
+              <template #footer>
+                <UiButton variant="ghost" @click="editing = null">Cancel</UiButton>
+                <UiButton variant="primary" type="submit" form="dept-form" :loading="saving">Save</UiButton>
+              </template>
+            </UiDialog>
 
-    <UiDialog :open="Boolean(team)" :title="`Add a team to ${team?.department.name ?? ''}`" @close="team = null">
-      <form v-if="team" id="team-form" @submit.prevent="saveTeam">
-        <UiField v-slot="{ id }" label="Team name"><input :id="id" v-model="team.name" class="field-input" maxlength="120" /></UiField>
-      </form>
-      <template #footer>
-        <UiButton variant="ghost" @click="team = null">Cancel</UiButton>
-        <UiButton variant="primary" type="submit" form="team-form" :loading="saving" :disabled="(team?.name.trim().length ?? 0) < 2">Add team</UiButton>
-      </template>
-    </UiDialog>
-  </div>
+            <UiDialog :open="Boolean(team)" :title="`Add a team to ${team?.department.name ?? ''}`" @close="team = null">
+              <form v-if="team" id="team-form" @submit.prevent="saveTeam">
+                <UiField v-slot="{ id, labelledby }" label="Team name"><IonInput :id="id" :aria-labelledby="labelledby" v-model="team.name" class="field-input" :maxlength="120"  /></UiField>
+              </form>
+              <template #footer>
+                <UiButton variant="ghost" @click="team = null">Cancel</UiButton>
+                <UiButton variant="primary" type="submit" form="team-form" :loading="saving" :disabled="(team?.name.trim().length ?? 0) < 2">Add team</UiButton>
+              </template>
+            </UiDialog>
+          </div>
+      </div>
+    </IonContent>
+  </IonPage>
 </template>

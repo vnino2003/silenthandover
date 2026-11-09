@@ -1,5 +1,5 @@
 // npm run demo:schedule — LOCAL DEMO ONLY.
-// Adds a realistic two-week staffing example to the Newborn Care Department of the running local
+// Adds a realistic two-week staffing example to the Nursery of the running local
 // app: more (fictional) staff with job titles, minimum staffing per shift, rotating assignments,
 // weekly rest days, and leave requests in every state. No patient information is involved.
 //
@@ -11,18 +11,18 @@ import { DEMO_PASSWORD } from '../seed/demo';
 const API = (process.env.API_URL ?? 'http://localhost:8787').replace(/\/$/, '') + '/api';
 
 const NEW_STAFF = [
-  { email: 'rosa.villanueva@demo.test', full_name: 'Rosa Villanueva', job_title: 'Midwife' },
-  { email: 'paolo.garcia@demo.test', full_name: 'Paolo Garcia', job_title: 'Staff nurse' },
-  { email: 'mae.santiago@demo.test', full_name: 'Mae Santiago', job_title: 'Nursing attendant' },
-  { email: 'leo.fernandez@demo.test', full_name: 'Leo Fernandez', job_title: 'Staff nurse' },
-  { email: 'grace.aquino@demo.test', full_name: 'Grace Aquino', job_title: 'Midwife' },
+  { email: 'rosa.villanueva@demo.test', full_name: 'Rosa Villanueva', job_title: 'Nursing Attendant' },
+  { email: 'paolo.garcia@demo.test', full_name: 'Paolo Garcia', job_title: 'Staff Nurse' },
+  { email: 'mae.santiago@demo.test', full_name: 'Mae Santiago', job_title: 'Nursing Attendant' },
+  { email: 'leo.fernandez@demo.test', full_name: 'Leo Fernandez', job_title: 'Staff Nurse' },
+  { email: 'grace.aquino@demo.test', full_name: 'Grace Aquino', job_title: 'Staff Nurse' },
 ];
 const EXISTING_TITLES: Record<string, string> = {
-  'juan.delacruz@demo.test': 'Nursing attendant',
-  'ana.lim@demo.test': 'Staff nurse',
-  'ben.torres@demo.test': 'Staff nurse',
-  'carla.mendoza@demo.test': 'Midwife',
-  'daniel.ramos@demo.test': 'Staff nurse',
+  'juan.delacruz@demo.test': 'Nursing Attendant',
+  'ana.lim@demo.test': 'Staff Nurse',
+  'ben.torres@demo.test': 'Staff Nurse',
+  'carla.mendoza@demo.test': 'Staff Nurse',
+  'daniel.ramos@demo.test': 'Staff Nurse',
 };
 // Who normally works which shift, and the weekly rest days of each (ISO weekday, Mon = 1).
 const CREW: Record<string, { shift: string; rest: number[] }> = {

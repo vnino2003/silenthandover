@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { IonContent, IonPage } from '@ionic/vue';
 import { onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import UiButton from '@/components/ui/UiButton.vue';
@@ -20,12 +21,18 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="mx-auto max-w-lg py-16 text-center">
-    <template v-if="error">
-      <h1 class="text-[18px] font-semibold">You can’t open this report right now</h1>
-      <p class="mt-2 text-[14px] text-ink-2">{{ error }}</p>
-      <UiButton class="mt-6" to="/">Back to today</UiButton>
-    </template>
-    <p v-else class="text-[14px] text-ink-3">Opening your report…</p>
-  </div>
+  <IonPage>
+    <IonContent class="sh-content">
+      <div class="sh-page page-enter">
+          <div class="mx-auto max-w-lg py-16 text-center">
+            <template v-if="error">
+              <h1 class="text-[18px] font-semibold">You can’t open this {{ $terms.reportLower }} right now</h1>
+              <p class="mt-2 text-[14px] text-ink-2">{{ error }}</p>
+              <UiButton class="mt-6" to="/">Back to today</UiButton>
+            </template>
+            <p v-else class="text-[14px] text-ink-3">Opening your {{ $terms.reportLower }}…</p>
+          </div>
+      </div>
+    </IonContent>
+  </IonPage>
 </template>

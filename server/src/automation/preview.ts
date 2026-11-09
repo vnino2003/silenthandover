@@ -59,7 +59,7 @@ export function describeStoredRun(run: StoredRun) {
     shift: escapeForDelimiters(run.shift_label),
     // These lists are rebuilt from the department's data for every run and are not kept.
     department_guidance: '(the department’s terms and privacy guidance at that time — not kept)',
-    open_issues: '(the department’s open tickets at that time — not kept)',
+    open_issues: '(the unit’s open concerns at that time — not kept)',
     approved_records: '(the department’s source records at that time — not kept)',
     raw_input: escapeForDelimiters(text),
   });

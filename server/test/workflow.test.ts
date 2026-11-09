@@ -30,7 +30,7 @@ describe('shift report → AI draft → human approval → delivery → continui
   it('logs an employee in and returns their profile', async () => {
     const res = await h.call('juan', 'GET', '/api/me');
     expect(res.status).toBe(200);
-    expect(res.body).toMatchObject({ role: 'employee', full_name: 'Juan Dela Cruz', department_name: 'Newborn Care Department' });
+    expect(res.body).toMatchObject({ role: 'employee', full_name: 'Juan Dela Cruz', department_name: 'Nursery' });
   });
 
   it('requires a session', async () => {
@@ -46,7 +46,7 @@ describe('shift report → AI draft → human approval → delivery → continui
   it('shows the assigned shift with an open reporting window', async () => {
     const res = await h.call('juan', 'GET', '/api/employee/dashboard');
     expect(res.status).toBe(200);
-    expect(res.body.current_shift).toMatchObject({ id: shiftId, window_state: 'open', department_name: 'Newborn Care Department' });
+    expect(res.body.current_shift).toMatchObject({ id: shiftId, window_state: 'open', department_name: 'Nursery' });
   });
 
   it('creates one draft per employee and shift', async () => {
@@ -561,8 +561,8 @@ describe('next-shift checklist with photo proof', () => {
     expect(ok.status).toBe(201);
     await h.drain();
     const [input] = await h.sql('select sanitized_text from internal.analysis_inputs where report_id = $1', [reportId]);
-    expect(input.sanitized_text).toContain('Safety hazard at Unit support room: Roof leak');
-    expect(input.sanitized_text).toContain('Facilities at Family consultation room: Call bell is still intermittent.');
+    expect(input.sanitized_text).toContain('Safety concern at Unit support room: Roof leak');
+    expect(input.sanitized_text).toContain('Facilities and housekeeping at Family consultation room: Call bell is still intermittent.');
   });
 
   it('turns every task for the next shift into a tracked checklist item on approval', async () => {

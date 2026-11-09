@@ -56,7 +56,7 @@ async function ownWeek(q: Queryable, today: string): Promise<MicaFactGroup[]> {
   const n = s.next_shift;
   return [
     {
-      title: 'Your next shift',
+      title: 'Your next duty shift',
       items: n ? [{ label: n.label, value: `${day(n.shift_date)}, ${time(n.starts_at, n.timezone)}–${time(n.ends_at, n.timezone)}`, link: '/schedule' }] : [],
       empty: 'No upcoming shift is assigned to you.',
     },
@@ -103,9 +103,9 @@ async function ownReports(q: Queryable): Promise<MicaFactGroup> {
       where r.employee_id = auth.uid() order by s.starts_at desc limit 8`,
   );
   return {
-    title: 'Your recent reports',
+    title: 'Your recent shift endorsements',
     items: rows.map((r) => ({ label: `${r.reference_code} (${r.label}, ${day(r.shift_date)})`, value: REPORT_STATUS_LABELS[r.status], link: `/reports/${r.id}` })),
-    empty: 'You have no shift reports yet.',
+    empty: 'You have no shift endorsements yet.',
   };
 }
 
@@ -116,13 +116,13 @@ async function departmentIssues(q: Queryable): Promise<MicaFactGroup> {
       order by is_safety desc, last_activity_at desc limit 15`,
   );
   return {
-    title: 'Open issues in the department',
+    title: 'Open concerns in the unit',
     items: rows.map((i) => ({
       label: `${i.code} ${i.title}`,
       value: `${ISSUE_STATUS_LABELS[i.status]} · ${i.severity}${i.is_safety ? ' · safety' : ''}`,
       tone: i.is_safety ? ('bad' as const) : undefined,
     })),
-    empty: 'No open issues.',
+    empty: 'No open concerns.',
   };
 }
 
@@ -197,13 +197,13 @@ async function reviewFacts(c: Ctx, q: Queryable, reportId: string | undefined): 
         order by (r.status = 'pending_review') desc, run.has_safety desc nulls last, r.last_submitted_at limit 15`,
     );
     return [{
-      title: 'Review queue',
+      title: 'Endorsements for approval',
       items: rows.map((r) => ({
         label: `${r.reference_code} (${r.employee_name}, ${r.label})`,
         value: `${REPORT_STATUS_LABELS[r.status]}${r.flag_count ? ` · ${plural(r.flag_count, 'flag')}` : ''}${r.has_safety ? ' · safety concern' : ''}`,
         tone: r.has_safety ? ('bad' as const) : undefined,
       })),
-      empty: 'Nothing is waiting for review.',
+      empty: 'No endorsements are waiting for approval.',
     }];
   }
   const [report] = await q.query<{ id: string; reference_code: string; status: ReportStatus; employee_name: string; current_revision: number }>(
@@ -224,7 +224,7 @@ async function reviewFacts(c: Ctx, q: Queryable, reportId: string | undefined): 
   const { draft, flags } = reidentifyDeep({ draft: run?.draft ?? null, flags: run?.flags ?? [] }, input?.name_mapping ?? {});
   return [
     {
-      title: `Report ${report.reference_code}`,
+      title: `Endorsement ${report.reference_code}`,
       items: [
         { label: 'From', value: report.employee_name },
         { label: 'Status', value: REPORT_STATUS_LABELS[report.status] },
@@ -272,7 +272,7 @@ async function adminFacts(c: Ctx): Promise<MicaFactGroup[]> {
   const ai = await svc(c).aiSettings.view();
   return [
     {
-      title: 'Departments',
+      title: 'Departments and units',
       items: rows.map((r) => ({
         label: r.name,
         value: [

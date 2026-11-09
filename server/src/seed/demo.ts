@@ -6,11 +6,11 @@ import type { Queryable } from '../db/types';
  * SYNTHETIC DEMONSTRATION DATA. Every person, number and event here is invented.
  * Local test accounts only — never reuse these passwords anywhere else.
  *
- * The demo is the Newborn Care Department. More departments can be added later from the
+ * The demo is the Nursery (newborn care). More departments can be added later from the
  * admin portal without code changes; each gets its own supervisor and stays separate.
  */
 export const DEMO_PASSWORD = 'demo-handover-2026';
-export const DEMO_DEPARTMENT = { code: 'NC', name: 'Newborn Care Department', timezone: 'Asia/Manila' } as const;
+export const DEMO_DEPARTMENT = { code: 'NC', name: 'Nursery', timezone: 'Asia/Manila' } as const;
 
 export const DEMO_ACCOUNTS = [
   { key: 'admin', email: 'admin@demo.test', full_name: 'Alex Reyes', role: 'admin', dept: null },

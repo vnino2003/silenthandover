@@ -9,17 +9,18 @@ export const IssueUpdateInput = z.strictObject({
 });
 export type IssueUpdateInput = z.infer<typeof IssueUpdateInput>;
 
-export const PROBLEM_CATEGORIES = ['stock', 'equipment', 'delivery', 'staffing', 'supplies', 'facilities', 'process', 'safety', 'other'] as const;
+export const PROBLEM_CATEGORIES = ['stock', 'equipment', 'delivery', 'staffing', 'supplies', 'facilities', 'infection_control', 'process', 'safety', 'other'] as const;
 export type ProblemCategory = (typeof PROBLEM_CATEGORIES)[number];
 export const PROBLEM_CATEGORY_LABELS: Record<ProblemCategory, string> = {
-  stock: 'Resources / availability',
+  stock: 'Stock levels',
   equipment: 'Equipment',
-  delivery: 'Service / transfer',
-  staffing: 'Staffing / coverage',
-  supplies: 'Supplies',
-  facilities: 'Facilities',
-  process: 'Process / coordination',
-  safety: 'Safety hazard',
+  delivery: 'Transport and transfers',
+  staffing: 'Staffing',
+  supplies: 'Medical supplies and linen',
+  facilities: 'Facilities and housekeeping',
+  infection_control: 'Infection prevention and control',
+  process: 'Procedures and coordination',
+  safety: 'Safety concern',
   other: 'Other',
 };
 
@@ -104,27 +105,27 @@ export const ReportSubmission = ReportDraftContent.superRefine((v, ctx) => {
 export const REPORT_SECTIONS = [
   {
     key: 'completed_work',
-    label: 'Work completed',
-    hint: 'Activities, checks and services completed. Include recorded quantities or reference numbers where relevant.',
+    label: 'Tasks completed',
+    hint: 'Rounds, checks, preparations and requests completed this shift. Include counts or reference numbers where relevant.',
   },
   {
     key: 'unresolved_issues',
-    label: 'Problems still open',
-    hint: 'Unresolved problems, equipment faults or service concerns. Say where, what you observed and what action you took.',
+    label: 'Unresolved concerns',
+    hint: 'Concerns not yet resolved, such as equipment faults or missing supplies. Say where, what you observed and what you already did.',
   },
   {
     key: 'pending_tasks',
-    label: 'For the next shift',
-    hint: 'Unfinished activities and follow-ups the next team needs to take over.',
+    label: 'Pending tasks',
+    hint: 'Unfinished tasks and follow-ups the incoming shift needs to take over.',
   },
   {
     key: 'operational_concerns',
-    label: 'Operational concerns',
-    hint: 'Equipment, staffing, facilities and safety concerns — even if unconfirmed.',
+    label: 'Unit concerns',
+    hint: 'Equipment, staffing, supplies, facilities, infection control and safety concerns, even if not yet confirmed.',
   },
   {
     key: 'handover_notes',
-    label: 'Other notes',
-    hint: 'Anything else the next shift should know.',
+    label: 'Endorsement notes',
+    hint: 'Anything else the incoming shift should know.',
   },
 ] as const;

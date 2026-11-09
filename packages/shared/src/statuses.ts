@@ -3,9 +3,9 @@ export type Role = (typeof ROLES)[number];
 
 /** What people see. Stored values stay employee / manager / admin. */
 export const ROLE_LABELS: Record<Role, string> = {
-  employee: 'Team member',
-  manager: 'Supervisor',
-  admin: 'Administrator',
+  employee: 'Staff',
+  manager: 'Department head',
+  admin: 'System administrator',
 };
 
 export const REPORT_STATUSES = [
@@ -23,12 +23,12 @@ export type ReportStatus = (typeof REPORT_STATUSES)[number];
 export const REPORT_STATUS_LABELS: Record<ReportStatus, string> = {
   draft: 'Draft',
   submitted: 'Submitted',
-  processing: 'Processing',
-  pending_review: 'Pending Review',
-  revision_requested: 'Revision Requested',
+  processing: 'Being prepared',
+  pending_review: 'For approval',
+  revision_requested: 'Returned for revision',
   approved: 'Approved',
-  rejected: 'Rejected',
-  delivered: 'Delivered',
+  rejected: 'Not approved',
+  delivered: 'Endorsed',
 };
 
 export const ISSUE_STATUSES = [
@@ -44,10 +44,10 @@ export type IssueStatus = (typeof ISSUE_STATUSES)[number];
 
 export const ISSUE_STATUS_LABELS: Record<IssueStatus, string> = {
   reported: 'Reported',
-  pending_verification: 'Pending Verification',
+  pending_verification: 'For confirmation',
   open: 'Open',
-  in_progress: 'In Progress',
-  resolution_submitted: 'Waiting for check',
+  in_progress: 'In progress',
+  resolution_submitted: 'For verification',
   resolved: 'Resolved',
   closed: 'Closed',
 };
@@ -96,8 +96,8 @@ export type DeliveryStatus = (typeof DELIVERY_STATUSES)[number];
 
 export const RECORD_TYPES = ['maintenance', 'inventory', 'dispatch', 'operations', 'quality', 'staffing', 'policy'] as const;
 export const RECORD_TYPE_LABELS: Record<RecordType, string> = {
-  maintenance: 'Equipment / maintenance', inventory: 'Resources / supplies', dispatch: 'Service / transfer',
-  operations: 'Operational activity', quality: 'Quality / readiness', staffing: 'Staffing / coverage', policy: 'Approved policy',
+  maintenance: 'Biomedical / maintenance', inventory: 'Supply and stock record', dispatch: 'Transport and transfer log',
+  operations: 'Unit activity log', quality: 'Quality and readiness checklist', staffing: 'Duty roster and staffing', policy: 'Hospital policy or memorandum',
 };
 export type RecordType = (typeof RECORD_TYPES)[number];
 

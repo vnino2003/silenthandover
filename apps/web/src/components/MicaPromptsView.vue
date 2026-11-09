@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { IonChip } from '@ionic/vue';
 import { computed, ref } from 'vue';
 import { MICA_PROMPT_VERSION, MICA_PROMPTS, renderMicaSystem, renderMicaUser, type MicaPromptKind, type OrganizationRules } from '@sh/shared';
 import PromptElementsView from '@/components/PromptElementsView.vue';
@@ -11,15 +12,15 @@ const props = defineProps<{ organization: OrganizationRules | null }>();
 const KINDS: { kind: MicaPromptKind; label: string; who: string; sent: string; kept: string }[] = [
   {
     kind: 'employee',
-    label: 'Employee · Ask',
-    who: 'A team member asks about a page, their schedule, leave or reports.',
+    label: 'Staff · Ask',
+    who: 'A staff member asks about a page, their duty schedule, leave or endorsements.',
     sent: 'The page guide and the sanitized question.',
-    kept: 'Their shifts, leave and reports are shown by the app ("From your records"). Leave messages are handled by the app without the AI.',
+    kept: 'Their shifts, leave and endorsements are shown by the app ("From your records"). Leave messages are handled by the app without the AI.',
   },
   {
     kind: 'manager',
-    label: 'Supervisor · Ask',
-    who: 'A supervisor asks about reviewing, coverage, schedules or leave decisions.',
+    label: 'Department head · Ask',
+    who: 'A department head asks about approvals, staffing coverage, duty schedules or leave decisions.',
     sent: 'The page guide and the sanitized question.',
     kept: "The department's coverage, conflicts, leave impact and review flags are shown by the app. Leave reasons are never included.",
   },
@@ -28,13 +29,13 @@ const KINDS: { kind: MicaPromptKind; label: string; who: string; sent: string; k
     label: 'Administrator · Ask',
     who: 'An administrator asks about configuration or the AI pipeline.',
     sent: 'The page guide and the sanitized question.',
-    kept: 'Organization-wide counts are shown by the app. Administrators never see report contents or leave reasons.',
+    kept: 'Organization-wide counts are shown by the app. Administrators never see endorsement contents or leave reasons.',
   },
   {
     kind: 'prepare',
-    label: 'Employee · Prepare',
-    who: 'A team member turns a rough note into a shift report, incident, assistance request or task update.',
-    sent: 'The sanitized message, the sanitized draft, issue codes and the department’s report categories.',
+    label: 'Staff · Prepare',
+    who: 'A staff member turns a rough note into a shift endorsement, incident, assistance request or task update.',
+    sent: 'The sanitized message, the sanitized draft, concern codes and the unit’s concern categories.',
     kept: 'Names come back restored for the author only. The author reviews, edits and confirms before anything is recorded.',
   },
 ];
@@ -53,18 +54,16 @@ const example = computed(() =>
 <template>
   <div class="space-y-5">
     <div class="flex flex-wrap gap-2" role="radiogroup" aria-label="Which Mica prompt">
-      <button
+      <IonChip
         v-for="k in KINDS"
         :key="k.kind"
-        type="button"
         role="radio"
         :aria-checked="selected === k.kind"
-        class="rounded-full border px-3 py-1.5 text-[13px]"
-        :class="selected === k.kind ? 'border-accent bg-accent-soft font-medium text-accent-ink' : 'border-line text-ink-2 hover:border-accent/40'"
+        :outline="selected !== k.kind"
+        :color="selected === k.kind ? 'primary' : undefined"
+        class="m-0"
         @click="selected = k.kind"
-      >
-        {{ k.label }}
-      </button>
+      >{{ k.label }}</IonChip>
     </div>
     <div class="grid gap-3 md:grid-cols-3">
       <div class="rounded-lg border border-line bg-surface p-4 text-[13px]"><p class="eyebrow mb-1">When</p><p class="text-ink-2">{{ info.who }}</p></div>

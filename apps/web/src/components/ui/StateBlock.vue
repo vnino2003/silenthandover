@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, ref, watch } from 'vue';
+import { IonSkeletonText } from '@ionic/vue';
+import UiButton from './UiButton.vue';
 
 /**
  * Loading, error and empty states in one place so every page treats them the same way.
@@ -36,16 +38,16 @@ onBeforeUnmount(() => timer && clearTimeout(timer));
     <div v-if="showSkeleton" class="card divide-y divide-line overflow-hidden">
       <div v-for="i in Math.min(lines ?? 3, 8)" :key="i" class="flex items-center gap-4 px-5 py-4">
         <div class="min-w-0 flex-1 space-y-2">
-          <div class="skeleton h-3.5 rounded" :style="{ width: `${68 - ((i * 13) % 30)}%` }" />
-          <div class="skeleton h-3 rounded" :style="{ width: `${42 - ((i * 7) % 18)}%` }" />
+          <IonSkeletonText animated class="h-3.5 rounded" :style="{ width: `${68 - ((i * 13) % 30)}%` }" />
+          <IonSkeletonText animated class="h-3 rounded" :style="{ width: `${42 - ((i * 7) % 18)}%` }" />
         </div>
-        <div class="skeleton hidden h-6 w-20 rounded-full sm:block" />
+        <IonSkeletonText animated class="hidden h-6 w-20 rounded-full sm:block" />
       </div>
     </div>
   </div>
   <div v-else-if="error" class="enter-fade rounded-lg border border-bad/25 bg-bad-soft px-4 py-3 text-[14px] text-bad" role="alert">
     <p>{{ error }}</p>
-    <button class="mt-1 font-medium underline underline-offset-2" @click="$emit('retry')">Try again</button>
+    <UiButton class="mt-2" size="sm" variant="danger" @click="$emit('retry')">Try again</UiButton>
   </div>
   <div v-else-if="empty" class="enter-fade rounded-lg border border-dashed border-line-strong px-5 py-8 text-center" :class="{ 'opacity-60': refreshing }">
     <p class="text-[14px] font-medium text-ink">{{ emptyTitle ?? 'Nothing here yet' }}</p>

@@ -11,27 +11,27 @@ import { leaveDates } from '../automation/mica-dates';
 
 const STAFF = ['employee','manager'] as const;
 export const GUIDES: Record<string, { roles: readonly Role[]; text: string }> = {
-  today: { roles: ['admin','manager','employee'], text: 'Check your assigned shift, reporting window and open follow-ups. Prepare your handover from the current shift. If a window has closed, ask your supervisor for a reporting override.' },
-  reports: { roles: STAFF, text: 'Reports show the current review status. Employees can edit drafts and requested revisions. Submitted reports await supervisor review; approved handovers are delivered to the incoming team.' },
-  report: { roles: ['employee'], text: 'Record completed work, unresolved concerns and next-team follow-ups. Explicitly say when there are none. Drafts save automatically. Review before submission; the database enforces reporting windows.' },
-  issues: { roles: STAFF, text: 'Use the filters to find active concerns, assignments and items awaiting verification. Record what was observed and any approved reference. Only an authorized supervisor can verify resolution.' },
-  issue: { roles: STAFF, text: 'Read the issue history before taking action. Record progress or submit completion with a factual note and optional evidence. Completion remains an unverified claim until a supervisor checks it.' },
-  handover: { roles: ['employee'], text: 'Read the approved handover, acknowledge it and take ownership of relevant checklist items. Acknowledgment does not resolve an issue. Open items carry forward until verified.' },
-  schedule: { roles: ['manager'], text: 'Configure operating hours, shift patterns and reporting windows, then assign team members. Use three shifts for continuous coverage or define patterns suited to your department. Check overlaps before assigning.' },
-  review: { roles: ['manager'], text: 'Compare the employee’s original with the prepared draft and supporting source records. Resolve every flag, confirm issue links, then approve, reject or request revision. AI cannot make the review decision.' },
-  records: { roles: ['manager'], text: 'Add authorized operational, staffing, quality, maintenance or policy references. These help reviewers verify claims. Record a source reference and factual details; keep confidential information in its approved system.' },
-  departments: { roles: ['admin'], text: 'Create departments and teams, then use Customize to set role terminology, report guidance, privacy guidance, concern categories and source-record types. Supervisors configure their own schedules and reporting windows.' },
-  users: { roles: ['admin'], text: 'Create accounts, choose the system role and assign the correct department. Department-specific display labels do not change permissions. Deactivate accounts that should no longer sign in.' },
-  settings: { roles: ['admin'], text: 'Configure escalation timing, automation limits and notification templates. Changes affect operational checks. Keep sensitive report content out of messages and link back to the authenticated workspace.' },
-  integrations: { roles: ['admin'], text: 'Connect the AI provider and inspect automation events, retries and deliveries. Simulated deliveries are not sent. Administrators see operational metadata rather than employee report contents.' },
-  pipeline: { roles: ['admin'], text: 'Inspect censored analysis inputs and validation steps, or run a synthetic example. Original employee content and identity mappings remain restricted. A supervisor always decides whether to approve a handover.' },
-  audit: { roles: ['admin','manager'], text: 'Use audit filters to inspect recorded actions within your authorized scope. History is append-only and cannot be edited here.' },
-  profile: { roles: ['admin','manager','employee'], text: 'Update your profile photo and notification preferences. Your system role and department are managed by an administrator.' },
-  notifications: { roles: ['admin','manager','employee'], text: 'Open an alert to see its related record. Notifications link to authenticated screens and do not grant additional access.' },
-  my_schedule: { roles: ['employee'], text: 'My schedule shows your assigned shifts, rest days, days off and leave. Pending leave is not approved yet. Your supervisor sets shifts and rest days; ask them about changes. Switch between the list and the calendar to plan ahead.' },
-  leave: { roles: STAFF, text: 'Choose a leave type and whole days, add a reason when the type needs one, and submit. Your supervisor decides; pending leave does not change your schedule until it is approved. You can cancel a request while it is pending. Mica can prepare the dates for you, but you submit on this page.' },
-  leave_requests: { roles: ['manager'], text: 'Each pending request shows the shifts it would affect and the coverage left if you approve. Approving removes the person from those shifts and alerts you about any gap; declining needs a note. You cannot decide your own leave. Mica can summarize the impact, but the decision is yours.' },
-  assistant: { roles: ['admin','manager','employee'], text: 'Mica is the AI of Silent Handover. Ask about the current page and your own records. Team members can also prepare reports, incidents, assistance requests, task updates and leave dates. Review every prepared action and confirm it yourself before it is recorded.' },
+  today: { roles: ['admin','manager','employee'], text: "Check your assigned duty shift, the endorsement window and open follow-ups. Prepare your shift endorsement before your shift ends. If the window has closed, ask your department head to allow a late endorsement." },
+  reports: { roles: STAFF, text: "This list shows each shift endorsement and its approval status. Staff can edit drafts and endorsements returned for revision. Submitted endorsements wait for the department head's approval; approved ones are endorsed to the incoming shift." },
+  report: { roles: ['employee'], text: "Record the tasks completed, unresolved concerns and pending tasks for the incoming shift. Say so plainly when there are none. Drafts save automatically. Review before submitting; the endorsement window is enforced by the system." },
+  issues: { roles: STAFF, text: "Use the filters to find open concerns, items assigned to you and items for verification. Record what you observed and any reference number. Only the department head can verify that a concern is resolved." },
+  issue: { roles: STAFF, text: "Read the concern's history before acting. Record progress, or mark it done with a factual note and an optional photo. A done item stays unverified until the department head checks it." },
+  handover: { roles: ['employee'], text: "Read the approved endorsement from the outgoing shift, acknowledge it and take the checklist items that are yours. Acknowledging does not resolve a concern; open items carry over until verified." },
+  schedule: { roles: ['manager'], text: "Set the duty shifts (for example AM, PM and night shifts), the endorsement windows and the minimum staff per shift, then assign staff. Check for overlaps, rest days and leave before assigning." },
+  review: { roles: ['manager'], text: "Compare the staff member's original endorsement with Mica's draft and the unit records. Decide every flag, confirm links to existing concerns, then approve, decline or return it for revision. The AI never makes the decision." },
+  records: { roles: ['manager'], text: "Add approved unit records: biomedical or maintenance reports, readiness checklists, duty rosters and hospital policies or memoranda. They help verify what an endorsement claims. Keep patient information in the chart." },
+  departments: { roles: ['admin'], text: "Create the hospital's departments and units, then use Customize to set each unit's titles (for example Head Nurse), endorsement guidance, privacy guidance, concern categories and record types. Department heads set their own duty schedules." },
+  users: { roles: ['admin'], text: "Create accounts for hospital personnel, choose the system role and assign the department. A unit's own titles do not change permissions. Deactivate accounts of personnel who should no longer sign in." },
+  settings: { roles: ['admin'], text: "Set the system rules: escalation timing, AI retry limits, data retention, leave types and email templates. Keep endorsement content out of emails; they link back to the system instead." },
+  integrations: { roles: ['admin'], text: "Connect Mica's AI and check automation runs, retries and notification deliveries. Email and SMS sending are not set up yet. System administrators see counts and statuses, not endorsement contents." },
+  pipeline: { roles: ['admin'], text: "See what Mica sent to the AI for each endorsement (with names as codes and private details removed), the checks it passed, or try an example. The department head always decides whether to approve." },
+  audit: { roles: ['admin','manager'], text: "Use the filters to see recorded actions within your authorized scope. The audit log cannot be edited." },
+  profile: { roles: ['admin','manager','employee'], text: "Update your profile photo and notification preferences. Your system role and department are managed by the system administrator." },
+  notifications: { roles: ['admin','manager','employee'], text: "Open a notification to see the related record. Notifications link to pages you are already allowed to open." },
+  my_schedule: { roles: ['employee'], text: "My schedule shows your duty shifts, rest days, days off and leave. Pending leave is not approved yet. Your department head sets the schedule; ask them about changes. Switch between the list and the calendar to plan ahead." },
+  leave: { roles: STAFF, text: "Choose the leave type and whole days, add a reason when the type requires one, and file the request. Your department head decides; pending leave does not change your schedule until it is approved. You can cancel a request while it is pending. Mica can prepare the dates, but you file it on this page." },
+  leave_requests: { roles: ['manager'], text: "Each pending request shows the duty shifts it affects and the staffing left if you approve. Approving removes the person from those shifts and alerts you to any gap; declining needs a note. You cannot decide your own leave. Mica can summarize the impact, but the decision is yours." },
+  assistant: { roles: ['admin','manager','employee'], text: "Mica is the AI of Silent Handover. Ask about the current page and your own records. Staff can also prepare shift endorsements, concerns, requests for assistance, task updates and leave dates. Review everything Mica prepares and confirm it yourself before it is recorded." },
 };
 /** A question about the user's own records, answered by the app from those records, not by the AI. */
 const RECORDS_QUESTION = /\b(my|next|when|which|who|status|coverage|pending|week|short|flags?|decision|records|attention|today|tomorrow)\b/i;
@@ -53,10 +53,10 @@ export function assistantHelpRoutes() {
       const e = DepartmentExperience.parse(d?.experience ?? {});
       const g = GENERIC_EXPERIENCE;
       const words = [
-        e.issue_label !== g.issue_label && `issues are called “${e.issue_label}s”`,
-        e.report_label !== g.report_label && `shift reports are “${e.report_label}s”`,
-        e.staff_label !== g.staff_label && `team members are “${e.staff_label}s”`,
-        e.supervisor_label !== g.supervisor_label && `the supervisor is the “${e.supervisor_label}”`,
+        e.issue_label !== g.issue_label && `concerns are called “${e.issue_label}s”`,
+        e.report_label !== g.report_label && `shift endorsements are called “${e.report_label}s”`,
+        e.staff_label !== g.staff_label && `staff are “${e.staff_label}”`,
+        e.supervisor_label !== g.supervisor_label && `the department head is the “${e.supervisor_label}”`,
       ].filter(Boolean);
       if (words.length) guide.text = `${guide.text} In this department, ${words.join(', ')}.`;
     }

@@ -17,6 +17,7 @@
     "demo:hospital": "npm run demo:hospital -w server",
     "demo:schedule": "npm run demo:schedule -w server",
     "presentation:prepare": "npm run presentation:prepare -w server --",
+    "setup:live": "npm run setup:live -w server --",
     "prompt:eval": "npm run prompt:eval -w server --"
   },
   "devDependencies": {

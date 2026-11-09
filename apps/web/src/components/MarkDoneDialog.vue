@@ -1,10 +1,12 @@
 <script setup lang="ts">
+import { IonTextarea } from '@ionic/vue';
 import { ref, watch } from 'vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import UiDialog from '@/components/ui/UiDialog.vue';
 import { api, errorMessage } from '@/lib/api';
 import { preparePhoto, type PhotoUpload } from '@/lib/photo';
 import { useToast } from '@/stores/toast';
+import { useAuth } from '@/stores/auth';
 
 /**
  * A worker marks a problem or task as done, with a short note and an optional photo as proof.
@@ -13,6 +15,7 @@ import { useToast } from '@/stores/toast';
 const props = defineProps<{ issue: { id: string; code: string; title: string; kind?: string } | null }>();
 const emit = defineEmits<{ close: []; done: [] }>();
 const toast = useToast();
+const auth = useAuth();
 
 const note = ref('');
 const photo = ref<PhotoUpload | null>(null);
@@ -52,7 +55,7 @@ async function submit() {
       note: note.value,
       photo: photo.value ? { content_type: photo.value.content_type, data_base64: photo.value.data_base64 } : null,
     });
-    toast.ok('Marked as done. Your supervisor will confirm it.');
+    toast.ok(`Marked as done. Your ${auth.terms.head} will confirm it.`);
     emit('done');
   } catch (err) {
     toast.error(errorMessage(err));
@@ -63,11 +66,11 @@ async function submit() {
 </script>
 
 <template>
-  <UiDialog :open="Boolean(issue)" :title="issue?.kind === 'task' ? 'Mark task as done' : 'Mark problem as fixed'" :description="issue ? `${issue.code} · ${issue.title}` : ''" @close="emit('close')">
+  <UiDialog :open="Boolean(issue)" :title="issue?.kind === 'task' ? 'Mark task as done' : 'Mark concern as resolved'" :description="issue ? `${issue.code} · ${issue.title}` : ''" @close="emit('close')">
     <div class="space-y-4">
       <label class="block text-[14px] font-medium">
         What did you do?
-        <textarea v-model="note" class="field-input mt-1" rows="3" maxlength="2000" placeholder="Describe the action taken and any service reference. A supervisor will verify completion." />
+        <IonTextarea v-model="note" class="field-input mt-1" :rows="3" :maxlength="2000" :placeholder="`Describe the action taken and any work order or reference number. Your ${$terms.head} will verify it.`"  auto-grow />
       </label>
       <div>
         <p class="text-[14px] font-medium">Photo proof <span class="font-normal text-ink-3">(optional, recommended)</span></p>
@@ -77,11 +80,11 @@ async function submit() {
             {{ preparing ? 'Preparing…' : photo ? 'Change photo' : 'Take or choose a photo' }}
             <input type="file" accept="image/*" capture="environment" class="sr-only" @change="onFile" />
           </label>
-          <button v-if="photo" type="button" class="text-[13px] text-ink-3 hover:text-bad" @click="photo = null">Remove</button>
+          <UiButton size="sm" variant="danger" v-if="photo" @click="photo = null">Remove</UiButton>
         </div>
         <p v-if="photoError" class="mt-1 text-[13px] text-bad">{{ photoError }}</p>
       </div>
-      <p class="rounded-md bg-sunken px-3 py-2 text-[13px] text-ink-2">Your supervisor checks this before it’s marked resolved.</p>
+      <p class="rounded-md bg-sunken px-3 py-2 text-[13px] text-ink-2">Your {{ $terms.head }} checks this before it’s marked resolved.</p>
     </div>
     <template #footer>
       <UiButton variant="ghost" @click="emit('close')">Cancel</UiButton>

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { IonCheckbox, IonContent, IonInput, IonLabel, IonPage, IonSegment, IonSegmentButton, IonSelect, IonSelectOption, IonTextarea } from '@ionic/vue';
 import { computed, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { ISSUE_SEVERITIES, type IssueSeverity } from '@sh/shared';
@@ -41,7 +42,7 @@ async function raise() {
   try {
     const res = await api.post<{ id: string; code: string; status: string }>('/issues', form.value);
     raising.value = false;
-    toast.ok(isManager.value ? `${res.code} opened` : `${res.code} reported. A supervisor will review it.`);
+    toast.ok(isManager.value ? `${res.code} opened` : `${res.code} reported. Your ${auth.terms.head} will review it.`);
     router.push(`${base.value}/${res.id}`);
   } catch (err) {
     if (err instanceof ApiError) formErrors.value = err.fields;
@@ -53,84 +54,78 @@ async function raise() {
 </script>
 
 <template>
-  <div class="mx-auto max-w-5xl">
-    <PageHeader
-      :title="isManager ? auth.terms.issues : `Open ${auth.terms.issues.toLowerCase()}`"
-      description="Unresolved problems carry over from shift to shift until an authorized person verifies they are resolved."
-    >
-      <UiButton variant="primary" @click="raising = true">Report {{ auth.terms.aIssue }}</UiButton>
-    </PageHeader>
+  <IonPage>
+    <IonContent class="sh-content">
+      <div class="sh-page page-enter">
+          <div class="mx-auto max-w-5xl">
+            <PageHeader
+              :title="isManager ? auth.terms.issues : `Open ${auth.terms.issues.toLowerCase()}`"
+              :description="`Unresolved ${$terms.issuesLower} carry over from shift to shift until the ${$terms.head} verifies they are resolved.`"
+            >
+              <UiButton variant="primary" @click="raising = true">Report {{ auth.terms.aIssue }}</UiButton>
+            </PageHeader>
 
-    <div class="mb-4 flex gap-1 border-b border-line" role="tablist">
-      <button
-        v-for="t in tabs"
-        :key="t.key"
-        role="tab"
-        :aria-selected="scope === t.key"
-        class="-mb-px border-b-2 px-3 py-2 text-[14px]"
-        :class="scope === t.key ? 'border-accent font-medium text-ink' : 'border-transparent text-ink-3 hover:text-ink'"
-        @click="scope = t.key"
-      >
-        {{ t.label }}
-      </button>
-    </div>
+            <IonSegment :value="scope" class="sh-segment w-auto" @ion-change="scope = $event.detail.value as typeof scope">
+  <IonSegmentButton v-for="t in tabs" :key="t.key" :value="t.key"><IonLabel>{{ t.label }}</IonLabel></IonSegmentButton>
+</IonSegment>
 
-    <StateBlock :loading="loading" :refreshing="refreshing" :error="error" :empty="!data?.length" empty-title="No issues in this view" @retry="reload()">
-      <div class="card overflow-hidden">
-        <table class="w-full text-left text-[14px]">
-          <thead class="hidden border-b border-line bg-canvas text-[12px] tracking-wide text-ink-3 uppercase sm:table-header-group">
-            <tr>
-              <th class="px-5 py-2.5 font-medium">{{ auth.terms.issue }}</th>
-              <th class="px-3 py-2.5 font-medium">Severity</th>
-              <th class="px-3 py-2.5 font-medium">Assignee</th>
-              <th class="px-3 py-2.5 font-medium">Last update</th>
-              <th class="px-5 py-2.5 text-right font-medium">Status</th>
-            </tr>
-          </thead>
-          <tbody class="stagger divide-y divide-line">
-            <tr v-for="i in data" :key="i.id" class="cursor-pointer hover:bg-canvas" @click="router.push(`${base}/${i.id}`)">
-              <td class="px-5 py-3">
-                <RouterLink :to="`${base}/${i.id}`" class="font-medium hover:underline" @click.stop>{{ i.title }}</RouterLink>
-                <p class="text-[12.5px] text-ink-3 tnum">
-                  <span v-if="i.kind === 'task'" class="mr-1.5 rounded-sm bg-info-soft px-1.5 py-px text-[11px] font-medium text-info">Task</span>{{ i.code }}<span v-if="i.escalated_at" class="ml-2 font-medium text-warn">Escalated</span>
-                </p>
-                <div class="mt-1.5 flex flex-wrap items-center gap-2 sm:hidden">
-                  <SeverityTag :severity="i.severity" :safety="i.is_safety" /><StatusBadge :issue="i.status" />
+            <StateBlock :loading="loading" :refreshing="refreshing" :error="error" :empty="!data?.length" :empty-title="`No ${$terms.issuesLower} in this view`" @retry="reload()">
+              <div class="card overflow-hidden">
+                <table class="w-full text-left text-[14px]">
+                  <thead class="hidden border-b border-line bg-canvas text-[12px] tracking-wide text-ink-3 uppercase sm:table-header-group">
+                    <tr>
+                      <th class="px-5 py-2.5 font-medium">{{ auth.terms.issue }}</th>
+                      <th class="px-3 py-2.5 font-medium">Severity</th>
+                      <th class="px-3 py-2.5 font-medium">Assignee</th>
+                      <th class="px-3 py-2.5 font-medium">Last update</th>
+                      <th class="px-5 py-2.5 text-right font-medium">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody class="stagger divide-y divide-line">
+                    <tr v-for="i in data" :key="i.id" class="cursor-pointer hover:bg-canvas" @click="router.push(`${base}/${i.id}`)">
+                      <td class="px-5 py-3">
+                        <RouterLink :to="`${base}/${i.id}`" class="font-medium hover:underline" @click.stop>{{ i.title }}</RouterLink>
+                        <p class="text-[12.5px] text-ink-3 tnum">
+                          <span v-if="i.kind === 'task'" class="mr-1.5 rounded-sm bg-info-soft px-1.5 py-px text-[11px] font-medium text-info">Task</span>{{ i.code }}<span v-if="i.escalated_at" class="ml-2 font-medium text-warn">Escalated</span>
+                        </p>
+                        <div class="mt-1.5 flex flex-wrap items-center gap-2 sm:hidden">
+                          <SeverityTag :severity="i.severity" :safety="i.is_safety" /><StatusBadge :issue="i.status" />
+                        </div>
+                      </td>
+                      <td class="hidden px-3 py-3 sm:table-cell"><SeverityTag :severity="i.severity" :safety="i.is_safety" /></td>
+                      <td class="hidden px-3 py-3 text-ink-2 sm:table-cell">{{ i.assignee_name ?? '—' }}</td>
+                      <td class="hidden px-3 py-3 text-ink-3 sm:table-cell">{{ relative(i.last_activity_at) }}</td>
+                      <td class="hidden px-5 py-3 text-right sm:table-cell"><StatusBadge :issue="i.status" /></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </StateBlock>
+
+            <UiDialog :open="raising" :title="`Report ${$terms.aIssue}`" :description="isManager ? 'It opens immediately for your department.' : `Your ${$terms.head} reviews new ${$terms.issuesLower} before they are opened.`" @close="raising = false">
+              <form id="raise-form" class="space-y-4" @submit.prevent="raise">
+                <UiField v-slot="{ id, labelledby }" :label="`What’s the ${$terms.issueLower}?`" :error="formErrors.title">
+                  <IonInput :id="id" :aria-labelledby="labelledby" v-model="form.title" class="field-input" :maxlength="160" :placeholder="`A short description of the ${$terms.issueLower}`"  />
+                </UiField>
+                <UiField v-slot="{ id, labelledby }" label="Details" optional>
+                  <IonTextarea :id="id" :aria-labelledby="labelledby" v-model="form.description" class="field-input" :rows="3" placeholder="Where, what you saw, what you did"  auto-grow />
+                </UiField>
+                <div class="grid grid-cols-2 gap-3">
+                  <UiField v-slot="{ id, labelledby }" label="Severity">
+                    <IonSelect :id="id" :aria-labelledby="labelledby" v-model="form.severity" class="field-input capitalize" interface="popover">
+                      <IonSelectOption v-for="s in ISSUE_SEVERITIES" :key="s" :value="s">{{ s }}</IonSelectOption>
+                    </IonSelect>
+                  </UiField>
+                  <IonCheckbox class="mt-7 flex items-center gap-2 text-[14px]" v-model="form.is_safety" label-placement="end" justify="start">Safety concern</IonCheckbox>
                 </div>
-              </td>
-              <td class="hidden px-3 py-3 sm:table-cell"><SeverityTag :severity="i.severity" :safety="i.is_safety" /></td>
-              <td class="hidden px-3 py-3 text-ink-2 sm:table-cell">{{ i.assignee_name ?? '—' }}</td>
-              <td class="hidden px-3 py-3 text-ink-3 sm:table-cell">{{ relative(i.last_activity_at) }}</td>
-              <td class="hidden px-5 py-3 text-right sm:table-cell"><StatusBadge :issue="i.status" /></td>
-            </tr>
-          </tbody>
-        </table>
+              </form>
+              <template #footer>
+                <UiButton variant="ghost" @click="raising = false">Cancel</UiButton>
+                <UiButton variant="primary" type="submit" form="raise-form" :loading="saving">Report {{ auth.terms.issue.toLowerCase() }}</UiButton>
+              </template>
+            </UiDialog>
+          </div>
       </div>
-    </StateBlock>
-
-    <UiDialog :open="raising" title="Report an issue" :description="isManager ? 'It opens immediately for your department.' : 'A supervisor reviews new issues before they are opened.'" @close="raising = false">
-      <form id="raise-form" class="space-y-4" @submit.prevent="raise">
-        <UiField v-slot="{ id }" label="What’s the problem?" :error="formErrors.title">
-          <input :id="id" v-model="form.title" class="field-input" maxlength="160" placeholder="A short description of the operational concern" />
-        </UiField>
-        <UiField v-slot="{ id }" label="Details" optional>
-          <textarea :id="id" v-model="form.description" class="field-input" rows="3" placeholder="Where, what you saw, what you did" />
-        </UiField>
-        <div class="grid grid-cols-2 gap-3">
-          <UiField v-slot="{ id }" label="Severity">
-            <select :id="id" v-model="form.severity" class="field-input capitalize">
-              <option v-for="s in ISSUE_SEVERITIES" :key="s" :value="s">{{ s }}</option>
-            </select>
-          </UiField>
-          <label class="mt-7 flex items-center gap-2 text-[14px]">
-            <input v-model="form.is_safety" type="checkbox" class="size-4 accent-accent" /> Safety concern
-          </label>
-        </div>
-      </form>
-      <template #footer>
-        <UiButton variant="ghost" @click="raising = false">Cancel</UiButton>
-        <UiButton variant="primary" type="submit" form="raise-form" :loading="saving">Report {{ auth.terms.issue.toLowerCase() }}</UiButton>
-      </template>
-    </UiDialog>
-  </div>
+    </IonContent>
+  </IonPage>
 </template>

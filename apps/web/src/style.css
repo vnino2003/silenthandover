@@ -97,7 +97,7 @@ body { margin: 0; }
 .workspace-sidebar nav a { min-height: 42px; }
 .mobile-dock { box-shadow: 0 -4px 24px rgb(24 52 70 / 0.05); }
 .report-actions { bottom: var(--dock-space, 0px); z-index: 10; }
-.toast-host { bottom: calc(6rem + env(safe-area-inset-bottom)); }
+.toast-host { top: calc(4.5rem + env(safe-area-inset-top)); }
 .skip-link { position: fixed; left: 1rem; top: -5rem; z-index: 100; padding: .75rem 1rem; background: white; border: 2px solid var(--color-accent); border-radius: .5rem; }
 .skip-link:focus { top: 1rem; }
 .table-region { overscroll-behavior-x: contain; scrollbar-width: thin; }
@@ -189,7 +189,7 @@ body:has([aria-modal='true']) .assistant-dock { visibility: hidden; }
 }
 @media (min-width: 1024px) {
   .app-shell { --dock-space: 0px; }
-  .toast-host { bottom: 1.5rem; }
+  .toast-host { top: 1.5rem; }
 }
 
 mark.evidence {
@@ -294,7 +294,7 @@ mark.evidence {
   }
 }
 
-/* Toasts slide up into place; the rest of the stack moves smoothly. */
+/* Toasts enter from above; the rest of the stack moves smoothly. */
 .toast-enter-active {
   transition:
     opacity 0.2s ease,
@@ -310,11 +310,11 @@ mark.evidence {
 }
 .toast-enter-from {
   opacity: 0;
-  transform: translateY(12px);
+  transform: translateY(-12px);
 }
 .toast-leave-to {
   opacity: 0;
-  transform: translateY(6px);
+  transform: translateY(-6px);
 }
 
 /* Drop-down panels (the phone menu). */

@@ -38,10 +38,10 @@ export type FlagType = z.infer<typeof FlagType>;
 export const FLAG_LABELS: Record<FlagType, string> = {
   unsupported_claim: 'Unsupported claim',
   conflicting_quantity: 'Conflicting quantity',
-  missing_evidence: 'Missing evidence',
+  missing_evidence: 'Missing reference',
   unverified_repair: 'Unverified repair',
-  ambiguous_assignment: 'Ambiguous assignment',
-  incomplete_information: 'Incomplete information',
+  ambiguous_assignment: 'Unclear responsibility',
+  incomplete_information: 'Incomplete details',
   possible_prompt_injection: 'Possible prompt injection',
   safety_concern: 'Safety concern',
   privacy_redaction: 'Privacy redaction',

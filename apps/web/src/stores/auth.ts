@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { DepartmentExperience, GENERIC_EXPERIENCE, ROLE_LABELS, type Role } from '@sh/shared';
+import { DepartmentExperience, departmentTerms, GENERIC_EXPERIENCE, ROLE_LABELS, type Role } from '@sh/shared';
 import { computed, ref } from 'vue';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { api, ApiError, configureApi } from '@/lib/api';
@@ -28,15 +28,19 @@ export const useAuth = defineStore('auth', () => {
   const profile = ref<Profile | null>(null);
   const experience = ref(DepartmentExperience.parse({}));
   const roleLabel = (role: Role) => role === 'employee' ? experience.value.staff_label : role === 'manager' ? experience.value.supervisor_label : ROLE_LABELS[role];
-  /** The department's own words (e.g. "Operational concern" for an issue), for text written into pages. */
-  const terms = computed(() => {
-    const e = experience.value;
-    const plural = (s: string) => (/s$/i.test(s) ? s : `${s}s`);
-    return { issue: e.issue_label, issues: plural(e.issue_label), aIssue: `${/^[aeiou]/i.test(e.issue_label) ? 'an' : 'a'} ${e.issue_label.toLowerCase()}`, report: e.report_label, reports: plural(e.report_label), staff: e.staff_label, staffPlural: plural(e.staff_label), supervisor: e.supervisor_label };
-  });
-  /** Page titles that name issues follow the department's word for them. */
-  const pageTitle = (title: string | undefined) =>
-    title === 'Issues' || title === 'Open issues' ? terms.value.issues : title === 'Issue' ? terms.value.issue : title;
+  /** The department's own words (e.g. "Head Nurse", "Shift endorsement", "Concern"), for text written into pages. */
+  const terms = computed(() => departmentTerms(experience.value));
+  /** Page titles that name concerns or endorsements follow the department's words for them. */
+  const pageTitle = (title: string | undefined) => {
+    const t = terms.value;
+    if (title === 'Concerns') return t.issues;
+    if (title === 'Open concerns') return `Open ${t.issuesLower}`;
+    if (title === 'Concern') return t.issue;
+    if (title === 'Shift endorsement') return t.report;
+    if (title === 'My endorsements') return `My ${t.reportsLower}`;
+    if (title === 'Endorsement history') return `${t.report} history`;
+    return title;
+  };
   const ready = ref(false);
   const bootError = ref<string | null>(null);
   /** Server clock minus browser clock, in ms. Countdowns use server time. */
@@ -98,20 +102,35 @@ export const useAuth = defineStore('auth', () => {
     ready.value = true;
   }
 
+  function keepLocalSession(s: LocalSession) {
+    local = s;
+    try {
+      localStorage.setItem(TOKEN_KEY, JSON.stringify(local));
+    } catch {
+      /* session lasts for this tab only */
+    }
+  }
+
   async function signIn(email: string, password: string) {
     if (supabase) {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw new ApiError(401, 'invalid_credentials', 'Email or password is incorrect');
     } else {
-      local = await api.post<LocalSession>('/auth/login', { email, password });
-      try {
-        localStorage.setItem(TOKEN_KEY, JSON.stringify(local));
-      } catch {
-        /* session lasts for this tab only */
-      }
+      keepLocalSession(await api.post<LocalSession>('/auth/login', { email, password }));
     }
     await loadProfile();
     if (!profile.value) throw new ApiError(403, 'no_profile', 'Your account has not been set up yet. Contact an administrator.');
+  }
+
+  /** After choosing a password from an invitation link: the server already signed the person in (local mode). */
+  async function adoptSession(email: string, password: string, session: LocalSession | null) {
+    if (session && !supabase) {
+      keepLocalSession(session);
+      await loadProfile();
+      if (!profile.value) throw new ApiError(403, 'no_profile', 'Your account has not been set up yet. Contact an administrator.');
+    } else {
+      await signIn(email, password);
+    }
   }
 
   async function signOut() {
@@ -123,5 +142,5 @@ export const useAuth = defineStore('auth', () => {
   const homePath = computed(() => (role.value === 'admin' ? '/admin' : role.value === 'manager' ? '/manager' : '/'));
   const serverNow = () => Date.now() + clockSkew.value;
 
-  return { config, profile, experience, terms, pageTitle, roleLabel, ready, bootError, role, homePath, clockSkew, init, signIn, signOut, loadProfile, serverNow };
+  return { config, profile, experience, terms, pageTitle, roleLabel, ready, bootError, role, homePath, clockSkew, init, signIn, adoptSession, signOut, loadProfile, serverNow };
 });

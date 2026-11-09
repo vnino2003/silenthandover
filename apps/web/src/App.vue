@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, ref } from 'vue';
-import { RouterView, useRouter } from 'vue-router';
+import { useRouter } from 'vue-router';
+import { IonApp, IonRouterOutlet } from '@ionic/vue';
 import BrandMark from '@/components/BrandMark.vue';
 import ToastHost from '@/components/ui/ToastHost.vue';
 import UiButton from '@/components/ui/UiButton.vue';
@@ -40,6 +41,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
+  <IonApp>
   <div v-if="navigating" class="pointer-events-none fixed inset-x-0 top-0 z-[80] h-0.5" aria-hidden="true">
     <div
       class="h-full bg-accent"
@@ -54,6 +56,7 @@ onBeforeUnmount(() => {
       <UiButton class="mt-6" variant="primary" @click="retry">Try again</UiButton>
     </div>
   </div>
-  <RouterView v-else />
+  <IonRouterOutlet v-else />
   <ToastHost />
+  </IonApp>
 </template>

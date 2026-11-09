@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { IonCheckbox, IonInput, IonItem } from '@ionic/vue';
 import { ref } from 'vue';
 import StateBlock from '@/components/ui/StateBlock.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
@@ -60,7 +61,7 @@ async function save() {
     <StateBlock :loading="loading" :error="error" :empty="!data?.length" empty-title="No leave types yet" @retry="reload()">
       <ul class="stagger card divide-y divide-line">
         <li v-for="t in data" :key="t.id">
-          <button type="button" class="flex w-full flex-wrap items-center justify-between gap-3 px-5 py-3 text-left hover:bg-canvas" :class="{ 'text-ink-3': !t.is_active }" @click="openEdit(t)">
+          <IonItem button :detail="false" lines="none" class="sh-row" :class="{ 'text-ink-3': !t.is_active }" @click="openEdit(t)"><div class="flex w-full min-w-0 flex-wrap items-center justify-between gap-3 px-5 py-3 text-left hover:bg-canvas">
             <span class="min-w-0">
               <span class="block text-[14px] font-medium">{{ t.name }}</span>
               <span class="block text-[12.5px] text-ink-3">
@@ -68,20 +69,20 @@ async function save() {
               </span>
             </span>
             <StatusBadge :tone="t.is_active ? 'ok' : 'neutral'" :label="t.is_active ? 'Available' : 'Switched off'" />
-          </button>
+          </div></IonItem>
         </li>
       </ul>
     </StateBlock>
 
     <UiDialog :open="Boolean(editing)" :title="editing?.id ? 'Edit leave type' : 'Add leave type'" @close="editing = null">
       <form v-if="editing" id="leave-type-form" class="space-y-4" @submit.prevent="save">
-        <UiField v-slot="{ id }" label="Name" :error="errors.name"><input :id="id" v-model="editing.name" class="field-input" maxlength="60" placeholder="e.g. Study leave" /></UiField>
-        <UiField v-slot="{ id }" label="Short description" optional><input :id="id" v-model="editing.description" class="field-input" maxlength="300" /></UiField>
-        <UiField v-slot="{ id }" label="Most days per request" optional hint="Leave empty for no limit.">
-          <input :id="id" v-model="editing.max_days" type="number" min="1" max="365" class="field-input w-32 tnum" />
+        <UiField v-slot="{ id, labelledby }" label="Name" :error="errors.name"><IonInput :id="id" :aria-labelledby="labelledby" v-model="editing.name" class="field-input" :maxlength="60" placeholder="e.g. Study leave"  /></UiField>
+        <UiField v-slot="{ id, labelledby }" label="Short description" optional><IonInput :id="id" :aria-labelledby="labelledby" v-model="editing.description" class="field-input" :maxlength="300"  /></UiField>
+        <UiField v-slot="{ id, labelledby }" label="Most days per request" optional hint="Leave empty for no limit.">
+          <IonInput :id="id" :aria-labelledby="labelledby" v-model="editing.max_days" type="number" min="1" max="365" class="field-input w-32 tnum"  />
         </UiField>
-        <label class="flex items-center gap-2 text-[14px]"><input v-model="editing.requires_reason" type="checkbox" class="size-4 accent-accent" /> Staff must give a reason</label>
-        <label class="flex items-center gap-2 text-[14px]"><input v-model="editing.is_active" type="checkbox" class="size-4 accent-accent" /> Available to request</label>
+        <IonCheckbox class="flex items-center gap-2 text-[14px]" v-model="editing.requires_reason" label-placement="end" justify="start">Staff must give a reason</IonCheckbox>
+        <IonCheckbox class="flex items-center gap-2 text-[14px]" v-model="editing.is_active" label-placement="end" justify="start">Available to request</IonCheckbox>
       </form>
       <template #footer>
         <UiButton variant="ghost" @click="editing = null">Cancel</UiButton>

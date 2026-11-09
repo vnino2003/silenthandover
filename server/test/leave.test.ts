@@ -129,7 +129,7 @@ describe('scheduling and leave', () => {
   it('refuses a supervisor’s own leave when no other supervisor of the department can decide it', async () => {
     const req = await h.call('manager', 'POST', '/api/leave', { leave_type_id: vacation, start_date: day(4), end_date: day(4) });
     expect(req.status).toBe(409);
-    expect(req.body.error.message).toContain('No other supervisor');
+    expect(req.body.error.message).toContain('No other Head Nurse in your department can approve your leave');
     expect(await kinds('admin')).not.toContain('leave_requested');
   });
 

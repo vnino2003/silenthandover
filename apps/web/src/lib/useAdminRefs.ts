@@ -27,6 +27,21 @@ export interface AdminUser {
   created_at: string;
   /** Shown on schedules, e.g. "Staff nurse". Optional and free text. */
   job_title?: string | null;
+  /** ready: can sign in. invited: has not chosen a password yet. expired: the invitation stopped working. */
+  sign_in: 'ready' | 'invited' | 'expired';
+  /** The open invitation or reset link, if any. */
+  invitation: { purpose: 'invite' | 'reset'; sent_at: string | null; expires_at: string; send_status: 'sent' | 'simulated' | 'failed' | null; send_error: string | null } | null;
+}
+
+/** What the server returns after sending an invitation or reset link. */
+export interface InviteResult {
+  purpose: 'invite' | 'reset';
+  status: 'sent' | 'simulated' | 'failed';
+  to: string;
+  expires_at: string;
+  error: string | null;
+  /** Only when the email did not go out: the administrator passes it on another way. */
+  link: string | null;
 }
 
 /** Departments and users, loaded once per admin page for selects and labels. */

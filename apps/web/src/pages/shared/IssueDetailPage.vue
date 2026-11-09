@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { IonContent, IonInput, IonPage, IonSelect, IonSelectOption, IonTextarea } from '@ionic/vue';
 import { computed, ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { allowedIssueTransitions, ISSUE_STATUS_LABELS, type IssueStatus } from '@sh/shared';
@@ -53,7 +54,7 @@ const actions = computed(() => {
 });
 const managerOnlyHint = computed(() => {
   const s = data.value?.issue.status;
-  return !isManager.value && s === 'resolution_submitted' ? 'Waiting for your supervisor to confirm it’s done.' : null;
+  return !isManager.value && s === 'resolution_submitted' ? `Waiting for your ${auth.terms.head} to confirm it’s done.` : null;
 });
 const photosFor = (updateId: string) => data.value?.photos.filter((p) => p.update_id === updateId) ?? [];
 // Marking something done opens the note-and-photo dialog instead of the plain note dialog.
@@ -101,8 +102,8 @@ async function addNote() {
   }
 }
 
-async function assign(e: Event) {
-  const value = (e.target as HTMLSelectElement).value || null;
+async function assign(e: CustomEvent<{ value: string | null }>) {
+  const value = e.detail.value || null;
   try {
     await api.post(`/issues/${id.value}/assign`, { assignee_id: value });
     toast.ok(value ? 'Assigned' : 'Unassigned');
@@ -116,97 +117,103 @@ const KIND_LABEL: Record<string, string> = {
   created: 'Created',
   status_change: 'Status changed',
   note: 'Update',
-  report_update: 'From a shift report',
+  report_update: 'From a shift endorsement',
   assignment: 'Assignment',
   escalation: 'Escalated',
 };
 </script>
 
 <template>
-  <div class="mx-auto max-w-3xl">
-    <RouterLink :to="base" class="text-[13px] text-ink-3 hover:text-ink">← {{ auth.terms.issues }}</RouterLink>
-    <StateBlock class="mt-3" :loading="loading" :error="error" :lines="5" @retry="reload()">
-      <template v-if="data">
-        <PageHeader class="mt-3" :eyebrow="data.issue.code" :title="data.issue.title">
-          <template #meta>
-            <div class="mt-2 flex flex-wrap items-center gap-3">
-              <StatusBadge :issue="data.issue.status" />
-              <SeverityTag :severity="data.issue.severity" :safety="data.issue.is_safety" />
-              <span v-if="data.issue.escalated_at" class="text-[13px] font-medium text-warn">Escalated {{ dateTime(data.issue.escalated_at) }}</span>
-            </div>
-          </template>
-        </PageHeader>
+  <IonPage>
+    <IonContent class="sh-content">
+      <div class="sh-page page-enter">
+          <div class="mx-auto max-w-3xl">
+            <RouterLink :to="base" class="text-[13px] text-ink-3 hover:text-ink">← {{ auth.terms.issues }}</RouterLink>
+            <StateBlock class="mt-3" :loading="loading" :error="error" :lines="5" @retry="reload()">
+              <template v-if="data">
+                <PageHeader class="mt-3" :eyebrow="data.issue.code" :title="data.issue.title">
+                  <template #meta>
+                    <div class="mt-2 flex flex-wrap items-center gap-3">
+                      <StatusBadge :issue="data.issue.status" />
+                      <SeverityTag :severity="data.issue.severity" :safety="data.issue.is_safety" />
+                      <span v-if="data.issue.escalated_at" class="text-[13px] font-medium text-warn">Escalated {{ dateTime(data.issue.escalated_at) }}</span>
+                    </div>
+                  </template>
+                </PageHeader>
 
-        <div class="card p-5">
-          <p class="text-[14px] whitespace-pre-wrap" :class="data.issue.description ? '' : 'text-ink-3'">{{ data.issue.description || 'No description.' }}</p>
-          <dl class="mt-4 grid grid-cols-2 gap-3 border-t border-line pt-4 text-[13px] sm:grid-cols-3">
-            <div><dt class="text-ink-3">Raised</dt><dd>{{ dateTime(data.issue.created_at) }}<template v-if="data.issue.created_by_name"> by {{ data.issue.created_by_name }}</template></dd></div>
-            <div>
-              <dt class="text-ink-3">Assignee</dt>
-              <dd v-if="isManager">
-                <select class="field-input mt-0.5 h-8 py-0 text-[13px]" :value="data.issue.assignee_id ?? ''" aria-label="Assignee" @change="assign">
-                  <option value="">Unassigned</option>
-                  <option v-for="p in staff.data.value ?? []" :key="p.id" :value="p.id">{{ p.full_name }}</option>
-                </select>
-              </dd>
-              <dd v-else>{{ data.issue.assignee_name ?? 'Unassigned' }}</dd>
-            </div>
-            <div v-if="data.issue.resolved_at"><dt class="text-ink-3">Verified</dt><dd>{{ dateTime(data.issue.resolved_at) }} by {{ data.issue.resolved_by_name }}</dd></div>
-          </dl>
-          <div v-if="actions.length || managerOnlyHint" class="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-4">
-            <UiButton
-              v-for="a in actions"
-              :key="a.to"
-              :variant="a.to === 'resolved' || a.to === 'resolution_submitted' ? 'primary' : 'secondary'"
-              size="sm"
-              @click="choose(a)"
+                <div class="card p-5">
+                  <p class="text-[14px] whitespace-pre-wrap" :class="data.issue.description ? '' : 'text-ink-3'">{{ data.issue.description || 'No description.' }}</p>
+                  <dl class="mt-4 grid grid-cols-2 gap-3 border-t border-line pt-4 text-[13px] sm:grid-cols-3">
+                    <div><dt class="text-ink-3">Raised</dt><dd>{{ dateTime(data.issue.created_at) }}<template v-if="data.issue.created_by_name"> by {{ data.issue.created_by_name }}</template></dd></div>
+                    <div>
+                      <dt class="text-ink-3">Assignee</dt>
+                      <dd v-if="isManager">
+                        <IonSelect class="field-input mt-0.5 h-8 py-0 text-[13px]" :value="data.issue.assignee_id ?? ''" aria-label="Assignee" @ion-change="assign" interface="popover">
+                          <IonSelectOption value="">Unassigned</IonSelectOption>
+                          <IonSelectOption v-for="p in staff.data.value ?? []" :key="p.id" :value="p.id">{{ p.full_name }}</IonSelectOption>
+                        </IonSelect>
+                      </dd>
+                      <dd v-else>{{ data.issue.assignee_name ?? 'Unassigned' }}</dd>
+                    </div>
+                    <div v-if="data.issue.resolved_at"><dt class="text-ink-3">Verified</dt><dd>{{ dateTime(data.issue.resolved_at) }} by {{ data.issue.resolved_by_name }}</dd></div>
+                  </dl>
+                  <div v-if="actions.length || managerOnlyHint" class="mt-4 flex flex-wrap items-center gap-2 border-t border-line pt-4">
+                    <UiButton
+                      v-for="a in actions"
+                      :key="a.to"
+                      :variant="a.to === 'resolved' || a.to === 'resolution_submitted' ? 'primary' : 'secondary'"
+                      size="sm"
+                      @click="choose(a)"
+                    >
+                      {{ a.label }}
+                    </UiButton>
+                    <p v-if="managerOnlyHint" class="text-[13px] text-ink-3">{{ managerOnlyHint }}</p>
+                  </div>
+                </div>
+
+                <section class="mt-6">
+                  <h2 class="text-[15px] font-semibold">History</h2>
+                  <ol class="stagger mt-3 space-y-0">
+                    <li v-for="u in data.updates" :key="u.id" class="relative border-l border-line pb-5 pl-5 last:pb-0">
+                      <span class="absolute top-1.5 -left-[4.5px] size-2 rounded-full" :class="u.kind === 'escalation' ? 'bg-warn' : u.kind === 'status_change' ? 'bg-accent' : 'bg-line-strong'" />
+                      <p class="text-[13px] text-ink-3 tnum">
+                        {{ KIND_LABEL[u.kind] ?? u.kind }} · {{ dateTime(u.created_at) }}<template v-if="u.author_name"> · {{ u.author_name }}</template><template v-else> · System</template>
+                      </p>
+                      <p v-if="u.to_status" class="mt-0.5 text-[14px]">
+                        <template v-if="u.from_status">{{ ISSUE_STATUS_LABELS[u.from_status] }} → </template><span class="font-medium">{{ ISSUE_STATUS_LABELS[u.to_status] }}</span>
+                      </p>
+                      <p v-if="u.note" class="mt-0.5 text-[14px] whitespace-pre-wrap text-ink-2">{{ u.note }}</p>
+                      <div v-if="photosFor(u.id).length" class="mt-2 flex flex-wrap gap-2">
+                        <IssuePhoto v-for="p in photosFor(u.id)" :key="p.id" :photo-id="p.id" :alt="`Photo from ${p.uploaded_by_name ?? 'staff'}`" />
+                      </div>
+                    </li>
+                  </ol>
+                  <form v-if="!['closed'].includes(data.issue.status)" class="mt-5 flex flex-col gap-2 sm:flex-row" @submit.prevent="addNote">
+                    <IonInput v-model="update" class="field-input" placeholder="Add an update for the next shift" :maxlength="2000" aria-label="Add an update"  />
+                    <UiButton type="submit" :disabled="update.trim().length < 3" :loading="busy && !pending">Add update</UiButton>
+                  </form>
+                </section>
+              </template>
+            </StateBlock>
+
+            <MarkDoneDialog :issue="markingDone && data ? data.issue : null" @close="markingDone = false" @done="afterDone" />
+
+            <UiDialog
+              :open="Boolean(pending)"
+              :title="pending?.label ?? ''"
+              :description="pending?.to === 'resolution_submitted' ? `Your ${auth.terms.head} will verify it before it is marked resolved.` : pending?.to === 'resolved' ? 'Confirm you verified the resolution yourself or against a record.' : undefined"
+              @close="pending = null"
             >
-              {{ a.label }}
-            </UiButton>
-            <p v-if="managerOnlyHint" class="text-[13px] text-ink-3">{{ managerOnlyHint }}</p>
+              <UiField v-slot="{ id: fid, labelledby }" :label="pending && NOTE_REQUIRED.includes(pending.to) ? 'Note (required)' : 'Note'">
+                <IonTextarea :id="fid" :aria-labelledby="labelledby" v-model="note" class="field-input" :rows="3" :placeholder="pending?.to === 'resolved' ? 'How was it verified?' : 'What was done?'"  auto-grow />
+              </UiField>
+              <template #footer>
+                <UiButton variant="ghost" @click="pending = null">Cancel</UiButton>
+                <UiButton variant="primary" :loading="busy" :disabled="Boolean(pending && NOTE_REQUIRED.includes(pending.to) && note.trim().length < 3)" @click="transition">Confirm</UiButton>
+              </template>
+            </UiDialog>
           </div>
-        </div>
-
-        <section class="mt-6">
-          <h2 class="text-[15px] font-semibold">History</h2>
-          <ol class="stagger mt-3 space-y-0">
-            <li v-for="u in data.updates" :key="u.id" class="relative border-l border-line pb-5 pl-5 last:pb-0">
-              <span class="absolute top-1.5 -left-[4.5px] size-2 rounded-full" :class="u.kind === 'escalation' ? 'bg-warn' : u.kind === 'status_change' ? 'bg-accent' : 'bg-line-strong'" />
-              <p class="text-[13px] text-ink-3 tnum">
-                {{ KIND_LABEL[u.kind] ?? u.kind }} · {{ dateTime(u.created_at) }}<template v-if="u.author_name"> · {{ u.author_name }}</template><template v-else> · System</template>
-              </p>
-              <p v-if="u.to_status" class="mt-0.5 text-[14px]">
-                <template v-if="u.from_status">{{ ISSUE_STATUS_LABELS[u.from_status] }} → </template><span class="font-medium">{{ ISSUE_STATUS_LABELS[u.to_status] }}</span>
-              </p>
-              <p v-if="u.note" class="mt-0.5 text-[14px] whitespace-pre-wrap text-ink-2">{{ u.note }}</p>
-              <div v-if="photosFor(u.id).length" class="mt-2 flex flex-wrap gap-2">
-                <IssuePhoto v-for="p in photosFor(u.id)" :key="p.id" :photo-id="p.id" :alt="`Photo from ${p.uploaded_by_name ?? 'staff'}`" />
-              </div>
-            </li>
-          </ol>
-          <form v-if="!['closed'].includes(data.issue.status)" class="mt-5 flex flex-col gap-2 sm:flex-row" @submit.prevent="addNote">
-            <input v-model="update" class="field-input" placeholder="Add an update for the next shift" maxlength="2000" aria-label="Add an update" />
-            <UiButton type="submit" :disabled="update.trim().length < 3" :loading="busy && !pending">Add update</UiButton>
-          </form>
-        </section>
-      </template>
-    </StateBlock>
-
-    <MarkDoneDialog :issue="markingDone && data ? data.issue : null" @close="markingDone = false" @done="afterDone" />
-
-    <UiDialog
-      :open="Boolean(pending)"
-      :title="pending?.label ?? ''"
-      :description="pending?.to === 'resolution_submitted' ? 'A supervisor will verify before it is marked resolved.' : pending?.to === 'resolved' ? 'Confirm you verified the resolution yourself or against a record.' : undefined"
-      @close="pending = null"
-    >
-      <UiField v-slot="{ id: fid }" :label="pending && NOTE_REQUIRED.includes(pending.to) ? 'Note (required)' : 'Note'">
-        <textarea :id="fid" v-model="note" class="field-input" rows="3" :placeholder="pending?.to === 'resolved' ? 'How was it verified?' : 'What was done?'" />
-      </UiField>
-      <template #footer>
-        <UiButton variant="ghost" @click="pending = null">Cancel</UiButton>
-        <UiButton variant="primary" :loading="busy" :disabled="Boolean(pending && NOTE_REQUIRED.includes(pending.to) && note.trim().length < 3)" @click="transition">Confirm</UiButton>
-      </template>
-    </UiDialog>
-  </div>
+      </div>
+    </IonContent>
+  </IonPage>
 </template>

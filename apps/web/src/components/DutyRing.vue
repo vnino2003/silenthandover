@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import { formatDuration } from '@sh/shared';
 import { time } from '@/lib/format';
+import { useAuth } from '@/stores/auth';
 
 /**
  * How far through their shift a worker is: a ring that fills as the shift goes on, with the
@@ -12,6 +13,7 @@ const props = defineProps<{
   now: number;
 }>();
 
+const auth = useAuth();
 const R = 46;
 const C = 2 * Math.PI * R;
 
@@ -35,9 +37,9 @@ const caption = computed(
   () =>
     ({
       upcoming: 'Your shift hasn’t started yet',
-      on: `Reporting opens at ${time(props.shift.window_opens_at, props.shift.timezone)}`,
-      reporting: 'Last stretch — wrap up and write your report',
-      done: 'Finish your handover report',
+      on: `Endorsement opens at ${time(props.shift.window_opens_at, props.shift.timezone)}`,
+      reporting: `Last stretch — wrap up and write your ${auth.terms.reportLower}`,
+      done: `Finish your ${auth.terms.reportLower}`,
     })[phase.value],
 );
 const percent = computed(() => Math.round(fraction.value * 100));
@@ -86,7 +88,7 @@ const percent = computed(() => Math.round(fraction.value * 100));
         </li>
         <li class="flex items-center gap-2">
           <span class="size-2 rounded-full" :class="phase === 'reporting' || phase === 'done' ? 'bg-accent' : 'bg-accent/25'" aria-hidden="true" />
-          <span class="w-20 text-ink-3">Report opens</span>
+          <span class="w-20 text-ink-3">Opens at</span>
           <span class="text-ink-2">{{ time(shift.window_opens_at, shift.timezone) }}</span>
         </li>
         <li class="flex items-center gap-2">

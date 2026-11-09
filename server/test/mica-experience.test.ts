@@ -35,7 +35,7 @@ describe('Folio contextual experience and safe workflow handoffs',()=>{
     outbound.length=0;
     const response=await guide('juan','my_schedule','When is my next shift?');
     expect(response.body.engine).toBe('records');
-    expect(response.body.facts.some((g:any)=>g.title==='Your next shift')).toBe(true);
+    expect(response.body.facts.some((g:any)=>g.title==='Your next duty shift')).toBe(true);
     const leave=await guide('juan','leave','I need Friday and Saturday off because of fever and medication.');
     expect(leave.status).toBe(200);
     expect(leave.body.leave_draft).toBeDefined();

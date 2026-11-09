@@ -1,0 +1,217 @@
+/*
+ * Ionic theme: Ionic's colour and surface variables mapped to the Silent Handover design tokens
+ * (style.css), so Ionic components and the rest of the interface look like one application.
+ */
+:root {
+  --ion-font-family: var(--font-sans);
+  --ion-background-color: var(--color-canvas);
+  --ion-background-color-rgb: 243, 246, 248;
+  --ion-text-color: var(--color-ink);
+  --ion-text-color-rgb: 23, 43, 58;
+  --ion-border-color: var(--color-line);
+  --ion-item-background: transparent;
+  --ion-toolbar-background: var(--color-surface);
+  --ion-toolbar-border-color: var(--color-line);
+  --ion-toolbar-color: var(--color-ink);
+  --ion-tab-bar-background: var(--color-surface);
+  --ion-placeholder-color: var(--color-ink-3);
+
+  --ion-color-primary: #087e82;
+  --ion-color-primary-rgb: 8, 126, 130;
+  --ion-color-primary-contrast: #ffffff;
+  --ion-color-primary-contrast-rgb: 255, 255, 255;
+  --ion-color-primary-shade: #05666a;
+  --ion-color-primary-tint: #21898f;
+
+  --ion-color-success: #17663a;
+  --ion-color-success-rgb: 23, 102, 58;
+  --ion-color-success-contrast: #ffffff;
+  --ion-color-success-contrast-rgb: 255, 255, 255;
+  --ion-color-success-shade: #145a33;
+  --ion-color-success-tint: #2e754e;
+
+  --ion-color-warning: #a45a07;
+  --ion-color-warning-rgb: 164, 90, 7;
+  --ion-color-warning-contrast: #ffffff;
+  --ion-color-warning-contrast-rgb: 255, 255, 255;
+  --ion-color-warning-shade: #904f06;
+  --ion-color-warning-tint: #ad6b20;
+
+  --ion-color-danger: #b42318;
+  --ion-color-danger-rgb: 180, 35, 24;
+  --ion-color-danger-contrast: #ffffff;
+  --ion-color-danger-contrast-rgb: 255, 255, 255;
+  --ion-color-danger-shade: #9e1f15;
+  --ion-color-danger-tint: #bc392f;
+
+  --ion-color-medium: #627584;
+  --ion-color-medium-rgb: 98, 117, 132;
+  --ion-color-medium-contrast: #ffffff;
+  --ion-color-medium-contrast-rgb: 255, 255, 255;
+  --ion-color-medium-shade: #566774;
+  --ion-color-medium-tint: #728391;
+
+  --ion-color-light: #eaf0f3;
+  --ion-color-light-rgb: 234, 240, 243;
+  --ion-color-light-contrast: #172b3a;
+  --ion-color-light-contrast-rgb: 23, 43, 58;
+  --ion-color-light-shade: #ced3d6;
+  --ion-color-light-tint: #ecf2f4;
+}
+
+/* Page content: the same spacing the workspace used before, inside Ionic's scroll container. */
+ion-content.sh-content {
+  --background: var(--color-canvas);
+}
+.sh-page {
+  padding: 24px 16px 112px;
+}
+@media (min-width: 640px) {
+  .sh-page { padding: 24px 24px 112px; }
+}
+@media (min-width: 992px) {
+  .sh-page { padding: 32px 40px 48px; }
+}
+
+/* The shell: header and footer around the nested page outlet. */
+#shell-main {
+  display: flex;
+  flex-direction: column;
+}
+#shell-main > ion-router-outlet {
+  position: relative;
+  flex: 1;
+}
+ion-menu.sh-menu {
+  --width: 240px;
+  --background: var(--color-canvas);
+  border-inline-end: 1px solid var(--color-line);
+}
+ion-split-pane {
+  --side-width: 240px;
+  --side-max-width: 240px;
+  --border: 1px solid var(--color-line);
+}
+ion-toolbar.sh-toolbar {
+  --min-height: 56px;
+  --padding-start: 12px;
+  --padding-end: 12px;
+}
+@media (min-width: 992px) {
+  ion-toolbar.sh-toolbar { --padding-start: 40px; --padding-end: 40px; }
+}
+
+/* Buttons keep the existing sizes and weight. */
+ion-button {
+  --border-radius: var(--radius-md);
+  --box-shadow: none;
+  text-transform: none;
+  letter-spacing: 0;
+  font-weight: 500;
+  margin: 0;
+}
+ion-button.sh-sm { height: 32px; font-size: 13px; }
+ion-button.sh-md { height: 38px; font-size: 14px; }
+ion-button.sh-lg { height: 46px; font-size: 15px; }
+ion-button.sh-secondary {
+  --background: var(--color-surface);
+  --background-hover: var(--color-sunken);
+  --color: var(--color-ink);
+  --border-color: var(--color-line-strong);
+  --border-style: solid;
+  --border-width: 1px;
+}
+ion-button.sh-ghost {
+  --color: var(--color-ink-2);
+  --background-hover: var(--color-sunken);
+}
+
+/* Form controls look like the existing fields. */
+ion-input.field-input, ion-textarea.field-input, ion-select.field-input {
+  --padding-start: 12px;
+  --padding-end: 12px;
+  --padding-top: 8px;
+  --padding-bottom: 8px;
+  --background: var(--color-surface);
+  --color: var(--color-ink);
+  --placeholder-color: var(--color-ink-3);
+  --placeholder-opacity: 1;
+  --highlight-color-focused: var(--color-accent);
+  min-height: 40px;
+  padding: 0;
+  font-size: 15px;
+}
+ion-textarea.field-input { --padding-top: 8px; }
+ion-select.field-input { --padding-top: 8px; --padding-bottom: 8px; }
+ion-checkbox {
+  --size: 16px;
+  --checkbox-background-checked: var(--color-accent);
+  --border-color-checked: var(--color-accent);
+  --border-radius: 4px;
+}
+
+/* Modals sized like the previous dialogs, full screen on phones. */
+ion-modal.sh-modal {
+  --width: min(560px, 100vw - 32px);
+  --height: auto;
+  --max-height: calc(100dvh - 48px);
+  --border-radius: var(--radius-lg);
+  --box-shadow: var(--shadow-pop);
+}
+@media (max-width: 639px) {
+  ion-modal.sh-modal { --width: 100vw; --max-height: 100dvh; --border-radius: 0; --height: 100%; }
+}
+ion-modal.sh-modal .ion-page { position: relative; contain: content; }
+
+ion-badge.sh-badge {
+  --padding-start: 8px;
+  --padding-end: 8px;
+  --padding-top: 3px;
+  --padding-bottom: 3px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* Clickable list rows (IonItem with button): the row's own layout sits inside. */
+ion-item.sh-row {
+  --padding-start: 0;
+  --padding-end: 0;
+  --inner-padding-end: 0;
+  --inner-padding-start: 0;
+  --min-height: 0;
+  --background: transparent;
+  --background-hover: var(--color-canvas);
+  --background-hover-opacity: 1;
+  --background-focused: var(--color-canvas);
+  --color: inherit;
+  font-size: inherit;
+  width: 100%;
+}
+
+/* Segmented controls (tabs and view switches). */
+ion-segment.sh-segment {
+  --background: var(--color-sunken);
+  width: auto;
+  min-height: 34px;
+  border-radius: var(--radius-md);
+}
+ion-segment.sh-segment ion-segment-button {
+  --indicator-color: var(--color-surface);
+  --color: var(--color-ink-2);
+  --color-checked: var(--color-ink);
+  --padding-start: 12px;
+  --padding-end: 12px;
+  min-height: 30px;
+  min-width: 0;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* Phone-only parts of the shell (bottom bar, alerts button) hide when the side menu shows (split pane "lg" = 992px).
+   Ionic's own unlayered styles would beat Tailwind's layered display utilities, so this is a plain rule. */
+@media (min-width: 992px) {
+  .sh-hide-lg { display: none !important; }
+}

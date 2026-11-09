@@ -17,7 +17,7 @@ interface Proposal {
 }
 function view(p: Proposal): AssistantView {
   const missing = assistantMissing(p.state);
-  if (p.state.intent === 'report' && !p.shift_id) missing.push('Select an assigned shift before preparing a report');
+  if (p.state.intent === 'report' && !p.shift_id) missing.push('Select an assigned shift before preparing a shift endorsement');
   return { id: p.id, version: p.version, state: p.state, engine: p.engine, reply: p.reply,
     missing, ready: !missing.length && !p.result && p.state.intent !== 'leave', shift_id: p.shift_id, expires_at: new Date(p.expires_at).toISOString(), result: p.result };
 }
@@ -37,11 +37,11 @@ async function checkIssue(c: Ctx, s: AssistantState) {
   if (s.intent === 'report' && s.content.issue_updates.length) {
     const ids = s.content.issue_updates.map((i) => i.issue_id);
     const rows = await asUser(c, (q) => q.query('select id from public.operational_issues where id = any($1::uuid[]) and department_id = app.my_department()', [ids]));
-    if (new Set(ids).size !== ids.length || rows.length !== ids.length) throw new ApiError(422, 'validation', 'Use each department issue only once');
+    if (new Set(ids).size !== ids.length || rows.length !== ids.length) throw new ApiError(422, 'validation', 'Use each concern from your unit only once');
   }
   if (s.intent !== 'task_update' || !s.issue_code) return;
   const rows = await asUser(c, (q) => q.query('select id from public.operational_issues where code = $1 and department_id = app.my_department()', [s.issue_code]));
-  if (!rows.length) throw new ApiError(422, 'validation', 'Choose an existing issue code from your department');
+  if (!rows.length) throw new ApiError(422, 'validation', 'Choose an existing concern code from your unit');
 }
 
 export function assistantRoutes() {
@@ -142,7 +142,7 @@ export function assistantRoutes() {
       }
     } else state = guidedReply(body.message, previous);
     await checkIssue(c, state);
-    const reply = state.intent === 'status' ? 'Here is the latest status from your workplace records.' : modelReply || nextQuestion(state);
+    const reply = state.intent === 'status' ? 'Here is the latest status from your unit records.' : modelReply || nextQuestion(state);
     const saved = await services.db.asService(async (q) => {
       if (p) {
         const [updated] = await q.query<Proposal>(`update internal.assistant_proposals set state = $1::jsonb, engine = $2, reply = $3, version = version + 1, ready = false
@@ -193,10 +193,10 @@ export function assistantRoutes() {
         const parsed = ReportSubmission.safeParse(p.state.content);
         if (!parsed.success) throw fromZodError(parsed.error);
         const ids = parsed.data.issue_updates.map((i) => i.issue_id);
-        if (new Set(ids).size !== ids.length) throw new ApiError(422, 'validation', 'Each issue can be updated once per report');
+        if (new Set(ids).size !== ids.length) throw new ApiError(422, 'validation', 'Each concern can be updated once per endorsement');
         if (ids.length) {
           const rows = await asUser(c, (q) => q.query('select id from public.operational_issues where id = any($1::uuid[]) and department_id = app.my_department()', [ids]));
-          if (rows.length !== ids.length) throw new ApiError(422, 'validation', 'Use only issues in your department');
+          if (rows.length !== ids.length) throw new ApiError(422, 'validation', 'Use only concerns from your unit');
         }
       }
     }

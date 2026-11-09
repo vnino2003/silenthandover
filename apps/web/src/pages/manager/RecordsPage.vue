@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { IonContent, IonInput, IonPage, IonSelect, IonSelectOption, IonTextarea } from '@ionic/vue';
 import { ref } from 'vue';
 import { RECORD_TYPE_LABELS, type RecordType } from '@sh/shared';
 import { useAuth } from '@/stores/auth';
@@ -49,52 +50,58 @@ async function save() {
 </script>
 
 <template>
-  <div class="mx-auto max-w-5xl">
-    <PageHeader
-      title="Source records"
-      description="Authorized operational, staffing, quality and equipment records, and approved policies. Reviewers use these references to verify handover claims."
-    >
-      <UiButton variant="primary" @click="form.record_type = auth.experience.record_types[0]!; open = true">Add record</UiButton>
-    </PageHeader>
-    <StateBlock :loading="loading" :error="error" :empty="!data?.length" empty-title="No records yet" @retry="reload()">
-      <ul class="stagger card divide-y divide-line">
-        <li v-for="r in data" :key="r.id" class="px-5 py-3">
-          <p class="flex flex-wrap items-baseline gap-x-2 text-[14px]">
-            <span class="font-medium tnum">{{ r.reference_code }}</span>
-            <span class="text-[12.5px] text-ink-3">{{ RECORD_TYPE_LABELS[r.record_type] }} · {{ dateTime(r.recorded_at) }}<template v-if="r.recorded_by_name"> · {{ r.recorded_by_name }}</template></span>
-          </p>
-          <p class="text-[14px]">{{ r.title }}</p>
-          <p v-if="r.details" class="text-[13.5px] text-ink-2">{{ r.details }}</p>
-        </li>
-      </ul>
-    </StateBlock>
+  <IonPage>
+    <IonContent class="sh-content">
+      <div class="sh-page page-enter">
+          <div class="mx-auto max-w-5xl">
+            <PageHeader
+              title="Unit records"
+              :description="`Equipment, supply, staffing and quality records, and approved hospital policies and memoranda. The ${$terms.head} uses them to verify what each ${$terms.reportLower} says.`"
+            >
+              <UiButton variant="primary" @click="form.record_type = auth.experience.record_types[0]!; open = true">Add record</UiButton>
+            </PageHeader>
+            <StateBlock :loading="loading" :error="error" :empty="!data?.length" empty-title="No records yet" @retry="reload()">
+              <ul class="stagger card divide-y divide-line">
+                <li v-for="r in data" :key="r.id" class="px-5 py-3">
+                  <p class="flex flex-wrap items-baseline gap-x-2 text-[14px]">
+                    <span class="font-medium tnum">{{ r.reference_code }}</span>
+                    <span class="text-[12.5px] text-ink-3">{{ RECORD_TYPE_LABELS[r.record_type] }} · {{ dateTime(r.recorded_at) }}<template v-if="r.recorded_by_name"> · {{ r.recorded_by_name }}</template></span>
+                  </p>
+                  <p class="text-[14px]">{{ r.title }}</p>
+                  <p v-if="r.details" class="text-[13.5px] text-ink-2">{{ r.details }}</p>
+                </li>
+              </ul>
+            </StateBlock>
 
-    <UiDialog :open="open" title="Add a source record" @close="open = false">
-      <form id="record-form" class="space-y-4" @submit.prevent="save">
-        <div class="grid grid-cols-2 gap-3">
-          <UiField v-slot="{ id }" label="Type">
-            <select :id="id" v-model="form.record_type" class="field-input capitalize">
-              <option v-for="t in auth.experience.record_types" :key="t" :value="t">{{ RECORD_TYPE_LABELS[t] }}</option>
-            </select>
-          </UiField>
-          <UiField v-slot="{ id }" label="Reference" :error="errors.reference_code">
-            <input :id="id" v-model="form.reference_code" class="field-input" placeholder="MR-2301" maxlength="60" />
-          </UiField>
-        </div>
-        <UiField v-slot="{ id }" label="Title" :error="errors.title">
-          <input :id="id" v-model="form.title" class="field-input" maxlength="160" />
-        </UiField>
-        <UiField v-slot="{ id }" label="Details" optional>
-          <textarea :id="id" v-model="form.details" class="field-input" rows="3" maxlength="2000" />
-        </UiField>
-        <UiField v-slot="{ id }" label="Recorded at" hint="Leave empty for now." optional>
-          <input :id="id" v-model="form.recorded_at" type="datetime-local" class="field-input" />
-        </UiField>
-      </form>
-      <template #footer>
-        <UiButton variant="ghost" @click="open = false">Cancel</UiButton>
-        <UiButton variant="primary" type="submit" form="record-form" :loading="saving">Add record</UiButton>
-      </template>
-    </UiDialog>
-  </div>
+            <UiDialog :open="open" title="Add a unit record" @close="open = false">
+              <form id="record-form" class="space-y-4" @submit.prevent="save">
+                <div class="grid grid-cols-2 gap-3">
+                  <UiField v-slot="{ id, labelledby }" label="Type">
+                    <IonSelect :id="id" :aria-labelledby="labelledby" v-model="form.record_type" class="field-input capitalize" interface="popover">
+                      <IonSelectOption v-for="t in auth.experience.record_types" :key="t" :value="t">{{ RECORD_TYPE_LABELS[t] }}</IonSelectOption>
+                    </IonSelect>
+                  </UiField>
+                  <UiField v-slot="{ id, labelledby }" label="Reference" :error="errors.reference_code">
+                    <IonInput :id="id" :aria-labelledby="labelledby" v-model="form.reference_code" class="field-input" placeholder="MR-2301" :maxlength="60"  />
+                  </UiField>
+                </div>
+                <UiField v-slot="{ id, labelledby }" label="Title" :error="errors.title">
+                  <IonInput :id="id" :aria-labelledby="labelledby" v-model="form.title" class="field-input" :maxlength="160"  />
+                </UiField>
+                <UiField v-slot="{ id, labelledby }" label="Details" optional>
+                  <IonTextarea :id="id" :aria-labelledby="labelledby" v-model="form.details" class="field-input" :rows="3" :maxlength="2000"  auto-grow />
+                </UiField>
+                <UiField v-slot="{ id, labelledby }" label="Recorded at" hint="Leave empty for now." optional>
+                  <IonInput :id="id" :aria-labelledby="labelledby" v-model="form.recorded_at" type="datetime-local" class="field-input"  />
+                </UiField>
+              </form>
+              <template #footer>
+                <UiButton variant="ghost" @click="open = false">Cancel</UiButton>
+                <UiButton variant="primary" type="submit" form="record-form" :loading="saving">Add record</UiButton>
+              </template>
+            </UiDialog>
+          </div>
+      </div>
+    </IonContent>
+  </IonPage>
 </template>

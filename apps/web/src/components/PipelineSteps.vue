@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { IonItem } from '@ionic/vue';
 import { computed, ref } from 'vue';
 import type { OrganizationRules, ServerFlag } from '@sh/shared';
 import FlagList from '@/components/FlagList.vue';
@@ -59,7 +60,7 @@ const PART_CLASS: Record<Part['kind'], string> = {
   tag: 'font-semibold text-accent-ink',
 };
 const REDACTION_LABELS: Record<string, string> = {
-  employee_name: 'Employee names',
+  employee_name: 'Staff names',
   other_person: 'Other people',
   email: 'Emails',
   phone: 'Phone numbers',
@@ -80,14 +81,14 @@ const ms = (v: number) => (v < 1000 ? `${v} ms` : `${(v / 1000).toFixed(1)} s`);
   <ol class="stagger space-y-3" aria-label="Pipeline steps">
     <!-- 1. Template -->
     <li class="card">
-      <button type="button" class="flex w-full items-start gap-3 px-5 py-4 text-left" :aria-expanded="open[1]" @click="toggle(1)">
+      <IonItem button :detail="false" lines="none" class="sh-row" :aria-expanded="open[1]" @click="toggle(1)"><div class="flex w-full min-w-0 items-start gap-3 px-5 py-4 text-left">
         <span class="grid size-7 shrink-0 place-items-center rounded-full bg-info-soft text-[13px] font-semibold text-info">1</span>
         <span class="min-w-0 flex-1">
           <span class="block text-[15px] font-semibold">Template and fallbacks</span>
           <span class="block text-[13px] text-ink-3">The answers go into a fixed template. A blank box gets its fallback, so the AI is told “none stated” instead of guessing.</span>
         </span>
         <span class="text-[12.5px] font-medium tnum" :class="fallbacks ? 'text-warn' : 'text-ok'">{{ fallbacks ? `${fallbacks} fallback${fallbacks === 1 ? '' : 's'} used` : 'All filled in' }}</span>
-      </button>
+      </div></IonItem>
       <div class="expand" :class="{ open: open[1] }">
         <div>
           <div class="grid gap-4 border-t border-line px-5 py-4 lg:grid-cols-2">
@@ -102,7 +103,7 @@ const ms = (v: number) => (v < 1000 ? `${v} ms` : `${(v / 1000).toFixed(1)} s`);
                   <p class="flex items-center justify-between gap-2">
                     <code class="text-info" v-text="`{{${f.name}}}`" />
                     <span v-if="f.usedFallback" class="rounded-full bg-warn-soft px-2 py-px text-[11.5px] font-medium text-warn">fallback used</span>
-                    <span v-else class="rounded-full bg-ok-soft px-2 py-px text-[11.5px] font-medium text-ok">from the employee</span>
+                    <span v-else class="rounded-full bg-ok-soft px-2 py-px text-[11.5px] font-medium text-ok">from the staff member</span>
                   </p>
                   <p class="mt-0.5 line-clamp-2 text-ink-2" :class="{ 'text-ink-3 italic': f.usedFallback }">
                     <span v-for="(p, i) in highlight(f.value, TOKEN_RE, 'token')" :key="i" :class="PART_CLASS[p.kind]">{{ p.text }}</span>
@@ -117,14 +118,14 @@ const ms = (v: number) => (v < 1000 ? `${v} ms` : `${(v / 1000).toFixed(1)} s`);
 
     <!-- 2. Privacy -->
     <li class="card">
-      <button type="button" class="flex w-full items-start gap-3 px-5 py-4 text-left" :aria-expanded="open[2]" @click="toggle(2)">
+      <IonItem button :detail="false" lines="none" class="sh-row" :aria-expanded="open[2]" @click="toggle(2)"><div class="flex w-full min-w-0 items-start gap-3 px-5 py-4 text-left">
         <span class="grid size-7 shrink-0 place-items-center rounded-full bg-violet-soft text-[13px] font-semibold text-violet">2</span>
         <span class="min-w-0 flex-1">
           <span class="block text-[15px] font-semibold">Privacy: personal details removed (RA 10173)</span>
           <span class="block text-[13px] text-ink-3">Names become codes; phone numbers, IDs and health details are removed. Only this censored version is sent to the AI.</span>
         </span>
         <span class="text-[12.5px] font-medium tnum text-violet">{{ removed }} removed</span>
-      </button>
+      </div></IonItem>
       <div class="expand" :class="{ open: open[2] }">
         <div>
           <div class="space-y-4 border-t border-line px-5 py-4">
@@ -143,10 +144,10 @@ const ms = (v: number) => (v < 1000 ? `${v} ms` : `${(v / 1000).toFixed(1)} s`);
               </div>
             </div>
             <p v-if="real" class="text-[12.5px] text-ink-3">
-              The original report and the list matching codes to names stay inside the system. Only the supervisor sees names, after the codes are put back.
+              The original endorsement and the list matching codes to names stay inside the system. Only the department head sees names, after the codes are put back.
             </p>
             <div v-else-if="view.sanitized.names?.length">
-              <p class="eyebrow mb-1.5">Codes kept inside the system (put back for the supervisor only)</p>
+              <p class="eyebrow mb-1.5">Codes kept inside the system (put back for the department head only)</p>
               <ul class="flex flex-wrap gap-2 text-[12.5px]">
                 <li v-for="n in view.sanitized.names" :key="n.token" class="rounded-md border border-line px-2 py-1"><code class="text-violet">{{ n.token }}</code> → {{ n.name }}</li>
               </ul>
@@ -158,14 +159,14 @@ const ms = (v: number) => (v < 1000 ? `${v} ms` : `${(v / 1000).toFixed(1)} s`);
 
     <!-- 3. Injection -->
     <li class="card">
-      <button type="button" class="flex w-full items-start gap-3 px-5 py-4 text-left" :aria-expanded="open[3]" @click="toggle(3)">
+      <IonItem button :detail="false" lines="none" class="sh-row" :aria-expanded="open[3]" @click="toggle(3)"><div class="flex w-full min-w-0 items-start gap-3 px-5 py-4 text-left">
         <span class="grid size-7 shrink-0 place-items-center rounded-full bg-warn-soft text-[13px] font-semibold text-warn">3</span>
         <span class="min-w-0 flex-1">
           <span class="block text-[15px] font-semibold">Injection check</span>
-          <span class="block text-[13px] text-ink-3">Text that tries to give the AI orders is found here, flagged for the supervisor, and treated as plain data.</span>
+          <span class="block text-[13px] text-ink-3">Text that tries to give the AI orders is found here, flagged for the department head, and treated as plain data.</span>
         </span>
         <span class="text-[12.5px] font-medium tnum" :class="view.injection.length ? 'text-bad' : 'text-ok'">{{ view.injection.length ? `${view.injection.length} found` : 'None found' }}</span>
-      </button>
+      </div></IonItem>
       <div class="expand" :class="{ open: open[3] }">
         <div>
           <ul v-if="view.injection.length" class="space-y-2 border-t border-line px-5 py-4 text-[13px]">
@@ -180,19 +181,19 @@ const ms = (v: number) => (v < 1000 ? `${v} ms` : `${(v / 1000).toFixed(1)} s`);
 
     <!-- 4. Prompt -->
     <li class="card">
-      <button type="button" class="flex w-full items-start gap-3 px-5 py-4 text-left" :aria-expanded="open[4]" @click="toggle(4)">
+      <IonItem button :detail="false" lines="none" class="sh-row" :aria-expanded="open[4]" @click="toggle(4)"><div class="flex w-full min-w-0 items-start gap-3 px-5 py-4 text-left">
         <span class="grid size-7 shrink-0 place-items-center rounded-full bg-accent-soft text-[13px] font-semibold text-accent-ink">4</span>
         <span class="min-w-0 flex-1">
           <span class="block text-[15px] font-semibold">The six-element prompt (v{{ view.prompt.version }}<template v-if="view.prompt.organization"> · organization rules v{{ view.prompt.organization.version }}</template>)</span>
-          <span class="block text-[13px] text-ink-3">The instructions the AI gets every time, plus the censored report placed between delimiters.</span>
+          <span class="block text-[13px] text-ink-3">The instructions the AI gets every time, plus the censored endorsement placed between delimiters.</span>
         </span>
         <span class="text-[12.5px] text-ink-3">{{ open[4] ? 'Hide' : 'Show' }}</span>
-      </button>
+      </div></IonItem>
       <div class="expand" :class="{ open: open[4] }">
         <div>
           <div class="space-y-4 border-t border-line px-5 py-4">
             <PromptElementsView :elements="view.prompt.elements" :organization="view.prompt.organization" />
-            <p v-if="real && !view.prompt.organization" class="text-[12px] text-ink-3">This report was cleaned before organization rules existed.</p>
+            <p v-if="real && !view.prompt.organization" class="text-[12px] text-ink-3">This endorsement was cleaned before organization rules existed.</p>
             <div class="grid gap-4 lg:grid-cols-2">
               <div>
                 <p class="eyebrow mb-1.5">Message template</p>
@@ -219,7 +220,7 @@ const ms = (v: number) => (v < 1000 ? `${v} ms` : `${(v / 1000).toFixed(1)} s`);
 
     <!-- 5. Answer -->
     <li class="card">
-      <button type="button" class="flex w-full items-start gap-3 px-5 py-4 text-left" :aria-expanded="open[5]" @click="toggle(5)">
+      <IonItem button :detail="false" lines="none" class="sh-row" :aria-expanded="open[5]" @click="toggle(5)"><div class="flex w-full min-w-0 items-start gap-3 px-5 py-4 text-left">
         <span class="grid size-7 shrink-0 place-items-center rounded-full bg-accent text-[13px] font-semibold text-white">5</span>
         <span class="min-w-0 flex-1">
           <span class="block text-[15px] font-semibold">{{ view.ai.simulated ? 'Mica practice answer' : 'Mica’s AI answer' }}</span>
@@ -229,7 +230,7 @@ const ms = (v: number) => (v < 1000 ? `${v} ms` : `${(v / 1000).toFixed(1)} s`);
           </span>
         </span>
         <span class="text-[12.5px] text-ink-3 tnum">{{ ms(view.ai.latency_ms) }}</span>
-      </button>
+      </div></IonItem>
       <div class="expand" :class="{ open: open[5] }">
         <div>
           <pre v-if="view.ai.raw" class="max-h-96 overflow-auto border-t border-line bg-canvas px-5 py-4 text-[12px] leading-relaxed">{{ view.ai.raw }}</pre>
@@ -244,7 +245,7 @@ const ms = (v: number) => (v < 1000 ? `${v} ms` : `${(v / 1000).toFixed(1)} s`);
         <span class="grid size-7 shrink-0 place-items-center rounded-full text-[13px] font-semibold" :class="view.validation.ok ? 'bg-ok-soft text-ok' : 'bg-bad-soft text-bad'">6</span>
         <div class="min-w-0 flex-1">
           <p class="text-[15px] font-semibold">Format check</p>
-          <p class="text-[13px] text-ink-3">The answer must be valid JSON with exactly the required fields, for this report. Anything else is rejected and retried.</p>
+          <p class="text-[13px] text-ink-3">The answer must be valid JSON with exactly the required fields, for this endorsement. Anything else is rejected and retried.</p>
           <p v-if="view.validation.ok" class="mt-2 text-[13.5px] font-medium text-ok">✓ Valid — accepted</p>
           <template v-else>
             <p class="mt-2 text-[13.5px] font-medium text-bad">✕ Rejected{{ view.validation.status === 'failed' ? ' — the AI could not be reached' : '' }}</p>
@@ -262,7 +263,7 @@ const ms = (v: number) => (v < 1000 ? `${v} ms` : `${(v / 1000).toFixed(1)} s`);
         <span class="grid size-7 shrink-0 place-items-center rounded-full bg-bad-soft text-[13px] font-semibold text-bad">7</span>
         <div class="min-w-0 flex-1">
           <p class="text-[15px] font-semibold">Grounding check and verification flags</p>
-          <p class="text-[13px] text-ink-3">Every item must trace back to the employee’s words; repairs need a record. What can’t be trusted becomes a flag the supervisor must decide on.</p>
+          <p class="text-[13px] text-ink-3">Every item must trace back to the staff member’s words; repairs need a unit record. What can’t be trusted becomes a flag the department head must decide on.</p>
         </div>
         <span v-if="view.grounding" class="text-[12.5px] font-medium tnum" :class="view.grounding.flags.length ? 'text-warn' : 'text-ok'">
           {{ view.grounding.flags.length }} flag{{ view.grounding.flags.length === 1 ? '' : 's' }}
@@ -277,8 +278,8 @@ const ms = (v: number) => (v < 1000 ? `${v} ms` : `${(v / 1000).toFixed(1)} s`);
 
     <li class="rounded-lg border border-dashed border-line-strong px-5 py-4 text-[13.5px] text-ink-2">
       <span class="font-semibold text-ink">Then a person decides.</span>
-      The supervisor sees the employee’s original next to this draft (with names put back), edits it, decides every flag and approves.
-      Only the approved version reaches the next shift. The AI never approves, never marks a problem solved and never sends anything.
+      The department head sees the staff member’s original next to this draft (with names put back), edits it, decides every flag and approves.
+      Only the approved version reaches the next shift. The AI never approves, never marks a concern resolved and never sends anything.
     </li>
   </ol>
 </template>

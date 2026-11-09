@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { IonCheckbox, IonInput, IonItem, IonSelect, IonSelectOption, IonTextarea } from '@ionic/vue';
 import { computed, onMounted, onBeforeUnmount, watch, useId } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { AssistantState, assistantMissing, REPORT_SECTIONS, type AssistantView, type IssueStatus, type ReportStatus, type AssistantContext } from '@sh/shared';
@@ -39,7 +40,7 @@ const missing = computed(() => {
   return list;
 });
 const receiptPath = computed(() => preparation.value?.result ? `${['report','draft'].includes(preparation.value.result.kind) ? '/reports' : '/tasks'}/${preparation.value.result.id}` : '/reports');
-const intentLabel = computed(() => ({ report: auth.experience.report_label, incident: 'Incident report', assistance: 'Assistance request', task_update: 'Task update', status: 'Workplace status', leave:'Leave preparation', unsupported: 'Choose a task' })[draft.value.intent]);
+const intentLabel = computed(() => ({ report: auth.experience.report_label, incident: 'Incident report', assistance: 'Assistance request', task_update: 'Task update', status: 'Unit status', leave:'Leave preparation', unsupported: 'Choose a task' })[draft.value.intent]);
 
 function accept(p: AssistantView) {
   if(!ownsSession()) return;
@@ -131,7 +132,7 @@ function reset() {
 }
 function start(text:string) {
   message.value=text;
-  if(/\b(shift report|handover)\b/i.test(text) && !shiftId.value) {draft.value.intent='report';return;}
+  if(/\b(shift report|handover|endorsement)\b/i.test(text) && !shiftId.value) {draft.value.intent='report';return;}
   void send(text);
 }
 defineExpose({start});
@@ -142,7 +143,7 @@ function clearProblems() {
 
 <template>
   <div class="mx-auto max-w-5xl" :class="{ 'assistant-compact': compact }">
-    <PageHeader v-if="!compact" title="Mica, your workplace assistant" eyebrow="A little less paperwork" description="Prepare a handover here, or open Mica from any page to keep working where you are.">
+    <PageHeader v-if="!compact" title="Mica, your unit assistant" eyebrow="Less paperwork, more time for patients" :description="`Prepare your ${$terms.reportLower} here, or open Mica from any page to keep working where you are.`">
       <UiButton v-if="preparation" :disabled="busy" @click="reset">New conversation</UiButton>
     </PageHeader>
     <UiButton v-if="compact && preparation" size="sm" class="mb-3" :disabled="busy" @click="reset">New preparation</UiButton>
@@ -151,22 +152,22 @@ function clearProblems() {
       <section class="min-w-0 space-y-4" aria-label="Assistant conversation">
         <div v-if="!preparation && !compact" class="assistant-hero rounded-lg border border-accent/15 p-5 sm:p-7">
           <MicaMascot :size="compact ? 48 : 64" :animated="active" :thinking="busy" :mood="dictation.listening.value ? 'listening' : 'welcome'" />
-          <h2 class="mt-2 text-[20px] font-semibold tracking-tight">Let’s make the handover easier.</h2>
+          <h2 class="mt-2 text-[20px] font-semibold tracking-tight">Let’s make the endorsement easier.</h2>
           <p class="mt-2 max-w-md text-[13px] leading-relaxed text-ink-2">Describe your work or choose a starting point. I’ll prepare the details for you to review.</p>
           <div class="mt-5 grid gap-2 sm:grid-cols-2">
-            <button v-for="item in [{ title: 'Prepare my shift report', text: 'I want to submit my daily shift report', icon: '/reports' }, { title: 'Record an incident', text: 'I want to report an incident', icon: '/tasks' }, { title: 'Request assistance', text: 'I need assistance from my supervisor', icon: '/assistant' }, { title: 'Check my status', text: 'Check the status of my reports and issues', icon: '/handover' }]" :key="item.title" :disabled="busy" class="mica-suggestion flex items-center gap-3 rounded-md border border-line bg-surface/90 px-4 py-3 text-left text-[13px] font-medium hover:border-accent disabled:opacity-50" @click="send(item.text)">
-              <NavIcon :path="item.icon" />{{ item.title }}<span class="ml-auto text-ink-3" aria-hidden="true">↗</span>
-            </button>
+            <IonItem v-for="item in [{ title: 'Prepare my shift endorsement', text: 'I want to prepare my shift endorsement', icon: '/reports' }, { title: 'Report a concern or incident', text: 'I want to report an incident', icon: '/tasks' }, { title: 'Ask for assistance', text: 'I need assistance from my department head', icon: '/assistant' }, { title: 'Check my status', text: 'Check the status of my endorsements and concerns', icon: '/handover' }]" :key="item.title" button :detail="false" lines="none" :disabled="busy" class="sh-row mica-suggestion rounded-md border border-line bg-surface/90" @click="send(item.text)">
+              <div class="flex w-full items-center gap-3 px-4 py-3 text-left text-[13px] font-medium"><NavIcon :path="item.icon" />{{ item.title }}<span class="ml-auto text-ink-3" aria-hidden="true">↗</span></div>
+            </IonItem>
           </div>
         </div>
 
         <div v-if="draft.intent === 'report' || (!compact && !preparation)" class="card p-4">
-          <label :for="`${fieldPrefix}-shift`" class="block text-[13px] font-medium">Reporting shift <span class="font-normal text-ink-3">· required for {{ auth.terms.reports.toLowerCase() }}</span></label>
-          <select :id="`${fieldPrefix}-shift`" v-model="shiftId" class="field-input mt-2" :disabled="Boolean(preparation) || busy">
-            <option value="">Select an assigned shift</option>
-            <option v-for="s in selectableShifts" :key="s.id" :value="s.id">{{ s.label }} · {{ dateTime(s.starts_at) }} · {{ shiftRange(s) }}</option>
-          </select>
-          <p class="mt-2 text-[12px] text-ink-3">{{ preparation ? 'To change shift, start a new conversation.' : 'You can report incidents or request help without an active shift.' }}</p>
+          <label :for="`${fieldPrefix}-shift`" class="block text-[13px] font-medium">Reporting shift <span class="font-normal text-ink-3">· required for {{ $terms.reportsLower }}</span></label>
+          <IonSelect :id="`${fieldPrefix}-shift`" v-model="shiftId" class="field-input mt-2" :disabled="Boolean(preparation) || busy" interface="popover">
+            <IonSelectOption value="">Select an assigned shift</IonSelectOption>
+            <IonSelectOption v-for="s in selectableShifts" :key="s.id" :value="s.id">{{ s.label }} · {{ dateTime(s.starts_at) }} · {{ shiftRange(s) }}</IonSelectOption>
+          </IonSelect>
+          <p class="mt-2 text-[12px] text-ink-3">{{ preparation ? 'To change shift, start a new conversation.' : 'You can report a concern or incident, or ask for assistance, without an active shift.' }}</p>
         </div>
 
         <div v-if="preparation" class="flex flex-wrap items-center gap-2 text-[12px] text-ink-3">
@@ -184,22 +185,22 @@ function clearProblems() {
         <p v-if="busy" role="status" class="flex items-center gap-2 text-[13px] text-ink-3">Preparing your request…</p>
         <div v-if="error" class="rounded-lg border border-bad/25 bg-bad-soft p-4 text-[14px] text-bad" role="alert">
           {{ error }}
-          <button v-if="preparation" class="mt-2 block underline" :disabled="busy" @click="reload">Reload preparation</button>
+          <UiButton size="sm" variant="ghost" v-if="preparation" class="mt-2 block" :disabled="busy" @click="reload">Reload preparation</UiButton>
         </div>
 
         <div v-if="preparation?.result" class="mica-receipt card border-ok/30 bg-ok-soft p-5" role="status">
           <h2 class="flex items-center gap-2 font-semibold text-ok"><MicaMascot :size="32" :animated="active" mood="success" />{{ preparation.result.kind === 'draft' ? 'Draft saved' : 'Request recorded' }}</h2>
           <p class="mt-1 text-[14px]">{{ preparation.result.reference }} · {{ preparation.result.status?.replaceAll('_', ' ') }}</p>
-          <p class="mt-2 text-[13px] text-ink-2">{{ preparation.result.kind === 'draft' ? 'Your draft is saved. Open the report form to review and submit it.' : preparation.result.kind === 'report' ? 'Your supervisor will review it before the next shift receives it.' : 'Your update is saved. Completion claims still need supervisor verification.' }}</p>
+          <p class="mt-2 text-[13px] text-ink-2">{{ preparation.result.kind === 'draft' ? `Your draft is saved. Open the ${$terms.reportLower} form to review and submit it.` : preparation.result.kind === 'report' ? `Your ${$terms.head} will review it before the incoming shift receives it.` : `Your update is saved. Completion still needs your ${$terms.head}’s verification.` }}</p>
           <UiButton class="mt-4" :to="receiptPath">View record and status</UiButton>
         </div>
         <form v-else class="assistant-composer card p-3 sm:p-4" :class="{ 'mica-listening-composer': dictation.listening.value }" @submit.prevent="send()">
-          <label :for="`${fieldPrefix}-message`" class="sr-only">Message to workplace assistant</label>
-          <textarea :id="`${fieldPrefix}-message`" v-model="message" class="field-input min-h-24 border-transparent bg-transparent shadow-none" rows="3" maxlength="6000" :disabled="busy || dictation.phase.value!=='idle'" placeholder="Tell me what you need help with…" @keydown.ctrl.enter.prevent="send()" @keydown.meta.enter.prevent="send()" />
+          <label :for="`${fieldPrefix}-message`" class="sr-only">Message to Mica, your unit assistant</label>
+          <IonTextarea :id="`${fieldPrefix}-message`" v-model="message" class="field-input min-h-24 border-transparent bg-transparent shadow-none" :rows="3" :maxlength="6000" :disabled="busy || dictation.phase.value!=='idle'" placeholder="Tell me what you need help with…" @keydown.ctrl.enter.prevent="send()" @keydown.meta.enter.prevent="send()"  auto-grow />
           <div class="mt-2 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3">
             <div class="flex items-center gap-2">
               <UiButton size="sm" :disabled="busy || !dictation.supported" :aria-pressed="dictation.listening.value" @click="dictation.phase.value!=='idle' ? dictation.stop() : dictation.start(language)">{{ dictation.listening.value ? 'Stop listening' : 'Use voice' }}</UiButton>
-              <select v-model="language" class="max-w-24 rounded-md border border-line bg-surface p-1.5 text-[12px]" aria-label="Voice language" :disabled="dictation.listening.value"><option value="en-PH">English</option><option value="fil-PH">Filipino</option></select>
+              <IonSelect v-model="language" class="max-w-24 rounded-md border border-line bg-surface p-1.5 text-[12px]" aria-label="Voice language" :disabled="dictation.listening.value" interface="popover"><IonSelectOption value="en-PH">English</IonSelectOption><IonSelectOption value="fil-PH">Filipino</IonSelectOption></IonSelect>
             </div>
             <UiButton type="submit" variant="primary" :loading="busy" :disabled="!message.trim() || dictation.phase.value!=='idle' || (draft.intent==='report' && !shiftId)">Send message</UiButton>
           </div>
@@ -225,27 +226,27 @@ function clearProblems() {
           <p class="mt-2 text-[12px] text-ink-3">Check every detail. You can edit the fields below before sending.</p>
           <fieldset :disabled="busy" class="mt-4 space-y-4">
             <template v-if="draft.intent === 'report'">
-              <label v-for="s in REPORT_SECTIONS" :key="s.key" class="block text-[13px] font-medium">{{ s.label }}<textarea v-model="draft.content[s.key]" class="field-input mt-1" rows="3" :maxlength="s.key === 'handover_notes' || s.key === 'operational_concerns' ? 3000 : 4000" :disabled="(s.key === 'unresolved_issues' && draft.content.no_unresolved_issues) || (s.key === 'pending_tasks' && draft.content.no_pending_tasks)" /></label>
+              <label v-for="s in REPORT_SECTIONS" :key="s.key" class="block text-[13px] font-medium">{{ s.label }}<IonTextarea v-model="draft.content[s.key]" class="field-input mt-1" :rows="3" :maxlength="s.key === 'handover_notes' || s.key === 'operational_concerns' ? 3000 : 4000" :disabled="(s.key === 'unresolved_issues' && draft.content.no_unresolved_issues) || (s.key === 'pending_tasks' && draft.content.no_pending_tasks)"  auto-grow /></label>
               <div v-for="(p, index) in draft.content.problems" :key="index" class="rounded-md border border-line p-3">
-                <label class="block text-[12px]">Problem · {{ PROBLEM_CATEGORY_LABELS[p.category] }}<textarea v-model="p.what" class="field-input mt-1" maxlength="600" rows="2" /></label>
-                <label class="mt-2 block text-[12px]">Location<input v-model="p.location" class="field-input mt-1" maxlength="120" /></label>
-                <button class="mt-2 text-[12px] text-bad" @click="draft.content.problems.splice(index, 1)">Remove problem</button>
+                <label class="block text-[12px]">{{ $terms.issue }} · {{ PROBLEM_CATEGORY_LABELS[p.category] }}<IonTextarea v-model="p.what" class="field-input mt-1" :maxlength="600" :rows="2"  auto-grow /></label>
+                <label class="mt-2 block text-[12px]">Location<IonInput v-model="p.location" class="field-input mt-1" :maxlength="120"  /></label>
+                <UiButton size="sm" variant="danger" class="mt-2" @click="draft.content.problems.splice(index, 1)">Remove concern</UiButton>
               </div>
-              <label class="flex items-start gap-2 text-[13px]"><input v-model="draft.content.no_unresolved_issues" type="checkbox" class="mt-1 size-4 shrink-0 accent-accent" @change="clearProblems" />I confirm there are no open problems</label>
-              <label class="flex items-start gap-2 text-[13px]"><input v-model="draft.content.no_pending_tasks" type="checkbox" class="mt-1 size-4 shrink-0 accent-accent" @change="draft.content.no_pending_tasks && (draft.content.pending_tasks = '')" />Nothing for the next shift</label>
-              <label class="block text-[13px]">Evidence references<input v-model="draft.content.evidence_refs" class="field-input mt-1" maxlength="500" /></label>
-              <div v-for="u in draft.content.issue_updates" :key="u.issue_id" class="rounded-md border border-line p-3 text-[12px]">Existing issue update · {{ u.claimed_status }}<textarea v-model="u.note" class="field-input mt-1" maxlength="1000" rows="2" /></div>
+              <IonCheckbox class="flex items-start gap-2 text-[13px]" v-model="draft.content.no_unresolved_issues" @ion-change="clearProblems" label-placement="end" justify="start">I confirm there are no unresolved {{ $terms.issuesLower }}</IonCheckbox>
+              <IonCheckbox class="flex items-start gap-2 text-[13px]" v-model="draft.content.no_pending_tasks" @ion-change="draft.content.no_pending_tasks && (draft.content.pending_tasks = '')" label-placement="end" justify="start">Nothing for the next shift</IonCheckbox>
+              <label class="block text-[13px]">Evidence references<IonInput v-model="draft.content.evidence_refs" class="field-input mt-1" :maxlength="500"  /></label>
+              <div v-for="u in draft.content.issue_updates" :key="u.issue_id" class="rounded-md border border-line p-3 text-[12px]">Update on an earlier {{ $terms.issueLower }} · {{ u.claimed_status }}<IonTextarea v-model="u.note" class="field-input mt-1" :maxlength="1000" :rows="2"  auto-grow /></div>
             </template>
             <template v-else-if="draft.intent === 'incident' || draft.intent === 'assistance'">
-              <label class="block text-[13px] font-medium">Title<input v-model="draft.title" class="field-input mt-1" maxlength="160" /></label>
-              <label class="block text-[13px] font-medium">Details<textarea v-model="draft.description" class="field-input mt-1" rows="5" maxlength="2000" /></label>
-              <label class="block text-[13px] font-medium">Severity<select v-model="draft.severity" class="field-input mt-1"><option v-for="s in ['low', 'medium', 'high', 'critical']" :key="s" :value="s">{{ s }}</option></select></label>
-              <label class="flex items-center gap-2 text-[13px]"><input v-model="draft.is_safety" type="checkbox" class="size-4 accent-accent" />Safety concern</label>
+              <label class="block text-[13px] font-medium">Title<IonInput v-model="draft.title" class="field-input mt-1" :maxlength="160"  /></label>
+              <label class="block text-[13px] font-medium">Details<IonTextarea v-model="draft.description" class="field-input mt-1" :rows="5" :maxlength="2000"  auto-grow /></label>
+              <label class="block text-[13px] font-medium">Severity<IonSelect v-model="draft.severity" class="field-input mt-1" interface="popover"><IonSelectOption v-for="s in ['low', 'medium', 'high', 'critical']" :key="s" :value="s">{{ s }}</IonSelectOption></IonSelect></label>
+              <IonCheckbox class="flex items-center gap-2 text-[13px]" v-model="draft.is_safety" label-placement="end" justify="start">Safety concern</IonCheckbox>
             </template>
             <template v-else-if="draft.intent === 'task_update'">
-              <label class="block text-[13px]">{{ auth.terms.issue }} code<input v-model="draft.issue_code" class="field-input mt-1" placeholder="ISS-000001" /></label>
-              <label class="block text-[13px]">Update<select v-model="draft.transition" class="field-input mt-1"><option value="in_progress">Being worked on</option><option value="resolution_submitted">Done — request supervisor check</option></select></label>
-              <label class="block text-[13px]">What did you do?<textarea v-model="draft.note" class="field-input mt-1" rows="4" maxlength="2000" /></label>
+              <label class="block text-[13px]">{{ auth.terms.issue }} code<IonInput v-model="draft.issue_code" class="field-input mt-1" placeholder="ISS-000001"  /></label>
+              <label class="block text-[13px]">Update<IonSelect v-model="draft.transition" class="field-input mt-1" interface="popover"><IonSelectOption value="in_progress">Being worked on</IonSelectOption><IonSelectOption value="resolution_submitted">Done — ask the {{ $terms.head }} to verify</IonSelectOption></IonSelect></label>
+              <label class="block text-[13px]">What did you do?<IonTextarea v-model="draft.note" class="field-input mt-1" :rows="4" :maxlength="2000"  auto-grow /></label>
             </template>
           </fieldset>
           <ul v-if="missing.length" class="mt-4 list-disc space-y-1 pl-4 text-[12px] text-warn"><li v-for="m in missing" :key="m">{{ m }}</li></ul>
@@ -255,10 +256,10 @@ function clearProblems() {
         <section class="rounded-lg border border-line bg-surface/50 p-5 text-[13px] text-ink-2">
           <h2 class="font-semibold text-ink">You stay in control</h2>
           <ol class="mt-3 space-y-3"><li><span class="mr-2 text-accent">01</span>Describe your work or request</li><li><span class="mr-2 text-accent">02</span>Review the prepared summary</li><li><span class="mr-2 text-accent">03</span>Confirm before anything is sent</li></ol>
-          <p class="mt-4 border-t border-line pt-4 text-[12px] text-ink-3">Your {{ auth.terms.supervisor.toLowerCase() }} still reviews {{ auth.terms.reports.toLowerCase() }} and verifies resolved {{ auth.terms.issues.toLowerCase() }}. Only your authorized workplace data is available.</p>
-          <RouterLink to="/reports" class="link mt-3 inline-block text-[12px]">View my reports →</RouterLink>
+          <p class="mt-4 border-t border-line pt-4 text-[12px] text-ink-3">Your {{ $terms.head }} still reviews {{ $terms.reportsLower }} and verifies resolved {{ $terms.issuesLower }}. Only your own unit’s information is available.</p>
+          <RouterLink to="/reports" class="link mt-3 inline-block text-[12px]">View my {{ $terms.reportsLower }} →</RouterLink>
         </section>
-        <UiButton v-if="preparation && !preparation.result && draft.intent === 'report' && preparation.shift_id" block :disabled="busy" @click="openReportForm">Open in report form</UiButton>
+        <UiButton v-if="preparation && !preparation.result && draft.intent === 'report' && preparation.shift_id" block :disabled="busy" @click="openReportForm">Open in the {{ $terms.reportLower }} form</UiButton>
         <section v-if="preparation && !preparation.result && draft.intent==='leave'" class="card p-4 text-[13px]">
           <h3 class="font-medium">Continue in Leave</h3><p class="mt-2 text-ink-2">{{ draft.leave.start_date || 'Choose the first day' }} — {{ draft.leave.end_date || 'Choose the last day' }}</p>
           <UiButton class="mt-3" block @click="session.leaveDraft=draft.leave.start_date && draft.leave.end_date ? {start_date:draft.leave.start_date,end_date:draft.leave.end_date} : null;session.open=false;router.push('/leave?prepare=mica')">Review dates and leave type →</UiButton>
