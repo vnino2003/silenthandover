@@ -375,7 +375,7 @@ export function workforceRoutes() {
     const cols = ['scheduled_minutes', 'worked_minutes', 'regular_payable_minutes', 'late_minutes', 'undertime_minutes', 'absences', 'paid_leave_minutes', 'unpaid_leave_minutes', 'overtime_pay_minutes', 'compensatory_minutes', 'night_minutes'];
     const esc = (v: unknown) => `"${String(v ?? '').replace(/"/g, '""')}"`;
     const csv = [['name', 'department', 'dtr_version', ...cols].join(','), ...rows.map((r) => [esc(r.full_name), esc(r.department), r.version, ...cols.map((k) => (r.totals as Record<string, unknown>)[k] ?? 0)].join(','))].join('\n');
-    await asUser(c, (q) => q.query(`select app.audit('dtr.exported', 'cutoff_period', $1, null, jsonb_build_object('rows', $2::int))`, [id, rows.length]));
+    await asUser(c, (q) => q.query('select app.record_dtr_export($1, $2)', [id, rows.length]));
     return c.body(csv, 200, { 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="dtr-${id}.csv"` });
   });
   r.post('/hr/pay-group-members', async (c) => {

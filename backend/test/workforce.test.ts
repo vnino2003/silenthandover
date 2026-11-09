@@ -174,7 +174,14 @@ describe('attendance, DTR and payroll', () => {
     const oscar = (await h.call('oscar', 'GET', `/api/dtr/mine/${periodId}`)).body;
     await h.call('oscar', 'POST', `/api/dtr/${oscar.id}/confirm`);
     expect((await h.call('manager', 'POST', `/api/manager/dtr/${oscar.id}/certify`)).status).toBe(200);
+    // A pay-group member with no duties in the period still needs a certified DTR before the lock.
+    await h.call('hr', 'POST', '/api/hr/pay-group-members', { profile_id: h.ids.pia, pay_group_id: payGroup });
+    expect((await h.call('hr', 'POST', `/api/hr/periods/${periodId}/lock`)).status).toBe(409);
+    await h.call('hr', 'POST', '/api/hr/pay-group-members', { profile_id: h.ids.pia, pay_group_id: null });
     expect((await h.call('hr', 'POST', `/api/hr/periods/${periodId}/lock`)).status).toBe(200);
+    const csv = await h.call('hr', 'GET', `/api/hr/periods/${periodId}/export.csv`);
+    expect(csv.status).toBe(200);
+    expect(String(csv.body)).toContain('Nina Cruz');
     // Locked: corrections now go through adjustments.
     const t = await shiftTimes(ninaShift);
     expect((await h.call('nina', 'POST', '/api/attendance/corrections', { shift_id: ninaShift, kind: 'add_out', at: plus(t.e, 0), reason: 'Late correction' })).status).toBe(409);
