@@ -73,9 +73,9 @@ no tools · mandatory human approval of every draft.
 
 ## Secrets
 
-All secrets are server-side environment variables (`server/.env.example`). The browser receives only
+All secrets are server-side environment variables (`backend/.env.example`). The browser receives only
 the public Supabase URL and anon key. `.env` files are git-ignored. The local JWT secret is generated
-per machine under `server/.data/`.
+per machine under `backend/.data/`.
 
 ## Errors and logging
 

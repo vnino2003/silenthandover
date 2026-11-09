@@ -6,7 +6,7 @@
 //   - keeps the configuration the administrator already set up: the connected email sender and
 //     AI provider (still encrypted, with the same key), the organization's AI rules, settings
 //     and email templates.
-// The current database is not touched; server/.env is switched to the new one. Stop the app first.
+// The current database is not touched; backend/.env is switched to the new one. Stop the app first.
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { createServices, DEFAULT_LOCAL_DIR } from '../bootstrap';
@@ -93,7 +93,7 @@ try {
   console.log(`Kept: AI ${kept.ai?.api_key_ciphertext ? `(${kept.ai.provider})` : 'not connected'}, email ${services.email.delivers ? `(${services.email.name}, ${kept.email?.from_address})` : 'not connected'}.`);
   if (result?.status === 'sent') console.log(`Invitation emailed to ${adminEmail}. Open it, choose a password, and you are signed in as the administrator.`);
   else console.log(`Email was not sent${result?.error ? ` (${result.error})` : ''}. Open this one-time link to choose the password:\n${result?.link}`);
-  console.log(`The previous database is unchanged at ${sourceDir} (set LOCAL_DB_DIR back in server/.env to return to it).`);
+  console.log(`The previous database is unchanged at ${sourceDir} (set LOCAL_DB_DIR back in backend/.env to return to it).`);
 } finally {
   await services.stop();
 }

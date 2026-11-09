@@ -1,0 +1,40 @@
+# Checks every push and pull request: locked install, type checks, tests and both builds,
+# plus the API and web Docker images (built only, never pushed).
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build the API image
+        run: docker build -f backend/Dockerfile -t silent-handover-api:ci .
+      - name: Build the web image
+        run: docker build -f frontend/Dockerfile --build-arg VITE_API_URL=https://api.example.invalid -t silent-handover-web:ci .

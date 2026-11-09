@@ -7,7 +7,7 @@ import { loadConfig } from '../config';
 import { ROLE_LABELS, type Role } from '@sh/shared';
 import { DEMO_PASSWORD, seedDemo } from '../seed/demo';
 
-// Reads server/.env when present (Node 20.12+). Real environment variables take precedence.
+// Reads backend/.env when present (Node 20.12+). Real environment variables take precedence.
 if (existsSync('.env')) process.loadEnvFile('.env');
 
 const config = loadConfig({ ...process.env, ENABLE_INTERNAL_SCHEDULER: 'false' });

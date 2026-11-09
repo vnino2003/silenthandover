@@ -6,7 +6,7 @@ import { loadConfig } from './config';
 import { seedDemo } from './seed/demo';
 import { ensureFirstAdmin } from './auth/first-admin';
 
-// Reads server/.env when present (Node 20.12+). Real environment variables take precedence.
+// Reads backend/.env when present (Node 20.12+). Real environment variables take precedence.
 if (existsSync('.env')) process.loadEnvFile('.env');
 
 const config = loadConfig();

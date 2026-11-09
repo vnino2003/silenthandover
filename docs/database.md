@@ -41,7 +41,7 @@ employees to concrete `shifts`.
 
 ## Local mode
 
-`server/src/db/local-shim.sql` recreates what Supabase provides (`auth.users`, `auth.uid()`, the
+`backend/src/db/local-shim.sql` recreates what Supabase provides (`auth.users`, `auth.uid()`, the
 `anon` / `authenticated` / `service_role` roles) so the same migrations run on embedded PostgreSQL.
-The local database is a snapshot file at `server/.data/local-db.tar.gz`; delete it (or run
+The local database is a snapshot file at `backend/.data/local-db.tar.gz`; delete it (or run
 `npm run seed -- --reset`) to start over.

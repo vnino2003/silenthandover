@@ -3,7 +3,7 @@
 > **Status:** these workflows are importable exports written for n8n 1.x. They have **not yet been run
 > against a live n8n instance** in this repository. The API side of the contract (webhook payloads,
 > callback authentication, schema validation, idempotency, retries) is covered by automated tests that
-> simulate n8n — see `server/test/integrations.test.ts`.
+> simulate n8n — see `backend/test/integrations.test.ts`.
 
 | Workflow | File | Triggered by | Does |
 |---|---|---|---|

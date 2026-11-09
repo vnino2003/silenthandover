@@ -24,7 +24,7 @@ Local synthetic accounts use `demo-handover-2026`. Do not reuse this password ou
 
 Requires Node 20.12 or newer. Run `npm install`, then `npm run dev`. Open [the app](http://localhost:5173). The API runs on port 8787 by default. First startup applies the SQL migrations and creates the hospital demo when the local database is empty.
 
-To switch an older local demo, stop the local API and run `npm run demo:hospital`. It creates a separate newborn-care database, preserves the entire prior database including custom accounts and activity, and changes only `LOCAL_DB_DIR` in `server/.env`. A configured encrypted AI connection is carried forward if present. This command is local-demo-only and does not run on hosted databases. The previous database can be reopened by restoring its former `LOCAL_DB_DIR` value.
+To switch an older local demo, stop the local API and run `npm run demo:hospital`. It creates a separate newborn-care database, preserves the entire prior database including custom accounts and activity, and changes only `LOCAL_DB_DIR` in `backend/.env`. A configured encrypted AI connection is carried forward if present. This command is local-demo-only and does not run on hosted databases. The previous database can be reopened by restoring its former `LOCAL_DB_DIR` value.
 
 For a presentation, `npm run presentation:prepare` (with the app stopped) builds a separate, clean database with a small set of real workflow activity and switches the local app to it; the current database is kept. See [docs/presentation-guide.md](docs/presentation-guide.md).
 
@@ -66,7 +66,7 @@ With an administrator-connected Gemini/Grok provider, Mica can understand natura
 | `npm run seed -- --reset` | Destructive local-only reset; do not use to migrate custom data |
 | `npm run prompt:eval -- --version 1.0` | Prompt regression against a configured live model |
 
-`apps/web` is Vue 3/Pinia/Router/Tailwind. `server` is a Hono API. `packages/shared` owns Zod contracts and prompts. `supabase/migrations` defines PostgreSQL rules and RLS. `n8n` contains optional orchestration workflows. Local PGlite and hosted PostgreSQL use the same schema and permission checks.
+`frontend` is Vue 3/Ionic Vue/Pinia/Router, with Tailwind for layout. `backend` is a Hono API. `packages/shared` owns Zod contracts and prompts. `supabase/migrations` defines PostgreSQL rules and RLS. `n8n` contains optional orchestration workflows. Local PGlite and hosted PostgreSQL use the same schema and permission checks.
 
 ## Accounts and email
 

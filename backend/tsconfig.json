@@ -4,7 +4,7 @@
     "noEmit": true,
     "lib": ["ES2023", "DOM"],
     "types": ["node", "vite/client"],
-    "paths": { "@/*": ["../apps/web/src/*"] }
+    "paths": { "@/*": ["../frontend/src/*"] }
   },
   "include": ["src", "test"]
 }

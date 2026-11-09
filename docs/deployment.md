@@ -14,8 +14,8 @@ Browser ──HTTPS──▶ Web app (Vercel)          the pages people open
 | Service | What it runs | Free tier notes |
 |---|---|---|
 | Supabase | Database, row-level security, passwords | Pauses after 7 days with no activity; resume it in the dashboard |
-| Render | The API (`server/`, Docker) | Sleeps after 15 min idle; the first request then takes about a minute. Scheduled reminders wait while it sleeps. The paid Starter plan stays awake |
-| Vercel | The web app (`apps/web`) | No practical limits for this use |
+| Render | The API (`backend/`, Docker) | Sleeps after 15 min idle; the first request then takes about a minute. Scheduled reminders wait while it sleeps. The paid Starter plan stays awake |
+| Vercel | The web app (`frontend`) | No practical limits for this use |
 
 > The steps below match the code and the included `render.yaml`, but this repository has not yet
 > been deployed to these live services. Check each step's result before moving on.
@@ -25,8 +25,8 @@ needs the Render address), then Render again (it needs the Vercel address).
 
 ## 0. Put the code on GitHub
 
-Push this repository (for example `github.com/<you>/silenthandover`). `server/.env` and
-`server/.data/` are ignored by git, so local passwords, keys and databases are not uploaded.
+Push this repository (for example `github.com/<you>/silenthandover`). `backend/.env` and
+`backend/.data/` are ignored by git, so local passwords, keys and databases are not uploaded.
 
 ## 1. Supabase — database and sign-in
 
@@ -70,7 +70,7 @@ You do not create tables yourself: the API creates them on its first start.
 ## 3. Vercel — the web app
 
 1. At vercel.com: **Add New → Project**, import the repository.
-2. Set **Root Directory** to `apps/web`. The included `vercel.json` builds it and sends every page to
+2. Set **Root Directory** to `frontend`. The included `vercel.json` builds it and sends every page to
    `index.html`.
 3. **Environment Variables**: `VITE_API_URL` = the Render API address from step 2 (no trailing slash).
 4. Deploy, then copy the site address (for example `https://silenthandover.vercel.app`).
@@ -100,7 +100,7 @@ Apps that already run on the VPS are not affected.
 2. **Secrets key**: on the VPS run `openssl rand -base64 32` and keep the result. It becomes
    `SECRETS_ENCRYPTION_KEY`; never change it later.
 3. **API** — Coolify → your project → **+ New → Application** → your GitHub repository:
-   * Build pack **Dockerfile**, Dockerfile location `/server/Dockerfile`, base directory `/`.
+   * Build pack **Dockerfile**, Dockerfile location `/backend/Dockerfile`, base directory `/`.
    * Port **8787**. Domain `https://api-handover.yourdomain`.
    * Environment variables: everything in the Render table in step 2, plus
      `NODE_ENV=production`, `APP_MODE=supabase`, `DEMO_MODE=false`, `AI_ADAPTER=admin`,
@@ -109,7 +109,7 @@ Apps that already run on the VPS are not affected.
    * Health check path `/api/health`. Deploy; `https://api-handover.yourdomain/api/health` shows
      `{"ok":true}`.
 4. **Web** — **+ New → Application**, same repository:
-   * Build pack **Dockerfile**, Dockerfile location `/apps/web/Dockerfile`, base directory `/`.
+   * Build pack **Dockerfile**, Dockerfile location `/frontend/Dockerfile`, base directory `/`.
    * Port **80**. Domain `https://handover.yourdomain`.
    * Environment variable `VITE_API_URL=https://api-handover.yourdomain`, marked as a **build**
      variable (it is built into the pages).
@@ -118,8 +118,8 @@ Apps that already run on the VPS are not affected.
 Without Coolify, the same two images run with plain Docker:
 
 ```bash
-docker build -f server/Dockerfile -t silent-handover-api .
-docker build -f apps/web/Dockerfile --build-arg VITE_API_URL=https://api-handover.yourdomain -t silent-handover-web .
+docker build -f backend/Dockerfile -t silent-handover-api .
+docker build -f frontend/Dockerfile --build-arg VITE_API_URL=https://api-handover.yourdomain -t silent-handover-web .
 docker run -d --restart unless-stopped --env-file api.env -p 127.0.0.1:8787:8787 silent-handover-api
 docker run -d --restart unless-stopped -p 127.0.0.1:8080:80 silent-handover-web
 ```

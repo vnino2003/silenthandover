@@ -5,20 +5,20 @@
   "description": "Silent Handover — AI-assisted workplace risk and task continuity automation (TESDA AI Automation Capstone).",
   "workspaces": [
     "packages/shared",
-    "server",
-    "apps/web"
+    "backend",
+    "frontend"
   ],
   "scripts": {
-    "dev": "concurrently -k -n api,web -c cyan,magenta \"npm:dev -w server\" \"npm:dev -w apps/web\"",
-    "build": "npm run build -w server && npm run build -w apps/web",
-    "typecheck": "npm run typecheck -w packages/shared && npm run typecheck -w server && npm run typecheck -w apps/web",
-    "test": "npm run test -w packages/shared && npm run test -w server",
-    "seed": "npm run seed -w server --",
-    "demo:hospital": "npm run demo:hospital -w server",
-    "demo:schedule": "npm run demo:schedule -w server",
-    "presentation:prepare": "npm run presentation:prepare -w server --",
-    "setup:live": "npm run setup:live -w server --",
-    "prompt:eval": "npm run prompt:eval -w server --"
+    "dev": "concurrently -k -n api,web -c cyan,magenta \"npm:dev -w backend\" \"npm:dev -w frontend\"",
+    "build": "npm run build -w backend && npm run build -w frontend",
+    "typecheck": "npm run typecheck -w packages/shared && npm run typecheck -w backend && npm run typecheck -w frontend",
+    "test": "npm run test -w packages/shared && npm run test -w backend",
+    "seed": "npm run seed -w backend --",
+    "demo:hospital": "npm run demo:hospital -w backend",
+    "demo:schedule": "npm run demo:schedule -w backend",
+    "presentation:prepare": "npm run presentation:prepare -w backend --",
+    "setup:live": "npm run setup:live -w backend --",
+    "prompt:eval": "npm run prompt:eval -w backend --"
   },
   "devDependencies": {
     "concurrently": "^10.0.6",

@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { AssistantState, DEMO_SAMPLE_REPORT, MicaAnswer } from '@sh/shared';
 import { setup, adhocShift, type Harness } from './helpers';
 import { leaveDates } from '../src/automation/mica-dates';
-import { micaSuggestions } from '../../apps/web/src/lib/mica-context';
+import { micaSuggestions } from '../../frontend/src/lib/mica-context';
 
 describe('Folio contextual experience and safe workflow handoffs',()=>{
   let h:Harness;

@@ -79,14 +79,14 @@ While the database was prepared, Gemini timed out three times on Juan's endorsem
 |---|---|
 | **Kept, unchanged** | The Nursery setup (renamed from "Newborn Care Department" on 4 November): wording, endorsement and privacy guidance, concern categories, shift patterns with windows and minimum staffing, leave types, rules and email templates. Also the connected Gemini AI (the key stays encrypted) and the organization rules. |
 | **Left out of the presentation database** | The old activity, the "(demo)" practice shifts, the old @demo.test sign-ins, the test accounts made during development (two @gmail.com staff and one department head) and the test department "INFORMATION TECNO". All of these are still in the previous database (see below). |
-| **Switched off** | `DEMO_MODE=false` in `server/.env`. That hides "Generate example" on the report form and the administrator's "Reset activity" button. |
+| **Switched off** | `DEMO_MODE=false` in `backend/.env`. That hides "Generate example" on the report form and the administrator's "Reset activity" button. |
 | **Marked "coming soon"** | Email sending (notifications appear in the app, and email previews are kept), SMS, and the n8n automation card, which shows only when n8n is actually in use. |
 
 ## Going back
 
-Nothing was deleted. The previous database is still at `server/.data/newborn-care-demo`, and a copy of it and the old `server/.env` is at `server/.data/backup-2026-10-28-before-presentation`. To return to it:
+Nothing was deleted. The previous database is still at `backend/.data/newborn-care-demo`, and a copy of it and the old `backend/.env` is at `backend/.data/backup-2026-10-28-before-presentation`. To return to it:
 1. Stop the app.
-2. Set `LOCAL_DB_DIR` in `server/.env` back to `server/.data/newborn-care-demo`, and `DEMO_MODE=true`.
+2. Set `LOCAL_DB_DIR` in `backend/.env` back to `backend/.data/newborn-care-demo`, and `DEMO_MODE=true`.
 3. Start the app again.
 
 To rebuild the presentation database from scratch, stop the app and run:

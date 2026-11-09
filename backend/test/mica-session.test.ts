@@ -2,9 +2,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createPinia, setActivePinia } from 'pinia';
 import { nextTick, reactive } from 'vue';
 const fixture=vi.hoisted(()=>({post:vi.fn(),auth:null as any}));
-vi.mock('../../apps/web/src/stores/auth',()=>({useAuth:()=>fixture.auth}));
-vi.mock('../../apps/web/src/lib/api',()=>({api:{post:fixture.post},errorMessage:()=> 'Connection failed. Your input is kept.'}));
-import { useMica } from '../../apps/web/src/stores/mica';
+vi.mock('../../frontend/src/stores/auth',()=>({useAuth:()=>fixture.auth}));
+vi.mock('../../frontend/src/lib/api',()=>({api:{post:fixture.post},errorMessage:()=> 'Connection failed. Your input is kept.'}));
+import { useMica } from '../../frontend/src/stores/mica';
 const answer=(page='profile',fallback=false)=>({page,reply:'Use the existing form to continue.',engine:'guide',fallback,facts:[],notices:[],checked_at:new Date().toISOString()});
 function deferred(){let resolve!:(value:unknown)=>void;const promise=new Promise(r=>{resolve=r;});return {promise,resolve};}
 beforeEach(()=>{setActivePinia(createPinia());fixture.post.mockReset();fixture.auth=reactive({profile:{id:'person-a'}});});

@@ -7,7 +7,7 @@
 //   - creates a small amount of activity by running the real workflows through the app's own API
 //     (Head Nurse overrides, endorsement submission, Mica's analysis, approval, endorsement, receipt,
 //     leave), so every record and audit entry is genuine output of the system.
-// The current database is not touched; server/.env is switched to the new one (and DEMO_MODE off).
+// The current database is not touched; backend/.env is switched to the new one (and DEMO_MODE off).
 // Every person and event is fictional. No patient information is involved.
 //
 // Options (for the real system with a sample team, e.g. for a demonstration):
@@ -16,7 +16,7 @@
 //       otherwise they are emailed an invitation. The sample staff sign in with the local password.
 //   --staff-domain starlight.test  sample staff addresses (default *.starlight@gmail.com). Use a
 //       reserved domain such as .test once real email is connected, so nobody real is ever emailed.
-//   --target live   build into server/.data/<target> (default "presentation").
+//   --target live   build into backend/.data/<target> (default "presentation").
 //   --from <dir>    read the configuration from this data folder (default: the current LOCAL_DB_DIR).
 import { copyFileSync, existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';

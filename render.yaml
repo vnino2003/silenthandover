@@ -6,7 +6,7 @@ services:
   - type: web
     name: silent-handover-api
     runtime: docker
-    dockerfilePath: ./server/Dockerfile
+    dockerfilePath: ./backend/Dockerfile
     dockerContext: .
     plan: free
     healthCheckPath: /api/health

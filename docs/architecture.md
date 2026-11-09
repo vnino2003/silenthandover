@@ -9,7 +9,7 @@ been connected in this repository.
 The repository was empty, so the structure below was created from scratch.
 
 ```
-apps/web            Vue 3 + TypeScript + Vite + Tailwind + Pinia + Vue Router (all three portals)
+frontend            Vue 3 + Ionic Vue + TypeScript + Vite + Pinia + Vue Router, Tailwind for layout
 server              Node.js API (Hono). Auth, validation, sanitization, n8n integration, scheduler
 packages/shared     Zod schemas, status enums, labels, prompt builder — shared by web and server
 supabase/migrations PostgreSQL schema, Row Level Security, workflow functions (authoritative rules)
