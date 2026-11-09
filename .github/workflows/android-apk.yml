@@ -1,0 +1,86 @@
+# Builds a TEST (debug-signed) Android APK of the Silent Handover app and uploads it as a
+# downloadable artifact. It is not a release build: it is signed with the Android debug key and is
+# meant for installing on test phones. A signed release (APK/AAB) needs a keystore in GitHub
+# Secrets and a protected environment; see docs/android.md.
+#
+# Triggers: manually (Actions -> Android APK -> Run workflow, optionally with an API address),
+# a pushed tag like v1.2.0, or a push to master that changes the app.
+name: Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      api_url:
+        description: "HTTPS address of the API the app should use (blank = repository variable ANDROID_API_URL, or set it in the app)"
+        required: false
+        default: ""
+  push:
+    tags: ["v*"]
+    branches: [master]
+    paths:
+      - "frontend/**"
+      - "packages/shared/**"
+      - "package-lock.json"
+      - ".github/workflows/android-apk.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      VITE_API_URL: ${{ inputs.api_url || vars.ANDROID_API_URL || '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # Capacitor 8 needs Node 22+.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # Android Gradle Plugin 8.13 needs JDK 17+; Temurin 21 is used.
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      # The hosted runner includes the Android SDK; this pins platform 36 and build tools.
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: "platforms;android-36 build-tools;36.0.0"
+
+      - run: npm ci
+      - name: Build the web app
+        run: npm run build -w frontend
+      - name: Copy it into the Android project
+        run: npx cap sync android
+        working-directory: frontend
+      - name: Assemble the debug APK
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+        working-directory: frontend/android
+
+      - name: Name the APK
+        id: name
+        run: |
+          short=$(git rev-parse --short HEAD)
+          out="silent-handover-test-${short}.apk"
+          cp frontend/android/app/build/outputs/apk/debug/app-debug.apk "$out"
+          echo "file=$out" >> "$GITHUB_OUTPUT"
+          echo "API address built in: ${VITE_API_URL:-none (enter it in the app)}" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: silent-handover-test-apk
+          path: ${{ steps.name.outputs.file }}
+          retention-days: 30
+          if-no-files-found: error

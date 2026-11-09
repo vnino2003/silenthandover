@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Silent Handover</string>
+    <string name="title_activity_main">Silent Handover</string>
+    <string name="package_name">com.silenthandover.app</string>
+    <string name="custom_url_scheme">com.silenthandover.app</string>
+</resources>

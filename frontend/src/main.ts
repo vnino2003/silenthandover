@@ -8,6 +8,7 @@ import '@ionic/vue/css/structure.css';
 import App from './App.vue';
 import { router } from './router';
 import { useAuth } from './stores/auth';
+import { initDevice } from './lib/native';
 import './style.css';
 import './theme/ionic.css';
 
@@ -16,4 +17,7 @@ import './theme/ionic.css';
 const app = createApp(App).use(IonicVue, { mode: 'md', animated: false }).use(createPinia()).use(router);
 // `$terms` in any template: the signed-in department's own words (Head Nurse, shift endorsement, concern).
 Object.defineProperty(app.config.globalProperties, '$terms', { get: () => useAuth().terms });
-router.isReady().then(() => app.mount('#app'));
+router.isReady().then(() => {
+  app.mount('#app');
+  void initDevice(router);
+});
