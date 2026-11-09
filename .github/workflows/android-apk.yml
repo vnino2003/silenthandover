@@ -52,10 +52,10 @@ jobs:
           java-version: 21
           cache: gradle
 
-      # The hosted runner includes the Android SDK; this pins platform 36 and build tools.
-      - uses: android-actions/setup-android@v3
-        with:
-          packages: "platforms;android-36 build-tools;36.0.0"
+      # The hosted Ubuntu runner already has the Android SDK (ANDROID_HOME); Gradle downloads a
+      # missing platform or build tools itself, the licences being accepted on the runner.
+      - name: Show the Android SDK
+        run: echo "ANDROID_HOME=$ANDROID_HOME" && ls "$ANDROID_HOME/platforms" | tail -3
 
       - run: npm ci
       - name: Build the web app
