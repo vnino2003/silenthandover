@@ -1,0 +1,12 @@
+# Keep builds small and keep local secrets and databases out of every image layer.
+**/node_modules
+**/dist
+**/.data
+**/.env
+**/.env.*
+!**/.env.example
+outputs
+coverage
+.git
+.claude
+*.log

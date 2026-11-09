@@ -17,6 +17,8 @@ const EnvSchema = z.object({
   LOCAL_DB_DIR: z.string().optional(),
   LOCAL_JWT_SECRET: z.string().min(32).optional(),
   DEMO_MODE: bool.default(true),
+  // Supabase mode: apply any new supabase/migrations when the API starts (one API instance).
+  MIGRATE_ON_START: bool.default(true),
 
   DATABASE_URL: z.string().optional(),
   SUPABASE_URL: z.url().optional(),
@@ -42,7 +44,11 @@ const EnvSchema = z.object({
   N8N_REQUEST_TIMEOUT_MS: z.coerce.number().int().default(10000),
 
   // Email: 'dev' records messages in the dev outbox as "simulated" — nothing is sent.
-  EMAIL_TRANSPORT: z.enum(['dev', 'resend', 'n8n']).default('dev'),
+  // Normally the administrator connects Gmail or Resend in the app (Integrations -> Email), which
+  // overrides this. 'gmail' here lets a brand-new server email the first administrator.
+  EMAIL_TRANSPORT: z.enum(['dev', 'resend', 'n8n', 'gmail']).default('dev'),
+  GMAIL_USER: z.email().optional(),
+  GMAIL_APP_PASSWORD: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),
   EMAIL_FROM: z.string().default('Silent Handover <handover@example.com>'),
 
@@ -50,6 +56,11 @@ const EnvSchema = z.object({
   SMS_TRANSPORT: z.enum(['none', 'n8n']).default('none'),
   N8N_SMS_WEBHOOK_URL: z.url().optional(),
   SMS_FROM: z.string().trim().min(1).max(40).default('Silent Handover'),
+
+  // A new organization starts with this administrator only (no demo data). They get an
+  // invitation to choose a password and then add everyone else on the Users page.
+  FIRST_ADMIN_EMAIL: z.email().optional(),
+  FIRST_ADMIN_NAME: z.string().trim().min(2).max(120).optional(),
 
   ENABLE_INTERNAL_SCHEDULER: bool.default(true),
   SCHEDULER_INTERVAL_MS: z.coerce.number().int().min(1000).default(30000),
@@ -75,6 +86,7 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
     problems.push('AI_ADAPTER=n8n needs N8N_ANALYSIS_WEBHOOK_URL, N8N_WEBHOOK_SECRET and N8N_CALLBACK_SECRET');
   }
   if (c.EMAIL_TRANSPORT === 'resend' && !c.RESEND_API_KEY) problems.push('EMAIL_TRANSPORT=resend needs RESEND_API_KEY');
+  if (c.EMAIL_TRANSPORT === 'gmail' && (!c.GMAIL_USER || !c.GMAIL_APP_PASSWORD)) problems.push('EMAIL_TRANSPORT=gmail needs GMAIL_USER and GMAIL_APP_PASSWORD');
   if (c.EMAIL_TRANSPORT === 'n8n' && (!c.N8N_DELIVERY_WEBHOOK_URL || !c.N8N_WEBHOOK_SECRET || !c.N8N_CALLBACK_SECRET)) {
     problems.push('EMAIL_TRANSPORT=n8n needs N8N_DELIVERY_WEBHOOK_URL, N8N_WEBHOOK_SECRET and N8N_CALLBACK_SECRET');
   }

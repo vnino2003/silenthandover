@@ -1,0 +1,52 @@
+# Render Blueprint for the Silent Handover API (Render → New → Blueprint → pick this repository).
+# The web app is on Vercel and the database and sign-in are on Supabase; see docs/deployment.md.
+# Values marked "sync: false" are asked for when the Blueprint is created. They are secrets or
+# depend on your own Supabase project and Vercel address, so they are not stored in this file.
+services:
+  - type: web
+    name: silent-handover-api
+    runtime: docker
+    dockerfilePath: ./server/Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: APP_MODE
+        value: supabase
+      - key: DEMO_MODE
+        value: "false"
+      - key: AI_ADAPTER
+        value: admin
+      # Encrypts the AI key and Gmail App Password saved in the admin pages. Generated once by
+      # Render; do not change it later or the saved keys can no longer be opened.
+      - key: SECRETS_ENCRYPTION_KEY
+        generateValue: true
+      # Supabase → Connect → "Session pooler" connection string (IPv4), with your database password.
+      - key: DATABASE_URL
+        sync: false
+      # Supabase → Project Settings → API (URL) and API Keys → "Legacy API keys" (anon, service_role).
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      # Your Vercel address, e.g. https://silenthandover.vercel.app (invitation links point here).
+      - key: APP_BASE_URL
+        sync: false
+      # The same Vercel address (the only site allowed to call this API).
+      - key: CORS_ORIGINS
+        sync: false
+      # The first administrator, invited by email on the first start.
+      - key: FIRST_ADMIN_EMAIL
+        sync: false
+      - key: EMAIL_TRANSPORT
+        value: gmail
+      - key: EMAIL_FROM
+        value: Silent Handover <noreply@example.com>
+      - key: GMAIL_USER
+        sync: false
+      - key: GMAIL_APP_PASSWORD
+        sync: false

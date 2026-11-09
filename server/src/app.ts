@@ -15,6 +15,7 @@ import { managerRoutes } from './routes/manager';
 import { meRoutes } from './routes/me';
 import { assistantRoutes } from './routes/assistant';
 import { assistantHelpRoutes } from './routes/assistant-help';
+import { acceptInvitation, previewInvitation, requestPasswordReset } from './auth/invitations';
 
 export function createApp(services: Services) {
   const app = new Hono<AppEnv>();
@@ -73,6 +74,41 @@ export function createApp(services: Services) {
     const body = z.object({ email: z.email(), password: z.string().min(1).max(200) }).safeParse(await c.req.json().catch(() => null));
     if (!body.success) throw new ApiError(401, 'invalid_credentials', 'Email or password is incorrect');
     return c.json(await auth.login(body.data.email, body.data.password));
+  });
+
+  // Invitation and password-reset links. The token travels in the request body, never the URL.
+  const inviteLimiter = rateLimit({ windowMs: 60_000, max: 20, key: (c) => `invite:${clientIp(c)}` });
+
+  // "Forgot password?": emails a one-time link to the account's own inbox. Same answer whether or
+  // not the address has an account, and the email is sent after answering so timing reveals nothing.
+  const forgotLimiter = rateLimit({ windowMs: 15 * 60_000, max: 5, key: (c) => `forgot:${clientIp(c)}` });
+  app.post('/api/auth/forgot-password', forgotLimiter, async (c) => {
+    const body = z.object({ email: z.email().max(200) }).safeParse(await c.req.json().catch(() => null));
+    if (!body.success) throw new ApiError(422, 'validation', 'Enter your work email', { email: 'Enter a valid email' });
+    const s = svc(c);
+    void requestPasswordReset(s, body.data.email).catch((err) => s.log('password reset email failed', { error: err instanceof Error ? err.message : String(err) }));
+    return c.json({ ok: true });
+  });
+  const Token = z.string().min(20).max(200).regex(/^[A-Za-z0-9_-]+$/);
+  app.post('/api/invitations/check', inviteLimiter, async (c) => {
+    const body = z.object({ token: Token }).safeParse(await c.req.json().catch(() => null));
+    if (!body.success) throw new ApiError(404, 'invalid_link', 'This link is not valid. Ask your administrator to send a new one.');
+    return c.json(await previewInvitation(svc(c), body.data.token));
+  });
+  app.post('/api/invitations/accept', inviteLimiter, async (c) => {
+    const body = z
+      .object({ token: Token, password: z.string().min(10, 'Use at least 10 characters').max(200) })
+      .safeParse(await c.req.json().catch(() => null));
+    if (!body.success) {
+      const tooShort = body.error.issues.some((i) => i.path[0] === 'password');
+      if (tooShort) throw new ApiError(422, 'validation', 'Use at least 10 characters', { password: 'Use at least 10 characters' });
+      throw new ApiError(404, 'invalid_link', 'This link is not valid. Ask your administrator to send a new one.');
+    }
+    const { auth } = svc(c);
+    const account = await acceptInvitation(svc(c), body.data.token, body.data.password);
+    // Local mode signs the person straight in; with Supabase Auth they sign in on the next page.
+    const session = auth.login ? await auth.login(account.email, body.data.password) : null;
+    return c.json({ email: account.email, session });
   });
 
   // n8n callbacks authenticate with their own shared secret, not a user session.

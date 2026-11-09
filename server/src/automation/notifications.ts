@@ -8,6 +8,8 @@ export interface OutboundMessage {
   to: string;
   subject: string;
   text: string;
+  /** Optional HTML version (built from the text when absent). */
+  html?: string;
   idempotencyKey: string;
 }
 
@@ -23,7 +25,7 @@ export interface DeliveryResult {
 
 /** A transport either returns results now, or returns null when results arrive later via callback (n8n). */
 export interface EmailTransport {
-  readonly name: 'dev' | 'resend' | 'n8n';
+  readonly name: 'dev' | 'resend' | 'n8n' | 'gmail' | (string & {});
   send(messages: OutboundMessage[]): Promise<DeliveryResult[] | null>;
 }
 

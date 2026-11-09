@@ -10,6 +10,8 @@ import { guidanceFor } from '../automation/analysis';
 import { resetActivity } from '../seed/demo';
 import { AI_PROVIDERS, callWithFallback, listModels, pickModel, ProviderError } from '../automation/ai-provider';
 import { describeStoredRun, previewPipeline, type StoredRun } from '../automation/preview';
+import { EMAIL_PROVIDERS } from '../automation/email-sender';
+import { revokeInvitations, sendInvitation, signInStates } from '../auth/invitations';
 
 const optionalUuid = z.uuid().nullable().default(null);
 
@@ -234,23 +236,26 @@ export function adminRoutes() {
   });
 
   // ---- Users ---------------------------------------------------------------
-  r.get('/users', async (c) =>
-    c.json(
-      await asUser(c, async (q) => {
-        const users = ((await q.query<{ u: { id: string }[] | null }>('select app.admin_list_users() as u'))[0]!.u ?? []);
-        // Job titles (shown on schedules) live beside the existing profile fields.
-        const titles = new Map((await q.query<{ id: string; job_title: string | null }>('select id, job_title from public.profiles')).map((p) => [p.id, p.job_title]));
-        return users.map((u) => ({ ...u, job_title: titles.get(u.id) ?? null }));
-      }),
-    ),
-  );
+  r.get('/users', async (c) => {
+    const users = await asUser(c, async (q) => {
+      const users = ((await q.query<{ u: { id: string }[] | null }>('select app.admin_list_users() as u'))[0]!.u ?? []);
+      // Job titles (shown on schedules) live beside the existing profile fields.
+      const titles = new Map((await q.query<{ id: string; job_title: string | null }>('select id, job_title from public.profiles')).map((p) => [p.id, p.job_title]));
+      return users.map((u) => ({ ...u, job_title: titles.get(u.id) ?? null }));
+    });
+    // Whether each person can sign in yet, or is still waiting on an invitation (read after the
+    // transaction above: the local database has a single connection).
+    const states = await signInStates(svc(c), users.map((u) => u.id));
+    return c.json(users.map((u) => ({ ...u, ...states.get(u.id)! })));
+  });
 
   r.post('/users', async (c) => {
     const body = await parseBody(
       c,
       UserFields.extend({
         email: z.email().max(200),
-        password: z.string().min(10, 'Use at least 10 characters').max(200),
+        // Normally left out: the person chooses their own password from the invitation email.
+        password: z.string().min(10, 'Use at least 10 characters').max(200).optional(),
       }),
     );
     if (body.role !== 'admin' && !body.department_id) throw new ApiError(422, 'validation', 'Choose a department', { department_id: 'Required' });
@@ -268,7 +273,19 @@ export function adminRoutes() {
         body.phone,
       ]),
     );
-    return c.json({ id: userId }, 201);
+    const invite = body.password ? null : await sendInvitation(svc(c), userId, c.get('userId'));
+    return c.json({ id: userId, invite }, 201);
+  });
+
+  // Sends a new invitation (no password yet) or a password reset link (password already set).
+  r.post('/users/:id/invite', async (c) => {
+    const id = idParam(c);
+    return c.json(await sendInvitation(svc(c), id, c.get('userId')));
+  });
+
+  r.post('/users/:id/invite/revoke', async (c) => {
+    const id = idParam(c);
+    return c.json({ revoked: await revokeInvitations(svc(c), id, c.get('userId')) });
   });
 
   r.patch('/users/:id', async (c) => {
@@ -351,6 +368,74 @@ export function adminRoutes() {
     return c.json({ ok: true });
   });
 
+  // ---- Email sender ------------------------------------------------------------------
+  // Like the AI key: the administrator connects Gmail (App Password) or Resend here, the secret
+  // is encrypted before it is stored, and it is never sent back to the browser.
+  r.get('/email', async (c) => c.json({ ...(await svc(c).email.view()), providers: EMAIL_PROVIDERS }));
+
+  const EmailBody = z.strictObject({
+    provider: z.enum(['none', 'gmail', 'resend']),
+    from_name: z.string().trim().min(1).max(80).nullable().default(null),
+    from_address: z.email('Enter the email address to send from').max(200).nullable().default(null),
+    // A new secret replaces the saved one; null removes it; leaving it out keeps it.
+    secret: z.string().trim().min(8, 'That does not look complete').max(300).nullable().optional(),
+  });
+
+  function checkEmailBody(b: z.infer<typeof EmailBody>) {
+    if (b.provider === 'none') return;
+    if (!b.from_address) throw new ApiError(422, 'validation', 'Enter the email address to send from', { from_address: 'Required' });
+    if (b.provider === 'gmail' && b.secret && b.secret.replace(/\s+/g, '').length !== 16) {
+      throw new ApiError(422, 'validation', 'A Gmail App Password has 16 letters (shown as four groups of four)', { secret: '16 letters' });
+    }
+  }
+
+  r.put('/email', async (c) => {
+    const b = await parseBody(c, EmailBody);
+    checkEmailBody(b);
+    const { email } = svc(c);
+    const view = await email.view();
+    if (b.secret && !view.encryption_available) {
+      throw new ApiError(409, 'encryption_unavailable', 'Set SECRETS_ENCRYPTION_KEY on the server before saving a password or key');
+    }
+    if (b.provider !== 'none' && !b.secret && !(view.has_secret && view.provider === b.provider && b.secret === undefined)) {
+      throw new ApiError(422, 'validation', b.provider === 'gmail' ? 'Paste the Gmail App Password' : 'Paste the Resend API key', { secret: 'Required' });
+    }
+    await email.save(
+      {
+        provider: b.provider,
+        fromName: b.provider === 'none' ? null : (b.from_name ?? 'Silent Handover'),
+        fromAddress: b.provider === 'none' ? null : b.from_address,
+        secret: b.provider === 'none' ? null : b.secret,
+      },
+      c.get('userId'),
+    );
+    return c.json({ ...(await email.view()), providers: EMAIL_PROVIDERS });
+  });
+
+  // Sends a real test email with the saved settings, or with the ones being tried before saving.
+  r.post('/email/test', async (c) => {
+    const b = await parseBody(c, EmailBody.extend({ to: z.email('Enter where to send the test').max(200) }));
+    checkEmailBody(b);
+    if (b.provider === 'none') throw new ApiError(422, 'validation', 'Choose Gmail or Resend first', { provider: 'Required' });
+    const { email } = svc(c);
+    const secret = b.secret ?? (await email.savedSecret(b.provider));
+    if (!secret) throw new ApiError(422, 'validation', b.provider === 'gmail' ? 'Paste the Gmail App Password' : 'Paste the Resend API key', { secret: 'Required' });
+    const started = Date.now();
+    const result = await email.trySend(
+      { provider: b.provider, fromName: b.from_name ?? 'Silent Handover', fromAddress: b.from_address!, secret },
+      b.to,
+      'Silent Handover test email',
+      'This is a test from Silent Handover.\n\nIf you can read this, invitations and endorsement notifications can be emailed from this address.',
+    );
+    await svc(c).db.asService((q) =>
+      q.query(`insert into public.audit_logs (actor_id, actor_role, action, entity_type, details) values ($1, 'admin', 'email.test', 'system', $2::jsonb)`, [
+        c.get('userId'),
+        JSON.stringify({ provider: b.provider, ok: result.status === 'sent' }),
+      ]),
+    );
+    return c.json({ ok: result.status === 'sent', provider: b.provider, latency_ms: Date.now() - started, error: result.error ?? null });
+  });
+
   // ---- Integrations and automation health ---------------------------------------
   r.get('/integrations', async (c) => {
     const { config, analysis, notifications } = svc(c);
@@ -382,6 +467,7 @@ export function adminRoutes() {
       const overview = (await q.query<{ o: unknown }>('select app.admin_report_overview() as o'))[0]!.o;
       return { eventCounts, events, deliveryCounts, deliveries, overview };
     });
+    const emailView = await svc(c).email.view();
     // Dev outbox: what *would* have been emailed. Addresses are masked; nothing was sent.
     const outbox =
       notifications.transportName === 'dev'
@@ -399,7 +485,12 @@ export function adminRoutes() {
           webhook_configured: Boolean(config.N8N_ANALYSIS_WEBHOOK_URL),
           prompt_version: config.PROMPT_VERSION,
         },
-        email: { transport: notifications.transportName, simulated: notifications.transportName === 'dev', from: config.EMAIL_FROM },
+        email: {
+          transport: notifications.transportName,
+          simulated: notifications.transportName === 'dev',
+          provider: emailView.provider,
+          from: emailView.from_address ? `${emailView.from_name ?? 'Silent Handover'} <${emailView.from_address}>` : config.EMAIL_FROM,
+        },
         sms: {
           connected: notifications.smsTransportName !== 'none',
           transport: notifications.smsTransportName,

@@ -4,6 +4,7 @@ import type { Role } from '@sh/shared';
 import type { AuthProvider } from '../auth/auth';
 import type { AnalysisPipeline } from '../automation/analysis';
 import type { AiSettings } from '../automation/ai-provider';
+import type { EmailSender } from '../automation/email-sender';
 import type { NotificationDispatcher } from '../automation/notifications';
 import type { Config } from '../config';
 import type { Db, Queryable } from '../db/types';
@@ -34,6 +35,8 @@ export interface Services {
   analysis: AnalysisPipeline;
   /** The AI provider and encrypted key the administrator saved. */
   aiSettings: AiSettings;
+  /** The email sender the administrator connected (or the configured fallback). */
+  email: EmailSender;
   notifications: NotificationDispatcher;
   /** Outbound HTTP (replaced in tests). */
   fetchImpl: typeof fetch;

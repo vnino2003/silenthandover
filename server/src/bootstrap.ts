@@ -4,6 +4,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createLocalAuth, createSupabaseAuth } from './auth/auth';
 import { AiSettings } from './automation/ai-provider';
+import { createGmailTransport, EmailSender, type SmtpFactory } from './automation/email-sender';
 import { AnalysisPipeline, createAdminAnalysisAdapter, createDevAnalysisAdapter, createN8nAnalysisAdapter } from './automation/analysis';
 import {
   createDevTransport,
@@ -45,6 +46,8 @@ export interface BootstrapOptions {
   quiet?: boolean;
   /** Tests drive background work explicitly instead of on kick(). */
   manualKick?: boolean;
+  /** Replaces the SMTP connection (tests). */
+  smtp?: SmtpFactory;
 }
 
 export async function createServices(config: Config, opts: BootstrapOptions = {}): Promise<Services & { stop: () => Promise<void> }> {
@@ -59,6 +62,11 @@ export async function createServices(config: Config, opts: BootstrapOptions = {}
     if (ran.length) logger('local database migrated', { count: ran.length });
   } else {
     db = createPostgresDb(config.DATABASE_URL!);
+    // A new Supabase project gets its tables on the first start; later starts apply only new files.
+    if (config.MIGRATE_ON_START && !opts.memory) {
+      const ran = await migrate(db, { localShim: false, log: (m) => logger('migration', { m }) });
+      if (ran.length) logger('database migrated', { count: ran.length });
+    }
   }
 
   const auth =
@@ -75,7 +83,8 @@ export async function createServices(config: Config, opts: BootstrapOptions = {}
         ? randomBytes(32)
         : decodeSecretsKey(localSecret(localDir, 'local-secrets-key', 32))
       : null;
-  const aiSettings = new AiSettings(db, secretsKey ? createSecretBox(secretsKey) : null, fetchImpl);
+  const secretBox = secretsKey ? createSecretBox(secretsKey) : null;
+  const aiSettings = new AiSettings(db, secretBox, fetchImpl);
   const adapter =
     config.AI_ADAPTER === 'n8n'
       ? createN8nAnalysisAdapter(config, fetchImpl)
@@ -89,9 +98,18 @@ export async function createServices(config: Config, opts: BootstrapOptions = {}
       ? createResendTransport(config, fetchImpl)
       : config.EMAIL_TRANSPORT === 'n8n'
         ? createN8nTransport(config, fetchImpl)
-        : createDevTransport();
+        : config.EMAIL_TRANSPORT === 'gmail'
+          ? createGmailTransport(
+              { fromName: config.EMAIL_FROM.match(/^\s*"?([^"<]+?)"?\s*</)?.[1] ?? 'Silent Handover', fromAddress: config.GMAIL_USER!, secret: config.GMAIL_APP_PASSWORD! },
+              opts.smtp,
+            )
+          : createDevTransport();
   const smsTransport = config.SMS_TRANSPORT === 'n8n' ? createN8nSmsTransport(config, fetchImpl) : null;
-  const notifications = new NotificationDispatcher(db, config, transport, smsTransport, logger);
+  // The sender the administrator saves on the Integrations page (Gmail or Resend) takes over
+  // from the configured transport without a restart.
+  const email = new EmailSender(db, secretBox, transport, fetchImpl, opts.smtp);
+  await email.load();
+  const notifications = new NotificationDispatcher(db, config, email.transport(), smsTransport, logger);
 
   // Background work runs one pass at a time; a kick during a pass schedules one more pass.
   let running = false;
@@ -146,6 +164,7 @@ export async function createServices(config: Config, opts: BootstrapOptions = {}
     auth,
     analysis,
     aiSettings,
+    email,
     fetchImpl,
     notifications,
     kick,

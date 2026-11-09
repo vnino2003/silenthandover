@@ -1,5 +1,6 @@
 import { createApp } from '../src/app';
 import { createServices } from '../src/bootstrap';
+import type { SmtpFactory } from '../src/automation/email-sender';
 import { loadConfig } from '../src/config';
 import { DEMO_ACCOUNTS, DEMO_PASSWORD, SECOND_DEPARTMENT_ACCOUNTS, seedDemo } from '../src/seed/demo';
 
@@ -11,7 +12,7 @@ export const WEBHOOK_SECRET = 'test-webhook-secret-0123456789abcdef';
 
 export type FetchCall = { url: string; init: RequestInit; body: any };
 
-export async function setup(env: Record<string, string> = {}, fetchImpl?: typeof fetch) {
+export async function setup(env: Record<string, string> = {}, fetchImpl?: typeof fetch, smtp?: SmtpFactory) {
   const config = loadConfig({
     NODE_ENV: 'test',
     APP_MODE: 'local',
@@ -23,7 +24,7 @@ export async function setup(env: Record<string, string> = {}, fetchImpl?: typeof
     MICA_REQUESTS_PER_MINUTE: '1000',
     ...env,
   });
-  const services = await createServices(config, { memory: true, quiet: true, manualKick: true, fetchImpl });
+  const services = await createServices(config, { memory: true, quiet: true, manualKick: true, fetchImpl, smtp });
   await seedDemo(services, { onlyIfEmpty: false, includeSecondDepartment: true, sampleActivity: true });
   const app = createApp(services);
   const ids: Record<string, string> = {};

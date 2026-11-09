@@ -567,7 +567,7 @@ describe('real reports in the AI pipeline view (admin, censored)', () => {
     const runs = await h.call('admin', 'GET', '/api/admin/ai/runs');
     expect(runs.status).toBe(200);
     const [ref] = await h.sql('select reference_code from public.shift_reports where id = $1', [reportId]);
-    expect(runs.body[0]).toMatchObject({ reference_code: ref.reference_code, department_name: 'Newborn Care Department', status: 'succeeded' });
+    expect(runs.body[0]).toMatchObject({ reference_code: ref.reference_code, department_name: 'Nursery', status: 'succeeded' });
   });
 
   it('shows what really went to the AI, censored — never names, contact details or the author', async () => {
