@@ -6,6 +6,7 @@ import BrandMark from '@/components/BrandMark.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import UiField from '@/components/ui/UiField.vue';
 import { errorMessage } from '@/lib/api';
+import { isNative } from '@/lib/native';
 import { useAuth } from '@/stores/auth';
 import { useToast } from '@/stores/toast';
 
@@ -17,6 +18,8 @@ const email = ref('');
 const password = ref('');
 const showPassword = ref(false);
 const busy = ref(false);
+// The Android app (test build) published by GitHub Actions. Shown on the website only, never inside the app.
+const apkUrl = (import.meta.env.VITE_ANDROID_APK_URL as string | undefined) || 'https://github.com/vnino2003/silenthandover/releases/download/android-latest/silent-handover.apk';
 const error = ref<string | null>(route.query.expired ? 'Your session expired. Please sign in again.' : null);
 
 async function submit() {
@@ -74,6 +77,11 @@ async function submit() {
                   <summary>Need help signing in?<svg viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="m5 6 3 3 3-3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" /></svg></summary>
                   <p>Use the account provided by your organization. New accounts get an invitation email. If you’ve forgotten your password, use “Forgot password?” to get a reset link by email; for anything else, contact your administrator.</p>
                 </details>
+
+                <a v-if="!isNative" :href="apkUrl" class="app-download" download="silent-handover.apk">
+                  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 19h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                  <span><strong>Download the Android app</strong><small>Test build (APK) for Android 7 or newer. When asked, allow installing from your browser.</small></span>
+                </a>
               </div>
           </main>
           <footer class="sign-in-footer">Accounts are managed by your organization.</footer>
@@ -109,6 +117,11 @@ async function submit() {
 .sign-in-help svg { width: 14px; height: 14px; transition: transform 180ms ease; }
 .sign-in-help[open] svg { transform: rotate(180deg); }
 .sign-in-help p { padding-top: 4px; color: var(--color-ink-2); font-size: 13px; line-height: 1.8; }
+.app-download { margin-top: 14px; display: flex; gap: 12px; align-items: center; padding: 12px 14px; border: 1px solid #d7dedd; border-radius: 10px; background: white; color: var(--color-ink); text-decoration: none; }
+.app-download:hover { border-color: var(--color-accent); background: var(--color-accent-soft); }
+.app-download svg { width: 22px; height: 22px; flex-shrink: 0; color: var(--color-accent-ink); }
+.app-download strong { display: block; font-size: 14px; font-weight: 550; }
+.app-download small { display: block; margin-top: 2px; font-size: 12px; line-height: 1.5; color: var(--color-ink-3); }
 .sign-in-footer { padding: 24px; text-align: center; color: var(--color-ink-3); font-size: 12px; }
 @media (max-width: 639px) {
   .sign-in-header { padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) 24px max(24px, env(safe-area-inset-left)); }

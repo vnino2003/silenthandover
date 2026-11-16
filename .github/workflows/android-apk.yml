@@ -24,7 +24,8 @@ on:
       - ".github/workflows/android-apk.yml"
 
 permissions:
-  contents: read
+  # Write access only to publish the APK to the public "android-latest" release.
+  contents: write
 
 concurrency:
   group: android-${{ github.ref }}
@@ -87,3 +88,20 @@ jobs:
           path: ${{ steps.name.outputs.file }}
           retention-days: 30
           if-no-files-found: error
+
+      # Public, fixed download link for the sign-in page's "Download the Android app" button:
+      # https://github.com/<owner>/<repo>/releases/download/android-latest/silent-handover.apk
+      # Updated by master pushes, tags and manual runs (Actions artifacts need a GitHub sign-in).
+      - name: Publish to the android-latest release
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp "${{ steps.name.outputs.file }}" silent-handover.apk
+          notes="Test build (debug-signed) of commit ${GITHUB_SHA::7}, built $(date -u +'%Y-%m-%d %H:%M UTC'). Install on Android 7 or newer; allow installing from your browser when asked."
+          if gh release view android-latest >/dev/null 2>&1; then
+            gh release edit android-latest --notes "$notes"
+          else
+            gh release create android-latest --title "Silent Handover for Android (test build)" --notes "$notes" --target "$GITHUB_SHA"
+          fi
+          gh release upload android-latest silent-handover.apk --clobber
