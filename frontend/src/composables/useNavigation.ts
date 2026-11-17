@@ -86,8 +86,11 @@ export function useNavigation() {
    * (/menu). Nothing is reachable only from the wide-screen menu.
    */
   const mobileNav = computed<readonly { to: string; label: string; exact?: boolean }[]>(() => [
+    // HR, payroll and finance staff get their workspace in the bar in place of the ward pages (still in More).
     ...(auth.role === 'employee'
-      ? [{ to: '/', label: 'Today', exact: true }, { to: '/attendance', label: 'Attendance' }, { to: '/handover', label: 'Incoming' }, { to: '/reports', label: 'Endorsements' }]
+      ? [{ to: '/', label: 'Today', exact: true }, { to: '/attendance', label: 'Attendance' }, ...(workforceNav.value.length
+        ? workforceNav.value.map((w) => ({ to: w.to, label: w.to === '/hr' ? 'Timekeeping' : w.label === 'Payroll approval' ? 'Approval' : 'Payroll' })).concat(workforceNav.value.length === 1 ? [{ to: '/leave', label: 'Leave' }] : [])
+        : [{ to: '/handover', label: 'Incoming' }, { to: '/reports', label: 'Endorsements' }])]
       : auth.role === 'manager'
         ? [{ to: '/manager/shifts', label: 'Today' }, { to: '/manager', label: 'Approval', exact: true }, { to: '/manager/attendance', label: 'Attendance' }, { to: '/manager/schedule', label: 'Schedule' }]
         : auth.role === 'admin'

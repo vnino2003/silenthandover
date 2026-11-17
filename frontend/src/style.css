@@ -91,8 +91,10 @@ button:disabled { cursor: not-allowed; }
    retain their columns inside a keyboard-accessible scrolling region. */
 html { scroll-padding-top: 5rem; }
 body { margin: 0; }
-.app-shell { --dock-space: calc(5rem + env(safe-area-inset-bottom)); }
-.workspace-main { padding-bottom: calc(var(--dock-space) + 1.5rem); }
+/* Phones and narrow tablets: the bottom bar shows whenever Ionic is not showing the side menu, so floating
+   parts (Mica) keep clear of it. Keyed to the split pane itself, like the bar, so they always agree. */
+ion-split-pane:not(.split-pane-visible) ~ .assistant-dock { --dock-space: calc(56px + env(safe-area-inset-bottom, 0px)); }
+ion-split-pane ~ .assistant-dock[data-keyboard='true'] { --dock-space: 0px; }
 .workspace-sidebar { background: linear-gradient(180deg, #fff 0%, #f8fbfc 100%); }
 .workspace-sidebar nav a { min-height: 42px; }
 .mobile-dock { box-shadow: 0 -4px 24px rgb(24 52 70 / 0.05); }
@@ -113,7 +115,8 @@ textarea { resize: vertical; }
 .assistant-dock { position: fixed; z-index: 40; right: max(1rem, env(safe-area-inset-right)); bottom: calc(var(--dock-space, 0px) + 1rem); width: min(440px, calc(100% - 2rem)); display: flex; flex-direction: column; align-items: flex-end; pointer-events: none; }
 .mica-panel { width: 100%; height: min(690px, calc(100dvh - var(--dock-space, 0px) - 6rem)); pointer-events: auto; }
 .mica-launcher { pointer-events: auto; }
-.app-shell:has(.report-actions) .assistant-dock:not(.mica-is-open) { bottom: calc(var(--dock-space, 0px) + 9rem); }
+/* On the endorsement form, Mica waits above its sticky Send bar (only while that page is the one shown). */
+body:has(.ion-page:not(.ion-page-hidden) .report-actions) .assistant-dock:not(.mica-is-open) { bottom: calc(var(--dock-space, 0px) + 9rem); }
 .assistant-compact .assistant-hero { padding: 1rem; }
 .assistant-compact .assistant-hero > div { grid-template-columns: 1fr; }
 .assistant-compact aside > section:last-child { display: none; }
@@ -175,7 +178,7 @@ body:has([aria-modal='true']) .assistant-dock .mica-mascot * { animation-play-st
 body:has([aria-modal='true']) .assistant-dock { visibility: hidden; }
 @media (max-width: 639px) {
   .mica-launcher { padding-right: .5rem; }
-  .mica-launcher > span { display: none; }
+  .mica-launcher-label { display: none; }
   .mica-panel { height: min(650px, calc(100dvh - var(--dock-space, 0px) - 5rem)); }
 }
 @media (pointer: coarse) {
@@ -188,7 +191,6 @@ body:has([aria-modal='true']) .assistant-dock { visibility: hidden; }
   .dialog-panel { padding-bottom: env(safe-area-inset-bottom); }
 }
 @media (min-width: 1024px) {
-  .app-shell { --dock-space: 0px; }
   .toast-host { top: 1.5rem; }
 }
 

@@ -3,6 +3,9 @@ import { computed } from 'vue';
 const props = defineProps<{ path: string }>();
 const lines = computed(() => {
   const p = props.path;
+  // The Head Nurse's Today is their home; approvals get a checked box (Schedule keeps the calendar).
+  if (p === '/manager/shifts') return ['m3 10 9-7 9 7M5 9v12h14V9M9 21v-8h6v8'];
+  if (p === '/manager') return ['M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9', 'm9 11 3 3 8-8'];
   if (p === '/menu') return ['M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z'];
   if (p.includes('attendance')) return ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z', 'M12 7v5l3 2'];
   if (p.includes('dtr')) return ['M6 3h8l4 4v14H6z', 'M14 3v5h4', 'm9 14 2 2 4-4'];

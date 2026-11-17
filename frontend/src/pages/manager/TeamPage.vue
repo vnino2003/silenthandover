@@ -56,10 +56,10 @@ const isoDay = (iso: string) => day(`${iso}T12:00:00`);
             </PageHeader>
 
             <StateBlock :loading="loading" :refreshing="refreshing" :error="error" :empty="!data?.members.length" :empty-title="`No ${auth.terms.staffPlural.toLowerCase()} yet`" empty-text="The administrator adds people to your department on the Users page." @retry="reload()">
-              <div class="stagger mb-5 grid gap-3 sm:grid-cols-3">
-                <div class="card px-4 py-3"><p class="text-[12.5px] text-ink-3">{{ auth.terms.staffPlural }}</p><p class="text-[22px] font-semibold tnum">{{ data?.members.length ?? 0 }}</p></div>
-                <div class="card px-4 py-3"><p class="text-[12.5px] text-ink-3">On duty now</p><p class="text-[22px] font-semibold tnum">{{ onDuty }}</p></div>
-                <div class="card px-4 py-3"><p class="text-[12.5px] text-ink-3">On leave today</p><p class="text-[22px] font-semibold tnum">{{ away }}</p></div>
+              <div class="stagger mb-5 grid grid-cols-3 gap-2 sm:gap-3">
+                <div class="card px-3 py-3 sm:px-4"><p class="text-[12.5px] leading-tight text-ink-3">{{ auth.terms.staffPlural }}</p><p class="text-[22px] font-semibold tnum">{{ data?.members.length ?? 0 }}</p></div>
+                <div class="card px-3 py-3 sm:px-4"><p class="text-[12.5px] leading-tight text-ink-3">On duty now</p><p class="text-[22px] font-semibold tnum">{{ onDuty }}</p></div>
+                <div class="card px-3 py-3 sm:px-4"><p class="text-[12.5px] leading-tight text-ink-3">On leave today</p><p class="text-[22px] font-semibold tnum">{{ away }}</p></div>
               </div>
 
               <label class="mb-3 block max-w-xs"><span class="sr-only">Search unit staff</span><IonInput v-model="query" class="field-input" type="search" placeholder="Search by name or job title"  /></label>

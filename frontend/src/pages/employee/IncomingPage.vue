@@ -206,7 +206,7 @@ async function afterDone() {
                           >{{ isDone(i.status) ? '✓' : i.status === 'resolution_submitted' ? '…' : '' }}</span
                         >
                         <div class="min-w-0 flex-1">
-                          <RouterLink :to="`/tasks/${i.id}`" class="text-[14px] hover:underline" :class="{ 'text-ink-3 line-through': isDone(i.status) }">{{ i.title }}</RouterLink>
+                          <RouterLink :to="`/tasks/${i.id}`" class="-my-1 block py-1 text-[14px] hover:underline" :class="{ 'text-ink-3 line-through': isDone(i.status) }">{{ i.title }}</RouterLink>
                           <p class="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12.5px] text-ink-3">
                             <span>{{ i.kind === 'task' ? 'Task' : $terms.issue }} · <span class="tnum">{{ i.code }}</span></span>
                             <SeverityTag v-if="i.kind === 'problem'" :severity="i.severity" :safety="i.is_safety" />
@@ -289,7 +289,7 @@ async function afterDone() {
                   <ul class="stagger divide-y divide-line">
                     <li v-for="i in data.carried_over" :key="i.id" class="flex flex-wrap items-center gap-3 px-5 py-3 sm:flex-nowrap">
                       <div class="min-w-0 flex-1">
-                        <RouterLink :to="`/tasks/${i.id}`" class="text-[14px] hover:underline">{{ i.title }}</RouterLink>
+                        <RouterLink :to="`/tasks/${i.id}`" class="-my-1 block py-1 text-[14px] hover:underline">{{ i.title }}</RouterLink>
                         <p class="mt-0.5 flex flex-wrap items-center gap-x-2 text-[12.5px] text-ink-3">
                           <span>{{ i.kind === 'task' ? 'Task' : $terms.issue }} · <span class="tnum">{{ i.code }}</span></span>
                           <SeverityTag v-if="i.kind === 'problem'" :severity="i.severity" :safety="i.is_safety" />

@@ -70,7 +70,7 @@ ion-content.sh-content {
   .sh-page { padding: 24px 24px 112px; }
 }
 @media (min-width: 992px) {
-  .sh-page { padding: 32px 40px 48px; }
+  .sh-page { padding: 32px 40px 96px; } /* room for the Ask Mica launcher at the bottom right */
 }
 
 /* The shell: header and footer around the nested page outlet. */
@@ -132,7 +132,10 @@ ion-input.field-input, ion-textarea.field-input, ion-select.field-input {
   --padding-end: 12px;
   --padding-top: 8px;
   --padding-bottom: 8px;
-  --background: var(--color-surface);
+  /* The field's own box (border, colour, disabled grey) is drawn on the element itself. Ionic's inner
+     wrapper is as tall as the element plus its border, so a filled wrapper painted over the bottom border
+     and hid the disabled and Mica backgrounds; it is see-through instead. */
+  --background: transparent;
   --color: var(--color-ink);
   --placeholder-color: var(--color-ink-3);
   --placeholder-opacity: 1;
@@ -140,6 +143,13 @@ ion-input.field-input, ion-textarea.field-input, ion-select.field-input {
   min-height: 40px;
   padding: 0;
   font-size: 15px;
+}
+/* Focus lands on the inner native field, so the outline follows it from inside (and replaces Ionic's
+   Material underline, which showed as a stray grey dash under the field). */
+ion-input.field-input .input-highlight, ion-textarea.field-input .textarea-highlight, ion-select.field-input .select-highlight { display: none; }
+ion-input.field-input:focus-within, ion-textarea.field-input:focus-within, ion-select.field-input.select-expanded {
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgb(8 126 130 / 0.15);
 }
 ion-textarea.field-input { --padding-top: 8px; }
 ion-select.field-input { --padding-top: 8px; --padding-bottom: 8px; }
@@ -160,17 +170,55 @@ ion-modal.sh-modal {
 }
 @media (max-width: 639px) {
   ion-modal.sh-modal { --width: 100vw; --max-height: 100dvh; --border-radius: 0; --height: 100%; }
+  /* The dialog fills the screen, so its actions sit at the bottom edge rather than above a blank strip. */
+  ion-modal.sh-modal .ion-page { height: 100%; }
 }
 ion-modal.sh-modal .ion-page { position: relative; contain: content; }
 
+/* The padding is set directly too: Ionic applies its padding variables on the shadow host, which Tailwind's
+   reset overrides (the same cause as the chips above), leaving the label tight against its pill. */
 ion-badge.sh-badge {
   --padding-start: 8px;
   --padding-end: 8px;
   --padding-top: 3px;
   --padding-bottom: 3px;
+  padding: 3px 8px;
   border-radius: 999px;
   font-size: 12px;
   font-weight: 500;
+}
+
+/* Toolbars keep clear of a notch or camera cut-out in landscape (Ionic's own host padding for this is
+   overridden by the same reset). */
+ion-toolbar { padding-left: var(--ion-safe-area-left, 0px); padding-right: var(--ion-safe-area-right, 0px); }
+
+/* Chips (status filters, categories, weekdays, Mica's suggestions). Ionic styles a chip on its shadow host,
+   and any page rule beats a shadow host rule, so Tailwind's reset (padding 0, border 0) left chips as bare
+   words with no outline. The design system's pill is set here as plain page rules: an outline when not
+   chosen, a solid fill when chosen (Ionic's 8% tint was too faint to tell which filter is on). */
+ion-chip {
+  padding: 6px 14px;
+  min-height: 34px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: var(--color-sunken);
+  color: var(--color-ink-2);
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.2;
+}
+ion-chip.chip-outline {
+  border-color: var(--color-line-strong);
+  background: var(--color-surface);
+}
+ion-chip.ion-color {
+  border-color: var(--ion-color-base);
+  background: var(--ion-color-base);
+  color: var(--ion-color-contrast);
+}
+ion-chip.ion-color-dark { --ion-color-base: var(--color-ink); --ion-color-contrast: #fff; }
+@media (hover: hover) {
+  ion-chip.chip-outline:hover { border-color: var(--color-ink-3); color: var(--color-ink); }
 }
 
 /* Clickable list rows (IonItem with button): the row's own layout sits inside. */

@@ -165,9 +165,9 @@ const pendingAcks = computed(() => data.value?.incoming.filter((i) => !i.acknowl
                         <RouterLink :to="`/tasks/${t.id}`" class="flex items-start justify-between gap-3 px-5 py-3 hover:bg-canvas">
                           <span class="min-w-0">
                             <span class="block truncate text-[14px] font-medium">{{ t.title }}</span>
-                            <span class="mt-0.5 flex items-center gap-2 text-[12.5px] text-ink-3">
-                              <span class="tnum">{{ t.code }}</span><SeverityTag :severity="t.severity" :safety="t.is_safety" />
-                              <span v-if="t.assigned_to_me" class="font-medium text-accent">Assigned to you</span>
+                            <span class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12.5px] text-ink-3">
+                              <span class="tnum whitespace-nowrap">{{ t.code }}</span><SeverityTag :severity="t.severity" :safety="t.is_safety" />
+                              <span v-if="t.assigned_to_me" class="font-medium whitespace-nowrap text-accent">Assigned to you</span>
                             </span>
                           </span>
                           <StatusBadge :issue="t.status" />
