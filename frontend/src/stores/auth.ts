@@ -107,9 +107,14 @@ export const useAuth = defineStore('auth', () => {
 
   async function init() {
     try {
-      config.value = await api.get<AppConfig>('/config');
-    } catch {
-      bootError.value = 'Silent Handover can’t reach its server right now.';
+      const c = await api.get<AppConfig>('/config');
+      // Only the API's own settings count: anything else means the address is wrong.
+      if (!c || typeof c !== 'object' || !c.auth || !['local', 'supabase'].includes(c.auth.provider)) throw new Error('not the API');
+      config.value = c;
+    } catch (err) {
+      bootError.value = err instanceof ApiError && err.code === 'no_server'
+        ? 'Enter your hospital’s Silent Handover server address to continue.'
+        : 'Silent Handover can’t reach its server right now.';
       throw new Error(bootError.value);
     }
     bootError.value = null;

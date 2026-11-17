@@ -63,6 +63,16 @@ jobs:
       - name: Show the Android SDK
         run: echo "ANDROID_HOME=$ANDROID_HOME" && ls "$ANDROID_HOME/platforms" | tail -3
 
+      # Without an API address the installed app cannot reach any server: it then asks the person
+      # for the address on first launch. Set the repository variable ANDROID_API_URL to avoid that.
+      - name: Check the API address
+        run: |
+          if [ -z "$VITE_API_URL" ]; then
+            echo "::warning title=No API address::ANDROID_API_URL is not set, so this APK asks for the server address on first launch. Set it in Settings > Secrets and variables > Actions > Variables."
+          else
+            echo "API address built in: $VITE_API_URL"
+          fi
+
       - run: npm ci
       - name: Build the web app
         run: npm run build -w frontend

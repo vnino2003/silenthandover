@@ -36,7 +36,7 @@ async function signOut() {
     <IonContent class="sh-content">
       <div class="sh-page page-enter">
         <div class="mx-auto max-w-xl space-y-5">
-          <PageHeader title="Menu" :description="auth.profile?.department_name ?? 'System administration'" />
+          <PageHeader title="Menu" :description="auth.role === 'admin' ? 'System administration' : auth.profile?.department_name ?? ''" />
           <nav class="space-y-5" aria-label="All pages">
             <section v-for="g in navGroups" :key="g.name ?? 'main'" class="card overflow-hidden">
               <h2 v-if="g.name" class="border-b border-line px-4 py-2.5 text-[11.5px] font-semibold tracking-[0.06em] text-ink-3 uppercase">{{ g.name }}</h2>

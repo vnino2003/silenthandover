@@ -55,7 +55,7 @@ async function signOut() {
         <IonContent class="sh-content">
           <div class="flex min-h-full flex-col px-4 py-6">
             <RouterLink :to="auth.homePath" class="px-2 text-[15px] font-semibold tracking-[-0.01em]" aria-label="Silent Handover home"><BrandMark :size="30" /></RouterLink>
-            <p class="mt-0.5 px-2 text-[12.5px] text-ink-3">{{ auth.profile?.department_name ?? 'System administration' }}</p>
+            <p class="mt-0.5 px-2 text-[12.5px] text-ink-3">{{ auth.role === 'admin' ? 'System administration' : auth.profile?.department_name ?? '' }}</p>
             <p v-if="auth.experience.organization_name" class="mt-1 truncate px-2 text-[10px] text-ink-3" :title="auth.experience.organization_name">{{ auth.experience.organization_name }}</p>
             <nav class="mt-8" aria-label="Main">
               <div v-for="(g, gi) in navGroups" :key="g.name ?? 'main'" class="space-y-0.5" :class="{ 'mt-5': gi > 0 }">
@@ -110,7 +110,7 @@ async function signOut() {
           <IonToolbar class="sh-toolbar">
             <IonButtons slot="start"><IonMenuButton menu="main" aria-label="Open the menu" /></IonButtons>
             <p class="truncate text-[12px] font-medium text-ink-3">
-              <span class="uppercase">{{ auth.profile?.department_name ?? 'System administration' }}</span>
+              <span class="uppercase">{{ auth.role === 'admin' ? 'System administration' : auth.profile?.department_name ?? '' }}</span>
               <span class="mx-2 text-line-strong">/</span>
               <span class="text-ink-2">{{ auth.pageTitle(route.meta.title as string | undefined) ?? 'Overview' }}</span>
             </p>

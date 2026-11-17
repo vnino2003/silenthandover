@@ -53,6 +53,9 @@ export async function request<T>(method: string, path: string, body?: unknown, o
   const token = await tokenSource();
   if (token) headers.Authorization = `Bearer ${token}`;
   if (body !== undefined) headers['Content-Type'] = 'application/json';
+  // The Android app serves its own files from https://localhost: without a server address, a relative
+  // /api request would be answered by the app itself. Never send it; ask for the address instead.
+  if (isNative && !apiBase()) throw new ApiError(0, 'no_server', 'This app has no server address yet.');
   let res: Response;
   try {
     res = await fetch(`${apiBase()}/api${path}`, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), signal: options?.signal });
@@ -62,6 +65,8 @@ export async function request<T>(method: string, path: string, body?: unknown, o
   }
   const text = await res.text();
   const data = text ? safeJson(text) : null;
+  // A reply that is not the API's JSON (a web page, a proxy error) is never treated as data.
+  if (res.ok && text && data === null) throw new ApiError(0, 'not_api', 'The server address does not point to Silent Handover.');
   if (!res.ok) {
     const err = (data as { error?: { code?: string; message?: string; fields?: Record<string, string>; request_id?: string } })?.error;
     if (res.status === 401 && path !== '/auth/login') onUnauthorized();

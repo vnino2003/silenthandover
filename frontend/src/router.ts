@@ -95,7 +95,9 @@ router.beforeEach(async (to) => {
     try {
       await auth.init();
     } catch {
-      return true; // App.vue shows the connection error with a retry button.
+      // App.vue shows the connection error (and, in the Android app, the server address). Nothing
+      // behind sign-in is opened while the server cannot be reached.
+      return to.meta.public ? true : { path: '/login' };
     }
   }
   if (to.meta.public) {

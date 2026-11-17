@@ -90,8 +90,11 @@ export function useNavigation() {
       ? [{ to: '/', label: 'Today', exact: true }, { to: '/attendance', label: 'Attendance' }, { to: '/handover', label: 'Incoming' }, { to: '/reports', label: 'Endorsements' }]
       : auth.role === 'manager'
         ? [{ to: '/manager/shifts', label: 'Today' }, { to: '/manager', label: 'Approval', exact: true }, { to: '/manager/attendance', label: 'Attendance' }, { to: '/manager/schedule', label: 'Schedule' }]
-        : [{ to: '/admin/users', label: 'Accounts' }, { to: '/admin', label: 'System', exact: true }, { to: '/admin/ai-pipeline', label: 'Mica AI' }, { to: '/admin/settings', label: 'Rules' }]),
-    { to: '/menu', label: 'More' },
+        : auth.role === 'admin'
+          ? [{ to: '/admin/users', label: 'Accounts' }, { to: '/admin', label: 'System', exact: true }, { to: '/admin/ai-pipeline', label: 'Mica AI' }, { to: '/admin/settings', label: 'Rules' }]
+          : []),
+    // Nobody signed in (or no role yet): no pages at all, never the administrator's.
+    ...(auth.role ? [{ to: '/menu', label: 'More' }] : []),
   ]);
 
   const isActive = (item: { to: string; exact?: boolean }) => {
