@@ -5,6 +5,9 @@ import { openWorkAssistant } from '@/lib/assistant';
 import MicaMascot from '@/components/MicaMascot.vue';
 import { classifyWindow, type ReportStatus } from '@sh/shared';
 import DutyRing from '@/components/DutyRing.vue';
+import DutyStatus from '@/components/DutyStatus.vue';
+import { dutyNow } from '@/lib/duty-now';
+import type { AttendanceRecord } from '@/lib/workforce';
 import WeekStrip from '@/components/WeekStrip.vue';
 import ReportingWindow from '@/components/ReportingWindow.vue';
 import SeverityTag from '@/components/ui/SeverityTag.vue';
@@ -41,6 +44,9 @@ interface Dashboard {
 const auth = useAuth();
 const now = useNow();
 const { data, loading, error, reload } = useAsync(() => api.get<Dashboard>('/employee/dashboard'), [], { refreshMs: 60_000 });
+// Attendance for the duty card (on duty, late, time out due). Optional: Today works without it.
+const attendance = useAsync(() => api.get<{ records: AttendanceRecord[] }>('/attendance/me').catch(() => ({ records: [] as AttendanceRecord[] })), [], { refreshMs: 60_000 });
+const duty = computed(() => (attendance.data.value ? dutyNow(attendance.data.value.records, now.value) : null));
 
 const tz = computed(() => auth.profile?.department_timezone ?? undefined);
 const greeting = computed(() => {
@@ -106,6 +112,10 @@ const pendingAcks = computed(() => data.value?.incoming.filter((i) => !i.acknowl
                         <div><dt class="text-ink-3">Department</dt><dd>{{ current.department_name }}</dd></div>
                         <div v-if="current.supervisor_name"><dt class="text-ink-3">{{ $terms.supervisor }}</dt><dd>{{ current.supervisor_name }}</dd></div>
                       </dl>
+                      <div v-if="duty && duty.state !== 'off'" class="mt-4 rounded-lg border p-4" :class="duty.state === 'late' ? 'border-bad/30 bg-bad-soft/40' : duty.state === 'time_out_due' ? 'border-warn/30 bg-warn-soft/40' : 'border-line bg-canvas/60'">
+                        <DutyStatus :duty="duty" :tz="tz" compact />
+                        <UiButton v-if="duty.state !== 'done'" class="mt-3" size="sm" :variant="duty.state === 'late' || duty.state === 'time_out_due' ? 'primary' : 'secondary'" to="/attendance">{{ duty.state === 'on_duty' || duty.state === 'time_out_due' ? 'Time out' : 'Time in' }}</UiButton>
+                      </div>
                       <div class="mt-5 rounded-lg border border-line bg-canvas/60 p-4">
                         <DutyRing :shift="current" :now="now" />
                       </div>
@@ -126,6 +136,10 @@ const pendingAcks = computed(() => data.value?.incoming.filter((i) => !i.acknowl
                         Next: {{ data.upcoming[0].label }}, {{ day(data.upcoming[0].starts_at, data.upcoming[0].timezone) }} · {{ shiftRange(data.upcoming[0]) }}
                       </p>
                       <p v-else class="mt-1 text-[14px] text-ink-2">No upcoming shifts are scheduled for you this week.</p>
+                      <div v-if="duty && duty.state !== 'off'" class="mt-4 rounded-lg border p-4" :class="duty.state === 'late' ? 'border-bad/30 bg-bad-soft/40' : duty.state === 'time_out_due' ? 'border-warn/30 bg-warn-soft/40' : 'border-line bg-canvas/60'">
+                        <DutyStatus :duty="duty" :tz="tz" compact />
+                        <UiButton v-if="duty.state !== 'done'" class="mt-3" size="sm" :variant="duty.state === 'late' || duty.state === 'time_out_due' ? 'primary' : 'secondary'" to="/attendance">{{ duty.state === 'on_duty' || duty.state === 'time_out_due' ? 'Time out' : 'Time in' }}</UiButton>
+                      </div>
                     </template>
                   </section>
 

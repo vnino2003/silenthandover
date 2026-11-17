@@ -7,10 +7,13 @@ import StatusBadge from '@/components/ui/StatusBadge.vue';
 import UiButton from '@/components/ui/UiButton.vue';
 import UiDialog from '@/components/ui/UiDialog.vue';
 import UiField from '@/components/ui/UiField.vue';
+import DutyStatus from '@/components/DutyStatus.vue';
+import { dutyNow } from '@/lib/duty-now';
 import { api, errorMessage } from '@/lib/api';
 import { day, time } from '@/lib/format';
 import { EXCEPTION_LABEL, minutes, parseStationQr, recordStatus, SOURCE_LABEL, type AttendanceException, type AttendanceRecord } from '@/lib/workforce';
 import { useAsync } from '@/composables/useAsync';
+import { useNow } from '@/composables/useNow';
 import { useAuth } from '@/stores/auth';
 import { useToast } from '@/stores/toast';
 
@@ -30,6 +33,16 @@ const toast = useToast();
 const tz = computed(() => auth.profile?.department_timezone ?? undefined);
 const { data, loading, error, reload } = useAsync(() => api.get<Mine>('/attendance/me'), [], { refreshMs: 60_000 });
 
+// ---- Where the person stands with today's duty (on duty, late, time out due), kept current ----
+const now = useNow();
+const duty = computed(() => (data.value ? dutyNow(data.value.records, now.value) : null));
+/** What the next scan records (the server decides; this is only the wording). */
+const nextKind = computed(() => (duty.value?.state === 'on_duty' || duty.value?.state === 'time_out_due' ? 'out' : duty.value?.state === 'late' || duty.value?.state === 'upcoming' ? 'in' : null));
+const punchVerb = computed(() => (nextKind.value === 'out' ? 'time out' : nextKind.value === 'in' ? 'time in' : 'time in or out'));
+// Timing out before the duty ends is allowed (emergencies) but asked once, since it counts as undertime.
+const earlyOk = ref(false);
+const needsEarlyConfirm = computed(() => duty.value?.state === 'on_duty' && !earlyOk.value);
+
 // ---- Time in / out ----
 const stationId = ref('');
 const code = ref('');
@@ -42,6 +55,8 @@ async function punch(station: string, value: string) {
     const res = await api.post<{ kind: 'in' | 'out'; captured_at: string; repeat: boolean }>('/attendance/scan', { station_id: station, code: value });
     toast.ok(res.repeat ? 'Already recorded a moment ago' : `Time-${res.kind} recorded at ${time(res.captured_at, tz.value)}`);
     code.value = '';
+    earlyOk.value = false;
+    now.value = auth.serverNow();
     await reload(true);
   } catch (e) {
     scanError.value = errorMessage(e);
@@ -141,14 +156,20 @@ const CORRECTION_KIND: Record<string, string> = { add_in: 'Add time-in', add_out
           <PageHeader title="Attendance" description="Time in and out at your unit’s QR station. Your department head verifies each duty; mistakes are fixed through a correction." />
 
           <section class="card p-5" aria-labelledby="punch-h">
-            <h2 id="punch-h" class="text-[15px] font-semibold">Time in or out</h2>
-            <p class="mt-1 text-[13px] text-ink-3">Scan the code on the station screen, or type the 6 digits it shows. It changes every 30 seconds.</p>
+            <h2 id="punch-h" class="sr-only">Your duty now</h2>
+            <DutyStatus v-if="duty" :duty="duty" :tz="tz" />
+            <div v-if="needsEarlyConfirm && duty?.state === 'on_duty'" class="mt-4 rounded-lg border border-line bg-canvas p-4">
+              <p class="text-[13.5px] text-ink-2">Leaving before {{ time(duty.record.scheduled_end, tz) }} counts the remaining {{ minutes(duty.endsInMinutes) }} as undertime, which is not paid. Your department head sees it.</p>
+              <UiButton class="mt-3" size="sm" variant="secondary" @click="earlyOk = true">Time out early</UiButton>
+            </div>
+            <template v-else>
+            <p class="text-[13px] text-ink-3" :class="duty ? 'mt-4 border-t border-line pt-4' : ''">To {{ punchVerb }}, scan the code on the station screen or type the 6 digits it shows. It changes every 30 seconds.</p>
             <div v-if="scanning" class="mt-4">
               <video ref="video" class="aspect-square w-full max-w-xs rounded-lg bg-ink object-cover" playsinline muted aria-label="Camera preview" />
               <UiButton class="mt-3" size="sm" variant="ghost" @click="stopScan">Stop scanning</UiButton>
             </div>
             <div v-else class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
-              <UiButton v-if="canScan" variant="primary" :loading="busy" @click="startScan">Scan the station</UiButton>
+              <UiButton v-if="canScan" variant="primary" :loading="busy" @click="startScan">{{ nextKind ? `Scan to ${punchVerb}` : 'Scan the station' }}</UiButton>
               <form class="flex flex-1 flex-col gap-2 sm:flex-row sm:items-end" @submit.prevent="submitCode">
                 <UiField v-if="(data?.stations.length ?? 0) > 1" v-slot="{ labelledby }" label="Station" class="sm:w-44">
                   <IonSelect v-model="stationId" class="field-input" interface="popover" :aria-labelledby="labelledby" placeholder="Choose">
@@ -158,9 +179,10 @@ const CORRECTION_KIND: Record<string, string> = { add_in: 'Add time-in', add_out
                 <UiField v-slot="{ id, labelledby }" label="Code" class="sm:w-36">
                   <IonInput :id="id" v-model="code" :aria-labelledby="labelledby" class="field-input tnum" inputmode="numeric" :maxlength="6" placeholder="000000" autocomplete="off" />
                 </UiField>
-                <UiButton type="submit" :variant="canScan ? 'secondary' : 'primary'" :loading="busy && !scanning">Record</UiButton>
+                <UiButton type="submit" :variant="canScan ? 'secondary' : 'primary'" :loading="busy && !scanning">{{ nextKind === 'out' ? 'Record time-out' : nextKind === 'in' ? 'Record time-in' : 'Record' }}</UiButton>
               </form>
             </div>
+            </template>
             <p v-if="scanError" role="alert" class="mt-3 text-[13px] text-bad">{{ scanError }}</p>
           </section>
 
