@@ -77,6 +77,14 @@ export function createApp(services: Services) {
     if (!body.success) throw new ApiError(401, 'invalid_credentials', 'Email or password is incorrect');
     return c.json(await auth.login(body.data.email, body.data.password));
   });
+  // Signing out ends the session on the server too (local mode; Supabase Auth ends its own).
+  app.post('/api/auth/logout', async (c) => {
+    const header = c.req.header('authorization') ?? '';
+    const token = header.startsWith('Bearer ') ? header.slice(7) : '';
+    const { auth } = svc(c);
+    if (token && auth.logout) await auth.logout(token);
+    return c.json({ ok: true });
+  });
 
   // Invitation and password-reset links. The token travels in the request body, never the URL.
   const inviteLimiter = rateLimit({ windowMs: 60_000, max: 20, key: (c) => `invite:${clientIp(c)}` });

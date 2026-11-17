@@ -1,5 +1,5 @@
 import { createRemoteJWKSet, jwtVerify, SignJWT } from 'jose';
-import { randomBytes, scrypt as scryptCb, timingSafeEqual } from 'node:crypto';
+import { randomBytes, randomUUID, scrypt as scryptCb, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 import type { Config } from '../config';
 import type { Db } from '../db/types';
@@ -20,6 +20,8 @@ export interface AuthProvider {
   /** Which of these accounts can sign in with a password today. */
   withPassword(userIds: string[]): Promise<Set<string> | null>;
   login?(email: string, password: string): Promise<{ token: string; expires_at: string }>;
+  /** Ends this session on the server, so the token is refused even if a copy is kept (local mode). */
+  logout?(token: string): Promise<void>;
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -47,10 +49,31 @@ export function createLocalAuth(db: Db, secret: string): AuthProvider {
       try {
         const { payload } = await jwtVerify(token, key, { issuer: 'silent-handover-local', audience: 'authenticated' });
         if (!payload.sub) throw new Error('no sub');
+        // A signed-out session stays signed out, even if the token was kept or restored on a device.
+        if (payload.jti) {
+          const revoked = await db.asService((q) => q.query('select 1 from local_auth.revoked_tokens where jti = $1', [payload.jti]));
+          if (revoked.length) throw new Error('revoked');
+        }
         return payload.sub;
       } catch {
         throw new ApiError(401, 'unauthenticated', 'Your session has expired. Please sign in again.');
       }
+    },
+    async logout(token) {
+      let jti: string | undefined;
+      let exp: number | undefined;
+      try {
+        const { payload } = await jwtVerify(token, key, { issuer: 'silent-handover-local', audience: 'authenticated' });
+        jti = payload.jti;
+        exp = payload.exp;
+      } catch {
+        return; // already invalid or expired: nothing to end
+      }
+      if (!jti || !exp) return;
+      await db.asService(async (q) => {
+        await q.query('insert into local_auth.revoked_tokens (jti, expires_at) values ($1, to_timestamp($2)) on conflict (jti) do nothing', [jti, exp]);
+        await q.query('delete from local_auth.revoked_tokens where expires_at < now()');
+      });
     },
     async createUser(email, password) {
       const hash = password ? await hashPassword(password) : null;
@@ -97,6 +120,7 @@ export function createLocalAuth(db: Db, secret: string): AuthProvider {
         .setIssuer('silent-handover-local')
         .setAudience('authenticated')
         .setIssuedAt()
+        .setJti(randomUUID())
         .setExpirationTime(exp)
         .sign(key);
       return { token, expires_at: new Date(exp * 1000).toISOString() };

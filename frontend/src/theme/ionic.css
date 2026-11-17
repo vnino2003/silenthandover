@@ -210,8 +210,8 @@ ion-segment.sh-segment ion-segment-button {
   font-weight: 500;
 }
 
-/* Phone-only parts of the shell (bottom bar, alerts button) hide when the side menu shows (split pane "lg" = 992px).
-   Ionic's own unlayered styles would beat Tailwind's layered display utilities, so this is a plain rule. */
-@media (min-width: 992px) {
-  .sh-hide-lg { display: none !important; }
-}
+/* Phone-only parts of the shell (bottom bar with More, alerts button) hide exactly when Ionic shows the side
+   menu (split pane "lg" = 992px), keyed to the split pane's own state rather than a separate media query, so
+   a rotation or resize can never leave neither navigation visible. Ionic's unlayered styles would beat
+   Tailwind's layered display utilities, so this is a plain rule. */
+ion-split-pane.split-pane-visible .sh-hide-lg { display: none !important; }

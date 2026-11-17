@@ -45,6 +45,8 @@ const routes: RouteRecordRaw[] = [
       { path: 'tasks', component: () => import('@/pages/shared/IssuesPage.vue'), meta: { assistantPage: 'issues', roles: staff, title: 'Open concerns' } },
       { path: 'tasks/:id', component: () => import('@/pages/shared/IssueDetailPage.vue'), meta: { assistantPage: 'issue', roles: staff, title: 'Concern' } },
       { path: 'notifications', component: () => import('@/pages/shared/NotificationsPage.vue'), meta: { assistantPage: 'notifications', title: 'Notifications' } },
+      // Phones: every page of the menu (the bottom bar's More). Its contents follow the person's role and duties.
+      { path: 'menu', component: () => import('@/pages/shared/MenuPage.vue'), meta: { title: 'Menu' } },
       { path: 'profile', component: () => import('@/pages/shared/ProfilePage.vue'), meta: { assistantPage: 'profile', title: 'Profile' } },
 
       { path: 'manager', component: () => import('@/pages/manager/QueuePage.vue'), meta: { assistantPage: 'review', roles: manager, title: 'For approval' } },

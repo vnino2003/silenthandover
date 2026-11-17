@@ -2,7 +2,7 @@ import { defineStore } from 'pinia';
 import { DepartmentExperience, departmentTerms, GENERIC_EXPERIENCE, ROLE_LABELS, type Role } from '@sh/shared';
 import { computed, ref } from 'vue';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { api, ApiError, configureApi } from '@/lib/api';
+import { api, ApiError, apiBase, configureApi } from '@/lib/api';
 import type { AppConfig, Capability, Profile } from '@/lib/types';
 
 const TOKEN_KEY = 'sh.session';
@@ -10,6 +10,26 @@ const TOKEN_KEY = 'sh.session';
 interface LocalSession {
   token: string;
   expires_at: string;
+  /** The server that issued it. A session is never reused against another server. */
+  api?: string;
+}
+
+/**
+ * Device settings that are not a person's data and stay after signing out: the Android app's server
+ * address and QR station keys. Everything else this app keeps in storage belongs to the signed-in
+ * person and is removed on sign-out (session, Supabase session, endorsement draft backups).
+ */
+const DEVICE_KEYS = (key: string) => key === 'sh.apiBase' || key.startsWith('sh.station.');
+
+function clearPersonalStorage() {
+  try {
+    for (const key of Object.keys(localStorage)) {
+      if ((key.startsWith('sh.') && !DEVICE_KEYS(key)) || key.startsWith('sb-')) localStorage.removeItem(key);
+    }
+    sessionStorage.clear();
+  } catch {
+    /* storage unavailable */
+  }
 }
 
 function readLocalSession(): LocalSession | null {
@@ -17,7 +37,10 @@ function readLocalSession(): LocalSession | null {
     const raw = localStorage.getItem(TOKEN_KEY);
     if (!raw) return null;
     const s = JSON.parse(raw) as LocalSession;
-    return new Date(s.expires_at).getTime() > Date.now() + 30_000 ? s : null;
+    // Only a live session from this same server counts; anything else is discarded.
+    const valid = typeof s.token === 'string' && new Date(s.expires_at).getTime() > Date.now() + 30_000 && s.api === apiBase();
+    if (!valid) localStorage.removeItem(TOKEN_KEY);
+    return valid ? s : null;
   } catch {
     return null;
   }
@@ -55,11 +78,7 @@ export const useAuth = defineStore('auth', () => {
 
   function clearSession() {
     local = null;
-    try {
-      localStorage.removeItem(TOKEN_KEY);
-    } catch {
-      /* storage unavailable */
-    }
+    clearPersonalStorage();
     profile.value = null;
     experience.value = DepartmentExperience.parse({});
   }
@@ -103,7 +122,7 @@ export const useAuth = defineStore('auth', () => {
   }
 
   function keepLocalSession(s: LocalSession) {
-    local = s;
+    local = { ...s, api: apiBase() };
     try {
       localStorage.setItem(TOKEN_KEY, JSON.stringify(local));
     } catch {
@@ -133,9 +152,22 @@ export const useAuth = defineStore('auth', () => {
     }
   }
 
+  /**
+   * Ends the session on the server and removes the person's data from this device. Local mode: the
+   * server records the token as signed out, so a kept or restored copy is refused. Supabase: this
+   * session's refresh token is revoked (other devices of the same person stay signed in).
+   */
   async function signOut() {
-    if (supabase) await supabase.auth.signOut();
+    try {
+      if (supabase) await supabase.auth.signOut({ scope: 'local' });
+      else if (local) await api.post('/auth/logout');
+    } catch {
+      /* offline or already ended: the device is still cleared */
+    }
     clearSession();
+    // Start the app fresh: no store, cached page or timer of this person may reach the next one
+    // (notifications, Mica conversations and drafts, page data kept for the back button).
+    window.location.replace('/login');
   }
 
   const role = computed(() => profile.value?.role ?? null);

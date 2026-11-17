@@ -35,6 +35,11 @@ create table if not exists local_auth.credentials (
   password_hash text not null,
   updated_at timestamptz not null default now()
 );
+-- Sessions ended by signing out (kept until the token would have expired anyway).
+create table if not exists local_auth.revoked_tokens (
+  jti text primary key,
+  expires_at timestamptz not null
+);
 
 create table if not exists public.schema_migrations (
   name text primary key,

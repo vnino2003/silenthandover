@@ -3,6 +3,12 @@ import { computed } from 'vue';
 const props = defineProps<{ path: string }>();
 const lines = computed(() => {
   const p = props.path;
+  if (p === '/menu') return ['M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z'];
+  if (p.includes('attendance')) return ['M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z', 'M12 7v5l3 2'];
+  if (p.includes('dtr')) return ['M6 3h8l4 4v14H6z', 'M14 3v5h4', 'm9 14 2 2 4-4'];
+  if (p.includes('payslips') || p.includes('payroll')) return ['M3 6h18v12H3z', 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6ZM6 9v.01M18 15v.01'];
+  if (p === '/hr') return ['M4 5h16v14H4z', 'M9 11a2 2 0 1 0 0-4 2 2 0 0 0 0 4Zm-3 5c.5-1.7 1.6-2.5 3-2.5s2.5.8 3 2.5M14 9h4m-4 4h3'];
+  if (p.includes('team')) return ['M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2m20 0v-2a4 4 0 0 0-3-3.87', 'M13 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0Zm3-3a4 4 0 0 1 0 8'];
   if (p.includes('assistant') || p.includes('ai-pipeline')) return ['m12 3 2.6 6.4L21 12l-6.4 2.6L12 21l-2.6-6.4L3 12l6.4-2.6L12 3Z'];
   if (p.includes('leave')) return ['M5 5h14v15H5z', 'M8 3v4m8-4v4M5 10h14', 'm9.5 15 2 2 3.5-3.5'];
   if (p.includes('schedule') || p.includes('shifts')) return ['M5 5h14v15H5z', 'M8 3v4m8-4v4M5 10h14m-10 4h2m2 3h2'];
