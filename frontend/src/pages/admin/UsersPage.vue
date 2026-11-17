@@ -161,7 +161,7 @@ async function save() {
                 <UiField v-slot="{ id, labelledby }" label="Full name" :error="errors.full_name">
                   <IonInput :id="id" :aria-labelledby="labelledby" v-model="editing.full_name" class="field-input" :maxlength="120"  />
                 </UiField>
-                <UiField v-if="editing.role !== 'admin'" v-slot="{ id, labelledby }" label="Job title" optional hint="Shown on schedules, for example Staff nurse, Forklift operator or Cashier." :error="errors.job_title">
+                <UiField v-if="editing.role !== 'admin'" v-slot="{ id, labelledby }" label="Job title" optional hint="Shown on schedules, for example Staff Nurse, Nursing Attendant or Head Nurse." :error="errors.job_title">
                   <IonInput :id="id" :aria-labelledby="labelledby" v-model="editing.job_title" class="field-input" :maxlength="80"  />
                 </UiField>
                 <template v-if="!editing.id">
