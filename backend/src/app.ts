@@ -28,6 +28,11 @@ export function createApp(services: Services) {
     await next();
   });
   app.use('*', secureHeaders());
+  // A change that succeeded may have created notifications: push them to devices now.
+  app.use('/api/*', async (c, next) => {
+    await next();
+    if (c.req.method !== 'GET' && c.req.method !== 'OPTIONS' && c.res.status < 400) services.pushKick();
+  });
   app.use('/api/*', cors({ origin: services.config.corsOrigins, allowHeaders: ['Authorization', 'Content-Type', 'X-Station-Key'], maxAge: 600 }));
 
   app.onError((err, c) => {

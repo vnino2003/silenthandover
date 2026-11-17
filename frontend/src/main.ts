@@ -9,6 +9,7 @@ import App from './App.vue';
 import { router } from './router';
 import { useAuth } from './stores/auth';
 import { initDevice } from './lib/native';
+import { registerServiceWorker } from './lib/push';
 import './style.css';
 import './theme/ionic.css';
 
@@ -20,4 +21,6 @@ Object.defineProperty(app.config.globalProperties, '$terms', { get: () => useAut
 router.isReady().then(() => {
   app.mount('#app');
   void initDevice(router);
+  // Shows phone and desktop alerts and makes the app installable (web only).
+  void registerServiceWorker();
 });

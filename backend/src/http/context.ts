@@ -6,6 +6,7 @@ import type { AnalysisPipeline } from '../automation/analysis';
 import type { AiSettings } from '../automation/ai-provider';
 import type { EmailSender } from '../automation/email-sender';
 import type { NotificationDispatcher } from '../automation/notifications';
+import type { PushSender } from '../automation/web-push';
 import type { Config } from '../config';
 import type { Db, Queryable } from '../db/types';
 import { ApiError, fromZodError } from './errors';
@@ -42,10 +43,14 @@ export interface Services {
   /** The email sender the administrator connected (or the configured fallback). */
   email: EmailSender;
   notifications: NotificationDispatcher;
+  /** Phone and desktop alerts (Web Push). */
+  push: PushSender;
   /** Outbound HTTP (replaced in tests). */
   fetchImpl: typeof fetch;
   /** Process queued automation work soon (non-blocking). */
   kick: () => void;
+  /** Send queued phone alerts now (non-blocking). */
+  pushKick: () => void;
   log: (msg: string, extra?: Record<string, unknown>) => void;
 }
 

@@ -2,6 +2,7 @@
 import { IonCheckbox, IonContent, IonInput, IonPage } from '@ionic/vue';
 import { ref } from 'vue';
 import { ROLE_LABELS } from '@sh/shared';
+import PushCard from '@/components/PushCard.vue';
 import PageHeader from '@/components/ui/PageHeader.vue';
 import StatusBadge from '@/components/ui/StatusBadge.vue';
 import UiButton from '@/components/ui/UiButton.vue';
@@ -106,9 +107,11 @@ async function save() {
               <p class="mt-4 text-[13px] text-ink-3">Name, role and department are managed by your administrator.</p>
             </section>
 
+            <PushCard class="mt-5" />
+
             <form class="card mt-5 space-y-4 p-5" @submit.prevent="save">
               <h2 class="text-[15px] font-semibold">Notifications</h2>
-              <p class="text-[13px] text-ink-3">You always receive notifications in the app. Emails contain a link only, never endorsement content.</p>
+              <p class="text-[13px] text-ink-3">You always receive notifications in the app, and on devices where you turned alerts on. Emails contain a link only, never endorsement content.</p>
               <IonCheckbox class="flex items-center gap-2 text-[14px]" v-model="form.notify_email" label-placement="end" justify="start">Email me</IonCheckbox>
               <IonCheckbox class="flex items-center gap-2 text-[14px]" :class="{ 'text-ink-3': !auth.config?.integrations.sms.connected }" v-model="form.notify_sms" :disabled="!auth.config?.integrations.sms.connected && !form.notify_sms" label-placement="end" justify="start">Text me (SMS)<StatusBadge v-if="!auth.config?.integrations.sms.connected" tone="neutral" label="Coming soon" /></IonCheckbox>
               <p v-if="form.notify_sms && !auth.config?.integrations.sms.connected" class="text-[13px] text-warn">

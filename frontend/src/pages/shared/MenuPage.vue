@@ -9,6 +9,7 @@ import UserAvatar from '@/components/UserAvatar.vue';
 import { useAsync } from '@/composables/useAsync';
 import { useNavigation } from '@/composables/useNavigation';
 import { api } from '@/lib/api';
+import { disablePush } from '@/lib/push';
 import { useAuth } from '@/stores/auth';
 import { useNotifications } from '@/stores/notifications';
 
@@ -26,6 +27,8 @@ const summary = useAsync(() => (auth.role === 'manager' ? api.get<{ pending_revi
 const counts = computed(() => ({ review: summary.data.value?.pending_review ?? 0, leave: summary.data.value?.pending_leave ?? 0 }));
 
 async function signOut() {
+  // Alerts belong to the person, not the device: stop them here before signing out (as the side menu does).
+  await disablePush();
   await auth.signOut();
   await router.replace('/login');
 }

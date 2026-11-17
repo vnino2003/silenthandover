@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { DepartmentExperience } from '@sh/shared';
 import { z } from 'zod';
 import { ApiError } from '../http/errors';
-import { asUser, idParam, parseBody, parseQuery, requireRole, type AppEnv } from '../http/context';
+import { asUser, idParam, parseBody, parseQuery, requireRole, svc, type AppEnv } from '../http/context';
 
 export function meRoutes() {
   const r = new Hono<AppEnv>();
@@ -61,6 +61,40 @@ export function meRoutes() {
       'Cache-Control': 'private, max-age=86400',
       'X-Content-Type-Options': 'nosniff',
     });
+  });
+
+  // Phone and desktop alerts (Web Push) for the devices this person turned them on for.
+  r.get('/me/push', async (c) => {
+    const keys = await svc(c).push.keys();
+    const devices = await asUser(c, (q) =>
+      q.query('select endpoint, device_label, created_at, last_success_at from public.push_subscriptions where profile_id = auth.uid() order by created_at'),
+    );
+    return c.json({ available: !!keys, public_key: keys?.publicKey ?? null, devices });
+  });
+
+  r.put('/me/push', async (c) => {
+    const body = await parseBody(
+      c,
+      z.strictObject({
+        endpoint: z.url().max(1000).regex(/^https:\/\//, 'Unsupported push address'),
+        keys: z.strictObject({ p256dh: z.string().regex(/^[A-Za-z0-9_-]{80,100}$/), auth: z.string().regex(/^[A-Za-z0-9_-]{16,30}$/) }),
+        device_label: z.string().trim().max(80).nullable().optional(),
+      }),
+    );
+    if (!(await svc(c).push.keys())) throw new ApiError(503, 'push_unavailable', 'Phone alerts are not available on this server');
+    await asUser(c, (q) => q.query('select app.save_push_subscription($1, $2, $3, $4)', [body.endpoint, body.keys.p256dh, body.keys.auth, body.device_label ?? null]));
+    return c.json({ ok: true });
+  });
+
+  r.delete('/me/push', async (c) => {
+    const body = await parseBody(c, z.strictObject({ endpoint: z.string().max(1000) }));
+    await asUser(c, (q) => q.query('select app.remove_push_subscription($1)', [body.endpoint]));
+    return c.json({ ok: true });
+  });
+
+  r.post('/me/push/test', async (c) => {
+    await asUser(c, (q) => q.query('select app.send_test_push()'));
+    return c.json({ ok: true });
   });
 
   r.get('/notifications', async (c) => {

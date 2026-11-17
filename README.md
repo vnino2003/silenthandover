@@ -52,6 +52,10 @@ Details: [architecture](docs/architecture.md) and [database](docs/database.md).
 
 QR attendance at a staff-only unit station (a code that changes every 30 seconds), reconciled against the duty schedule and leave; Head Nurse verification, corrections, overtime and cover; DTRs confirmed by staff and certified by the Head Nurse (Form 48 print layout); HR period lock; payroll from certified totals with Finance approval by a different person; payslips. Duties (HR timekeeper, payroll, Finance, Nursing Service) are granted by IT on User accounts. Pay rules in the demo are labelled samples. See [docs/workforce.md](docs/workforce.md).
 
+## Install and alerts
+
+Everyone (staff, Head Nurse, HR, payroll, IT) can install the web app from the browser (Chrome or Edge: **Install app**; iPhone: **Share → Add to Home Screen**) and turn on **alerts** for that device on **Notifications** or **Profile**. Every in-app notification is then also pushed to the device (Web Push), so a new shift, a leave request or decision, an endorsement to approve or acknowledge, or a follow-up shows on the lock screen right away, even with the app closed. Alerts carry the title and short text only, never endorsement content, and signing out turns them off on that device. They need HTTPS (or `localhost`) and the secrets key that also protects the AI key. The Capacitor Android APK does not show them; on Android, install from Chrome instead. See [alerts](docs/alerts.md).
+
 ## Android app
 
 The same app as an Android APK (Capacitor 8). GitHub → Actions → **Android APK** → latest run → Artifacts. See [docs/android.md](docs/android.md).

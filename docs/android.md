@@ -37,6 +37,7 @@ directly in the app) need a verified domain and are not set up.
   are also kept on the device.
 - **Sessions:** the sign-in token is stored in the app's private WebView storage, which other apps
   can't read. It expires like on the web. A Keystore-backed secure store is a later improvement.
+- **Alerts:** the APK shows notifications inside the app only; its WebView cannot receive Web Push. For lock-screen alerts on Android, install the web app from Chrome and turn alerts on (see [alerts](alerts.md)).
 - **Permissions:** the app asks for none at install. Taking a photo uses the system file and camera
   picker only when someone attaches a photo.
 

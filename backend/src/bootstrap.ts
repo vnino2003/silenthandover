@@ -14,6 +14,7 @@ import {
   NotificationDispatcher,
   type EmailTransport,
 } from './automation/notifications';
+import { PushSender } from './automation/web-push';
 import type { Config } from './config';
 import { migrate } from './db/migrate';
 import { createPgliteDb } from './db/pglite';
@@ -110,6 +111,7 @@ export async function createServices(config: Config, opts: BootstrapOptions = {}
   const email = new EmailSender(db, secretBox, transport, fetchImpl, opts.smtp);
   await email.load();
   const notifications = new NotificationDispatcher(db, config, email.transport(), smsTransport, logger);
+  const push = new PushSender(db, secretBox, config, fetchImpl, logger);
 
   // Background work runs one pass at a time; a kick during a pass schedules one more pass.
   let running = false;
@@ -127,6 +129,7 @@ export async function createServices(config: Config, opts: BootstrapOptions = {}
         again = false;
         await analysis.runDue();
         await notifications.runDue();
+        await push.runDue();
       } while (again && !stopped);
     } catch (err) {
       logger('background pass failed', { error: err instanceof Error ? err.message : String(err) });
@@ -137,6 +140,33 @@ export async function createServices(config: Config, opts: BootstrapOptions = {}
   const kick = () => {
     if (opts.manualKick) return;
     setTimeout(() => void pass(), 0);
+  };
+  // Phone alerts go out right after the change that caused them, not on the next scheduler tick.
+  let pushing = false;
+  let pushAgain = false;
+  let pushTimer: NodeJS.Timeout | null = null;
+  const pushPass = async () => {
+    pushTimer = null;
+    if (stopped) return;
+    if (pushing) {
+      pushAgain = true;
+      return;
+    }
+    pushing = true;
+    try {
+      do {
+        pushAgain = false;
+        await push.runDue();
+      } while (pushAgain && !stopped);
+    } catch (err) {
+      logger('push pass failed', { error: err instanceof Error ? err.message : String(err) });
+    } finally {
+      pushing = false;
+    }
+  };
+  const pushKick = () => {
+    if (opts.manualKick || pushTimer) return;
+    pushTimer = setTimeout(() => void pushPass(), 150);
   };
 
   let timer: NodeJS.Timeout | null = null;
@@ -167,11 +197,15 @@ export async function createServices(config: Config, opts: BootstrapOptions = {}
     email,
     fetchImpl,
     notifications,
+    push,
     kick,
+    pushKick,
     log: logger,
     stop: async () => {
       stopped = true;
       if (timer) clearInterval(timer);
+      if (pushTimer) clearTimeout(pushTimer);
+      while (pushing) await new Promise((r) => setTimeout(r, 20));
       while (running) await new Promise((r) => setTimeout(r, 20));
       await db.close();
     },

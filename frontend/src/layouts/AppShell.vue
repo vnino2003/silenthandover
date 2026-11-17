@@ -7,6 +7,7 @@ import AssistantDock from '@/components/AssistantDock.vue';
 import NavIcon from '@/components/ui/NavIcon.vue';
 import UserAvatar from '@/components/UserAvatar.vue';
 import { api } from '@/lib/api';
+import { disablePush, syncPush } from '@/lib/push';
 import { useAsync } from '@/composables/useAsync';
 import { useNavigation } from '@/composables/useNavigation';
 import { useAuth } from '@/stores/auth';
@@ -36,11 +37,16 @@ watch(
     if (auth.role === 'manager') void summary.reload(true);
   },
 );
-onMounted(() => notes.start());
+onMounted(() => {
+  notes.start();
+  void syncPush();
+});
 onUnmounted(() => notes.stop());
 
 async function signOut() {
   await menuController.close('main');
+  // Alerts belong to the person, not the device: stop them here before signing out.
+  await disablePush();
   await auth.signOut();
   router.replace('/login');
 }

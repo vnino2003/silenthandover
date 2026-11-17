@@ -147,7 +147,7 @@ export async function resetActivity(services: Services, actorId: string) {
     'internal.assistant_proposals',
     'public.issue_photos', 'public.issue_updates', 'public.issue_assignments', 'public.operational_issues',
     'public.handover_routes', 'public.handover_acknowledgments', 'public.handover_deliveries', 'public.handover_approvals',
-    'public.ai_analysis_runs', 'internal.analysis_inputs', 'public.notification_deliveries', 'public.notifications',
+    'public.ai_analysis_runs', 'internal.analysis_inputs', 'public.notification_deliveries', 'internal.push_queue', 'public.notifications',
     'public.automation_events', 'public.report_revisions', 'public.report_window_overrides', 'public.shift_reports',
     'public.attendance_exceptions', 'public.attendance_corrections', 'public.attendance_event_voids', 'public.attendance_records',
     'public.coverage_changes', 'public.duty_expectations', 'public.attendance_events',

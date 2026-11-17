@@ -2,6 +2,7 @@
 import { IonContent, IonItem, IonPage } from '@ionic/vue';
 import { onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import PushCard from '@/components/PushCard.vue';
 import PageHeader from '@/components/ui/PageHeader.vue';
 import StateBlock from '@/components/ui/StateBlock.vue';
 import UiButton from '@/components/ui/UiButton.vue';
@@ -27,6 +28,7 @@ async function open(n: NotificationItem) {
             <PageHeader title="Notifications">
               <UiButton v-if="notes.unread" size="sm" @click="notes.markRead(null)">Mark all as read</UiButton>
             </PageHeader>
+            <PushCard prompt class="mb-4" />
             <StateBlock :empty="!notes.items.length" empty-title="You’re all caught up" empty-text="Approvals, endorsements and follow-ups appear here.">
               <ul class="stagger card divide-y divide-line">
                 <li v-for="n in notes.items" :key="n.id">
