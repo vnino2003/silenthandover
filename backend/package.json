@@ -13,6 +13,7 @@
     "demo:hospital": "tsx src/scripts/replace-demo.ts",
     "demo:schedule": "tsx src/scripts/schedule-demo.ts",
     "demo:workforce": "tsx src/scripts/workforce-demo.ts",
+    "demo:live": "tsx src/scripts/live-demo.ts",
     "presentation:prepare": "tsx src/scripts/presentation.ts",
     "setup:live": "tsx src/scripts/go-live.ts",
     "prompt:eval": "tsx src/scripts/prompt-eval.ts"

@@ -17,6 +17,7 @@
     "demo:hospital": "npm run demo:hospital -w backend",
     "demo:schedule": "npm run demo:schedule -w backend",
     "demo:workforce": "npm run demo:workforce -w backend",
+    "demo:live": "npm run demo:live -w backend --",
     "presentation:prepare": "npm run presentation:prepare -w backend --",
     "setup:live": "npm run setup:live -w backend --",
     "prompt:eval": "npm run prompt:eval -w backend --"
