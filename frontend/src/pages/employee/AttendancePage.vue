@@ -39,9 +39,9 @@ const duty = computed(() => (data.value ? dutyNow(data.value.records, now.value)
 /** What the next scan records (the server decides; this is only the wording). */
 const nextKind = computed(() => (duty.value?.state === 'on_duty' || duty.value?.state === 'time_out_due' ? 'out' : duty.value?.state === 'late' || duty.value?.state === 'upcoming' ? 'in' : null));
 const punchVerb = computed(() => (nextKind.value === 'out' ? 'time out' : nextKind.value === 'in' ? 'time in' : 'time in or out'));
-// Timing out before the duty ends is allowed (emergencies) but asked once, since it counts as undertime.
-const earlyOk = ref(false);
-const needsEarlyConfirm = computed(() => duty.value?.state === 'on_duty' && !earlyOk.value);
+// The station takes a time-out only once the duty has ended (the database refuses it earlier); someone
+// who must leave early asks the Head Nurse to record it. Until then the scan controls are put away.
+const waitingForEnd = computed(() => duty.value?.state === 'on_duty');
 
 // ---- Time in / out ----
 const stationId = ref('');
@@ -55,7 +55,6 @@ async function punch(station: string, value: string) {
     const res = await api.post<{ kind: 'in' | 'out'; captured_at: string; repeat: boolean }>('/attendance/scan', { station_id: station, code: value });
     toast.ok(res.repeat ? 'Already recorded a moment ago' : `Time-${res.kind} recorded at ${time(res.captured_at, tz.value)}`);
     code.value = '';
-    earlyOk.value = false;
     now.value = auth.serverNow();
     await reload(true);
   } catch (e) {
@@ -158,9 +157,8 @@ const CORRECTION_KIND: Record<string, string> = { add_in: 'Add time-in', add_out
           <section class="card p-5" aria-labelledby="punch-h">
             <h2 id="punch-h" class="sr-only">Your duty now</h2>
             <DutyStatus v-if="duty" :duty="duty" :tz="tz" />
-            <div v-if="needsEarlyConfirm && duty?.state === 'on_duty'" class="mt-4 rounded-lg border border-line bg-canvas p-4">
-              <p class="text-[13.5px] text-ink-2">Leaving before {{ time(duty.record.scheduled_end, tz) }} counts the remaining {{ minutes(duty.endsInMinutes) }} as undertime, which is not paid. Your department head sees it.</p>
-              <UiButton class="mt-3" size="sm" variant="secondary" @click="earlyOk = true">Time out early</UiButton>
+            <div v-if="waitingForEnd && duty?.state === 'on_duty'" class="mt-4 rounded-lg border border-line bg-canvas p-4 text-[13.5px] text-ink-2">
+              <p>If you must leave early (illness, an emergency), ask your {{ $terms.head }} to record your time-out. The time you leave early is not paid.</p>
             </div>
             <template v-else>
             <p class="text-[13px] text-ink-3" :class="duty ? 'mt-4 border-t border-line pt-4' : ''">To {{ punchVerb }}, scan the code on the station screen or type the 6 digits it shows. It changes every 30 seconds.</p>

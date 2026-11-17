@@ -26,6 +26,9 @@ The database enforces it:
 1. **Plan.** The Head Nurse rosters as before. Every roster change is versioned (`duty_expectations`).
 2. **Time in and out.** At the unit's **QR station**, a tablet opens the station's setup link and shows a code that changes every 30 seconds. Staff scan it in Attendance (Chrome on Android or the app), or type the 6 digits.
    - The punch is append-only and has a unique key, so a retry is harmless.
+   - A time-in is accepted from 2 hours before the duty, and late too: the real time is recorded and the late minutes are not paid.
+   - A time-out at the station opens only when the duty ends. Someone who must leave early asks the Head Nurse, who records it with a reason (it counts as undertime). Time after the end counts only as overtime the Head Nurse approves.
+   - Attendance and Today tell the person where they stand: starting soon, late (counting), timed in, time out now, or done.
    - Fallback when the station is down, gloves are on, or phones are not allowed: the Head Nurse **attests** the time, with a reason.
 3. **Reconcile** (automatic, repeatable). Punches are matched to the assigned duty. Each duty shows as scheduled, clocked in, verified present, incomplete, no time-in, absence confirmed, or on leave.
    - Approved leave excuses the duty (paid or unpaid by leave type). Pending leave becomes a review item.

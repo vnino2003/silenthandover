@@ -1,4 +1,5 @@
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { fromDbError } from '../src/http/errors';
 import { adhocShift, setup, type Harness } from './helpers';
 
 /**
@@ -92,6 +93,55 @@ describe('attendance, DTR and payroll', () => {
     expect((await h.call('liza', 'POST', '/api/attendance/scan', { station_id: stationId, code: shown.body.code })).status).toBe(403);
     // Punches are evidence: they cannot be edited.
     await expect(h.sql(`update public.attendance_events set captured_at = now() where profile_id = $1`, [h.ids.pia])).rejects.toThrow();
+  });
+
+  it('lets staff time out at the station only once their duty has ended', async () => {
+    // Staff are added without signing in (the login rate limit) and scan through the same database
+    // function the scan API calls.
+    const addQuiet = async (key: string, name: string) => {
+      const email = `${key}@demo.test`;
+      expect((await h.call('admin', 'POST', '/api/admin/users', { full_name: name, email, password: PASSWORD, role: 'employee', department_id: nc })).status).toBe(201);
+      h.ids[key] = (await h.sql<{ id: string }>('select id from public.profiles where email = $1', [email]))[0]!.id;
+    };
+    const scan = (key: string) => h.sql<{ r: any }>('select internal.record_station_punch($1, $2, $3) as r', [h.ids[key], stationId, `qr:test:${key}:out`]);
+    const timedInAt = (key: string, ago: string) =>
+      h.sql(
+        `insert into public.attendance_events (event_key, profile_id, department_id, kind, source, station_id, captured_at, recorded_by)
+         values ($1, $2, $3, 'in', 'qr', $4, now() - $5::interval, $2)`,
+        [`qr:test:${key}:in`, h.ids[key], nc, stationId, ago],
+      );
+    const outs = async (key: string) => (await h.sql(`select 1 from public.attendance_events where profile_id = $1 and kind = 'out'`, [h.ids[key]])).length;
+
+    // On duty, timed in 3 hours late... still 5 hours to go: the time-out is refused.
+    await addQuiet('quinn', 'Quinn Reyes');
+    const onDuty = await adhocShift(h, { startsSql: `now() - interval '6 hours'`, endsSql: `now() + interval '2 hours'`, employee: 'quinn', grace: 0 });
+    await timedInAt('quinn', '3 hours');
+    const early = await scan('quinn').then(
+      () => null,
+      (e: { message: string; detail: string }) => e,
+    );
+    expect(early?.message).toBe('SH:too_early');
+    expect(early?.detail).toMatch(/^Your duty ends at \d{1,2}:\d{2} [AP]M\. .*Head Nurse/);
+    expect(fromDbError(early)).toMatchObject({ status: 409, code: 'too_early' });
+    expect(await outs('quinn')).toBe(0);
+    // The Head Nurse can still record an early time-out (an emergency); it shows as undertime.
+    const attested = await h.call('manager', 'POST', '/api/manager/attendance/attest', {
+      shift_id: onDuty, profile_id: h.ids.quinn, kind: 'out', at: new Date(Date.now() - 60_000).toISOString(), reason: 'Sent home ill',
+    });
+    expect(attested.status).toBeLessThan(300);
+    expect((await record(onDuty, 'quinn'))!.undertime_minutes).toBeGreaterThan(100);
+
+    // Duty over: the time-out is accepted. Pay stays at the scheduled minutes minus the late ones;
+    // the extra time is only an overtime candidate for the Head Nurse to decide.
+    await addQuiet('rosa', 'Rosa Diaz');
+    const ended = await adhocShift(h, { startsSql: `now() - interval '9 hours'`, endsSql: `now() - interval '1 hour'`, employee: 'rosa', grace: 0 });
+    await timedInAt('rosa', '8 hours');
+    const [out] = await scan('rosa');
+    expect(out!.r).toMatchObject({ kind: 'out', repeat: false });
+    const r = (await record(ended, 'rosa'))!;
+    expect(r.status).toBe('present');
+    expect(r.late_minutes).toBeGreaterThanOrEqual(59);
+    expect(r.overtime_approved_minutes).toBe(0);
   });
 
   it('turns attested times into late, overtime and verification items for the Head Nurse', async () => {

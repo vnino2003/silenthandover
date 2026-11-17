@@ -114,7 +114,7 @@ const pendingAcks = computed(() => data.value?.incoming.filter((i) => !i.acknowl
                       </dl>
                       <div v-if="duty && duty.state !== 'off'" class="mt-4 rounded-lg border p-4" :class="duty.state === 'late' ? 'border-bad/30 bg-bad-soft/40' : duty.state === 'time_out_due' ? 'border-warn/30 bg-warn-soft/40' : 'border-line bg-canvas/60'">
                         <DutyStatus :duty="duty" :tz="tz" compact />
-                        <UiButton v-if="duty.state !== 'done'" class="mt-3" size="sm" :variant="duty.state === 'late' || duty.state === 'time_out_due' ? 'primary' : 'secondary'" to="/attendance">{{ duty.state === 'on_duty' || duty.state === 'time_out_due' ? 'Time out' : 'Time in' }}</UiButton>
+                        <UiButton v-if="duty.state === 'late' || duty.state === 'upcoming' || duty.state === 'time_out_due'" class="mt-3" size="sm" :variant="duty.state === 'upcoming' ? 'secondary' : 'primary'" to="/attendance">{{ duty.state === 'time_out_due' ? 'Time out' : 'Time in' }}</UiButton>
                       </div>
                       <div class="mt-5 rounded-lg border border-line bg-canvas/60 p-4">
                         <DutyRing :shift="current" :now="now" />
@@ -138,7 +138,7 @@ const pendingAcks = computed(() => data.value?.incoming.filter((i) => !i.acknowl
                       <p v-else class="mt-1 text-[14px] text-ink-2">No upcoming shifts are scheduled for you this week.</p>
                       <div v-if="duty && duty.state !== 'off'" class="mt-4 rounded-lg border p-4" :class="duty.state === 'late' ? 'border-bad/30 bg-bad-soft/40' : duty.state === 'time_out_due' ? 'border-warn/30 bg-warn-soft/40' : 'border-line bg-canvas/60'">
                         <DutyStatus :duty="duty" :tz="tz" compact />
-                        <UiButton v-if="duty.state !== 'done'" class="mt-3" size="sm" :variant="duty.state === 'late' || duty.state === 'time_out_due' ? 'primary' : 'secondary'" to="/attendance">{{ duty.state === 'on_duty' || duty.state === 'time_out_due' ? 'Time out' : 'Time in' }}</UiButton>
+                        <UiButton v-if="duty.state === 'late' || duty.state === 'upcoming' || duty.state === 'time_out_due'" class="mt-3" size="sm" :variant="duty.state === 'upcoming' ? 'secondary' : 'primary'" to="/attendance">{{ duty.state === 'time_out_due' ? 'Time out' : 'Time in' }}</UiButton>
                       </div>
                     </template>
                   </section>

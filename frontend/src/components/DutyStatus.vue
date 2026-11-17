@@ -5,6 +5,7 @@ import type { Tone } from '@/components/ui/StatusBadge.vue';
 import { day, time } from '@/lib/format';
 import { TIME_IN_OPENS_MINUTES, type DutyNow } from '@/lib/duty-now';
 import { minutes } from '@/lib/workforce';
+import { useAuth } from '@/stores/auth';
 
 /**
  * "Am I on duty, did my time-in count, am I late, when do I time out?" in plain words, for the
@@ -12,6 +13,7 @@ import { minutes } from '@/lib/workforce';
  * before a time-in the page counts them live.
  */
 const props = defineProps<{ duty: DutyNow; tz?: string; compact?: boolean }>();
+const auth = useAuth();
 
 const view = computed<{ tone: Tone; badge: string; title: string; lines: string[] }>(() => {
   const d = props.duty;
@@ -43,14 +45,18 @@ const view = computed<{ tone: Tone; badge: string; title: string; lines: string[
         tone: r.late_minutes ? 'warn' : 'ok',
         badge: r.late_minutes ? `Timed in · late ${minutes(r.late_minutes)}` : 'Timed in · on time',
         title: `On duty · timed in at ${r.time_in ? t(r.time_in) : '—'}`,
-        lines: [range, `Time out when your duty ends at ${t(r.scheduled_end)} (in ${minutes(d.endsInMinutes)}).`],
+        lines: [range, `You can time out from ${t(r.scheduled_end)}, when your duty ends (in ${minutes(d.endsInMinutes)}).`],
       };
     case 'time_out_due':
       return {
         tone: 'warn',
         badge: 'Time out now',
         title: 'Your duty has ended: time out',
-        lines: [range, `Timed in at ${r.time_in ? t(r.time_in) : '—'}${r.late_minutes ? ` (late ${minutes(r.late_minutes)})` : ''}. Time out now so your DTR is complete.`],
+        lines: [
+          range,
+          `Timed in at ${r.time_in ? t(r.time_in) : '—'}${r.late_minutes ? ` (late ${minutes(r.late_minutes)})` : ''}. Time out now so your DTR is complete.`,
+          `Time after ${t(r.scheduled_end)} is not counted unless your ${auth.terms.head} approves it as overtime.`,
+        ],
       };
     case 'done':
       return {
@@ -61,6 +67,7 @@ const view = computed<{ tone: Tone; badge: string; title: string; lines: string[
           range,
           [r.late_minutes ? `late ${minutes(r.late_minutes)}` : '', r.undertime_minutes ? `left ${minutes(r.undertime_minutes)} early` : ''].filter(Boolean).join(', ').replace(/^./, (c) => c.toUpperCase()) ||
             'Complete. Your department head verifies it.',
+          ...(r.time_out && Date.parse(r.time_out) > Date.parse(r.scheduled_end) + 60_000 ? [`Time after ${t(r.scheduled_end)} counts only if your ${auth.terms.head} approves it as overtime.`] : []),
         ],
       };
   }

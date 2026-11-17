@@ -17,6 +17,7 @@ const STATUS_BY_CODE: Record<string, number> = {
   not_assigned: 403,
   window_not_open: 409,
   window_closed: 409,
+  too_early: 409,
   shift_cancelled: 409,
   already_submitted: 409,
   not_editable: 409,
