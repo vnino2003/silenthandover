@@ -36,7 +36,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      VITE_API_URL: ${{ inputs.api_url || vars.ANDROID_API_URL || '' }}
+      # The API address: the manual input, else ANDROID_API_URL saved as a repository Variable or Secret.
+      VITE_API_URL: ${{ inputs.api_url || vars.ANDROID_API_URL || secrets.ANDROID_API_URL || '' }}
     steps:
       - uses: actions/checkout@v5
 
@@ -68,7 +69,7 @@ jobs:
       - name: Check the API address
         run: |
           if [ -z "$VITE_API_URL" ]; then
-            echo "::warning title=No API address::ANDROID_API_URL is not set, so this APK asks for the server address on first launch. Set it in Settings > Secrets and variables > Actions > Variables."
+            echo "::warning title=No API address::ANDROID_API_URL is not set (as a Variable or a Secret), so this APK asks for the server address on first launch. Set it in Settings > Secrets and variables > Actions."
           else
             echo "API address built in: $VITE_API_URL"
           fi
